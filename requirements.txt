@@ -3,3 +3,4 @@ pandas
 openpyxl
 pdfplumber
 streamlit-image-coordinates
+scikit-image
