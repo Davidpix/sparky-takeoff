@@ -1,6 +1,5 @@
 import streamlit as st
-import PyPDF2
-import pypdfum2 as pdfium
+import pdfplumber
 import pandas as pd
 import re
 from io import BytesIO
@@ -26,17 +25,18 @@ with st.sidebar:
     disc_kw = st.text_input("Disconnect Keywords", value="disconnect, safety switch")
     switch_kw = st.text_input("Switch Keywords", value="single pole, 1-pole switch")
 
-# --- CACHING ENGINE WITH DYNAMIC PROFILES ---
+# --- CACHING ENGINE ---
 @st.cache_data
 def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw):
-    # Read the PDF from raw bytes to keep memory footprint clean
     pdf_file = BytesIO(uploaded_file_bytes)
-    reader = PyPDF2.PdfReader(pdf_file)
     full_text = ""
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            full_text += text + "\n"
+    
+    # Open with pdfplumber for rock-solid extraction
+    with pdfplumber.open(pdf_file) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text()
+            if text:
+                full_text += text + "\n"
             
     def clean_pattern(raw_input):
         parts = [p.strip() for p in raw_input.split(",")]
@@ -73,7 +73,6 @@ def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw):
 uploaded_file = st.file_uploader("Upload Blueprint PDF for Dynamic Scan & Visualization", type="pdf")
 
 if uploaded_file is not None:
-    # Read file once into raw bytes to pass safely into our cached functions
     file_bytes = uploaded_file.read()
     scanned_data = process_and_scan_blueprint(file_bytes, panel_kw, gfci_kw, disc_kw, switch_kw)
 else:
@@ -105,7 +104,6 @@ with tab1:
         key="workspace_editor"
     )
 
-    # Calculations
     edited_df["Detected Qty"] = pd.to_numeric(edited_df["Detected Qty"]).fillna(0)
     edited_df["Unit Cost ($)"] = pd.to_numeric(edited_df["Unit Cost ($)"]).fillna(0)
     edited_df["Mins to Install"] = pd.to_numeric(edited_df["Mins to Install"]).fillna(0)
@@ -114,7 +112,6 @@ with tab1:
     total_labor = ((edited_df["Detected Qty"] * edited_df["Mins to Install"] / 60) * labor_rate).sum()
     final_bid = (total_mat + total_labor) * (1 + overhead)
 
-    # --- LIVE FINANCIAL DASHBOARD ---
     st.divider()
     col1, col2, col3 = st.columns(3)
     col1.metric("Gross Material Allocation", f"${total_mat:,.2f}")
@@ -124,30 +121,26 @@ with tab1:
 with tab2:
     st.write("### 🗺️ Blueprint Document Viewport")
     if file_bytes is not None:
-        # Load the blueprint dynamically using pdfium
-        pdf = pdfium.PdfDocument(BytesIO(file_bytes))
-        total_pages = len(pdf)
-        
-        col_ctrl1, col_ctrl2 = st.columns([1, 4])
-        with col_ctrl1:
-            page_number = st.number_input("Page Selector", min_value=1, max_value=total_pages, value=1, step=1)
-        with col_ctrl2:
-            st.info(f"Viewing sheet {page_number} of {total_pages}. Zoom and resolution are optimized for rendering speed.")
+        with pdfplumber.open(BytesIO(file_bytes)) as pdf:
+            total_pages = len(pdf.pages)
             
-        # Render page to image instantly
-        page = pdf[page_number - 1]
-        # 1.5 scale provides an excellent balance between sharp visual details and processing speed
-        bitmap = page.render(scale=1.5)
-        pil_img = bitmap.to_pil()
-        
-        # Display the blueprint directly inside the web browser tab
-        st.image(pil_img, use_container_width=True, caption=f"Page {page_number} - Visual Audit Layout")
+            col_ctrl1, col_ctrl2 = st.columns([1, 4])
+            with col_ctrl1:
+                page_number = st.number_input("Page Selector", min_value=1, max_value=total_pages, value=1, step=1)
+            with col_ctrl2:
+                st.info(f"Viewing sheet {page_number} of {total_pages}.")
+                
+            # Render the page visually to an image natively using pdfplumber's built-in drawing wrapper
+            page = pdf.pages[page_number - 1]
+            
+            # High precision scale for clear lines
+            img = page.to_image(resolution=150)
+            st.image(img.original, use_container_width=True, caption=f"Page {page_number} - Direct Vector Stream")
     else:
         st.info("💡 Please upload a blueprint PDF document at the top to initialize the Interactive Blueprint Viewport.")
 
 # --- EXPORT INTERFACE ---
 st.write("### 📥 Document Distribution Panel")
-# (Excel generation engine helper remains structured as designed previously)
 def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_pct, rate, comp_name):
     output = BytesIO()
     wb = openpyxl.Workbook()
