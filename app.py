@@ -2,10 +2,14 @@ import streamlit as st
 import PyPDF2
 import pandas as pd
 import re
+from io import BytesIO
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 st.set_page_config(page_title="SparkyTakeoff Pro", layout="wide")
 
-st.title("⚡ SparkyTakeoff: Multi-Phase Enterprise Edition")
+st.title("⚡ SparkyTakeoff: Enterprise Export Edition")
 
 # --- SIDEBAR: GLOBAL FINANCIALS ---
 with st.sidebar:
@@ -13,7 +17,6 @@ with st.sidebar:
     labor_rate = st.number_input("Hourly Labor Rate ($)", value=85.0, step=5.0)
     overhead = st.slider("Overhead & Profit Markup (%)", 10, 50, 20) / 100
     st.divider()
-    st.info("💡 **Enterprise Tip:** Filter your worksheet below by Phase or Zone to generate targeted supply house orders.")
 
 # --- CACHING ENGINE ---
 @st.cache_data
@@ -25,7 +28,6 @@ def process_and_scan_blueprint(uploaded_file):
         if text:
             full_text += text + "\n"
             
-    # Advanced Manifest with Phase and Zone tagging built-in
     electrical_manifest = {
         "Main Panel Enclosure": {"pattern": r"(\d+)\s*(?:-|x)?\s*(?:amp)?\s*(?:panel|load center)", "cost": 450.00, "mins": 120, "phase": "Rough-In", "zone": "Service Room"},
         "GFCI Receptacle": {"pattern": r"(\d+)\s*(?:-|x)?\s*gfci", "cost": 18.00, "mins": 20, "phase": "Trim-Out", "zone": "Wet Areas (Kitchen/Bath)"},
@@ -60,7 +62,6 @@ uploaded_file = st.file_uploader("Upload Blueprint PDF for Multi-Phase Scan", ty
 if uploaded_file is not None:
     scanned_data = process_and_scan_blueprint(uploaded_file)
 else:
-    # Default comprehensive structural template
     scanned_data = [
         {"Item Name": "Main Panel Enclosure", "Phase": "Rough-In", "Zone/Location": "Service Room", "Detected Qty": 0, "Unit Cost ($)": 450.00, "Mins to Install": 120},
         {"Item Name": "12/2 Romex (250ft coil)", "Phase": "Rough-In", "Zone/Location": "Branch Wiring", "Detected Qty": 0, "Unit Cost ($)": 110.00, "Mins to Install": 60},
@@ -69,20 +70,17 @@ else:
         {"Item Name": "Single Pole Switch", "Phase": "Trim-Out", "Zone/Location": "General Lighting", "Detected Qty": 0, "Unit Cost ($)": 1.50, "Mins to Install": 15}
     ]
 
-# Convert dataset into master DataFrame
 master_df = pd.DataFrame(scanned_data)
 
 # --- FILTER CONTROLS ---
 st.write("### 🔍 Live Project Filters")
 col_f1, col_f2 = st.columns(2)
-
 with col_f1:
     phase_filter = st.selectbox("Select Project Phase", ["All Phases", "Rough-In", "Trim-Out"])
 with col_f2:
     all_zones = ["All Zones"] + list(master_df["Zone/Location"].unique())
     zone_filter = st.selectbox("Select Physical Zone/Location", all_zones)
 
-# Apply dynamic filters to our dataframe view
 filtered_df = master_df.copy()
 if phase_filter != "All Phases":
     filtered_df = filtered_df[filtered_df["Phase"] == phase_filter]
@@ -103,18 +101,17 @@ edited_df = st.data_editor(
     use_container_width=True
 )
 
-# --- REAL-TIME CALCULATION PIPELINE ---
-# Sync adjustments back to master dataset to maintain aggregate project integrity
+# --- SYNC DATA BACK TO MASTER ---
 master_df.set_index("Item Name", inplace=True)
 edited_df.set_index("Item Name", inplace=True)
 master_df.update(edited_df)
 master_df.reset_index(inplace=True)
 
-# Compute raw numbers across whole project
 master_df["Detected Qty"] = pd.to_numeric(master_df["Detected Qty"]).fillna(0)
 master_df["Unit Cost ($)"] = pd.to_numeric(master_df["Unit Cost ($)"]).fillna(0)
 master_df["Mins to Install"] = pd.to_numeric(master_df["Mins to Install"]).fillna(0)
 
+# Calculations
 total_mat = (master_df["Detected Qty"] * master_df["Unit Cost ($)"]).sum()
 total_labor = ((master_df["Detected Qty"] * master_df["Mins to Install"] / 60) * labor_rate).sum()
 final_bid = (total_mat + total_labor) * (1 + overhead)
@@ -126,3 +123,112 @@ c1, c2, c3 = st.columns(3)
 c1.metric("Gross Material Allocation", f"${total_mat:,.2f}")
 c2.metric("Gross Labor Allocation", f"${total_labor:,.2f}")
 c3.metric("Target Contract Price", f"${final_bid:,.2f}", delta=f"{overhead*100:.0f}% Gross Margin")
+
+# --- HIGH-FIDELITY EXCEL GENERATION ENGINE ---
+def generate_excel_package(df_data, mat_cost, labor_cost, total_bid, overhead_pct, rate):
+    output = BytesIO()
+    wb = openpyxl.Workbook()
+    
+    # Setup Styles
+    font_family = "Segoe UI"
+    header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid") # Dark Blue
+    accent_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid") # Light Slate Tint
+    
+    title_font = Font(name=font_family, size=16, bold=True, color="1F4E78")
+    header_font = Font(name=font_family, size=11, bold=True, color="FFFFFF")
+    bold_font = Font(name=font_family, size=11, bold=True)
+    regular_font = Font(name=font_family, size=11)
+    
+    thin_border = Border(
+        left=Side(style='thin', color='BFBFBF'),
+        right=Side(style='thin', color='BFBFBF'),
+        top=Side(style='thin', color='BFBFBF'),
+        bottom=Side(style='thin', color='BFBFBF')
+    )
+    
+    # --- TAB 1: SUMMARY & FINANCIALS ---
+    ws1 = wb.active
+    ws1.title = "Proposal Summary"
+    ws1.views.sheetView[0].showGridLines = True
+    
+    ws1["A1"] = "SPARKYTAKEOFF ENTERPRISE PROPOSAL"
+    ws1["A1"].font = title_font
+    
+    ws1["A3"] = "Financial Metric"
+    ws1["B3"] = "Calculated Value"
+    for col in ["A", "B"]:
+        cell = ws1[f"{col}3"]
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+    
+    summary_metrics = [
+        ("Base Material Subtotal", mat_cost),
+        ("Base Labor Subtotal", labor_cost),
+        ("Blended Labor Rate Configuration", rate),
+        ("Applied Corporate Overhead / Profit Margin", overhead_pct),
+        ("Total Estimated Target Contract Price", total_bid)
+    ]
+    
+    for idx, (metric, val) in enumerate(summary_metrics, start=4):
+        ws1[f"A{idx}"] = metric
+        ws1[f"A{idx}"].font = regular_font
+        ws1[f"B{idx}"] = val
+        ws1[f"B{idx}"].font = bold_font if idx == 8 else regular_font
+        
+        # Formatting specifics
+        if idx == 7: # Overhead percentage
+            ws1[f"B{idx}"].number_format = '0.0%'
+        else:
+            ws1[f"B{idx}"].number_format = '$#,##0.00'
+            
+        ws1[f"A{idx}"].border = thin_border
+        ws1[f"B{idx}"].border = thin_border
+        
+    # --- TAB 2: FIELD PURCHASE ORDER ---
+    ws2 = wb.create_sheet(title="Field Purchase Order")
+    ws2.views.sheetView[0].showGridLines = True
+    
+    headers = ["Item Name", "Project Phase", "Zone/Location", "Quantity Order", "Unit Material Cost"]
+    for col_idx, text in enumerate(headers, start=1):
+        cell = ws2.cell(row=1, column=col_idx, value=text)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        
+    for row_idx, row_data in df_data.iterrows():
+        ws2.cell(row=row_idx+2, column=1, value=row_data["Item Name"]).font = regular_font
+        ws2.cell(row=row_idx+2, column=2, value=row_data["Phase"]).font = regular_font
+        ws2.cell(row=row_idx+2, column=3, value=row_data["Zone/Location"]).font = regular_font
+        
+        qty_cell = ws2.cell(row=row_idx+2, column=4, value=row_data["Detected Qty"])
+        qty_cell.font = regular_font
+        qty_cell.number_format = '#,##0'
+        
+        cost_cell = ws2.cell(row=row_idx+2, column=5, value=row_data["Unit Cost ($)"])
+        cost_cell.font = regular_font
+        cost_cell.number_format = '$#,##0.00'
+        
+        for c in range(1, 6):
+            ws2.cell(row=row_idx+2, column=c).border = thin_border
+
+    # Auto-adjust column widths cleanly across sheets
+    for sheet in [ws1, ws2]:
+        for col in sheet.columns:
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            col_letter = get_column_letter(col[0].column)
+            sheet.column_dimensions[col_letter].width = max(max_len + 3, 12)
+            
+    wb.save(output)
+    return output.getvalue()
+
+# --- RENDER EXPORT ACTIONS ---
+st.write("### 📥 Document Distribution Panel")
+excel_data = generate_excel_package(master_df, total_mat, total_labor, final_bid, overhead, labor_rate)
+
+st.download_button(
+    label="🚀 Export Enterprise Excel Package (.xlsx)",
+    data=excel_data,
+    file_name="SparkyTakeoff_Master_Estimate.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
