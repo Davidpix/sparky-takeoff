@@ -1,13 +1,13 @@
 import streamlit as st
 import PyPDF2
 import pandas as pd
-import re  # Built-in Python Regular Expressions library
+import re
 
 st.set_page_config(page_title="SparkyTakeoff AI", layout="wide")
 
-st.title("⚡ SparkyTakeoff: Enterprise Regex Parser")
+st.title("⚡ SparkyTakeoff: Enterprise Engine")
 
-# --- SIDEBAR: SETTINGS ---
+# --- SIDEBAR: GLOBAL SETTINGS ---
 with st.sidebar:
     st.header("Global Bid Settings")
     labor_rate = st.number_input("Hourly Labor Rate ($)", value=85.0)
@@ -16,38 +16,29 @@ with st.sidebar:
 # --- FILE UPLOADER ---
 uploaded_file = st.file_uploader("Upload Blueprint PDF for Intelligent Scan", type="pdf")
 
+# Initialize an empty DataFrame structure for a clean state before upload
+electrical_manifest = {
+    "Main Panel": {"pattern": r"(\d+)\s*(?:-|x)?\s*(?:amp)?\s*(?:panel|load center)", "cost": 450.00, "mins": 120},
+    "GFCI Receptacle": {"pattern": r"(\d+)\s*(?:-|x)?\s*gfci", "cost": 18.00, "mins": 20},
+    "Disconnect Switch": {"pattern": r"(\d+)\s*(?:-|x)?\s*(?:phase)?\s*disconnect", "cost": 85.00, "mins": 45},
+    "Single Pole Switch": {"pattern": r"(\d+)\s*(?:-|x)?\s*single pole", "cost": 1.50, "mins": 15}
+}
+
+scanned_data = []
+
 if uploaded_file is not None:
     reader = PyPDF2.PdfReader(uploaded_file)
-    num_pages = len(reader.pages)
-    st.success(f"Blueprint Loaded! Total Pages: {num_pages}")
+    st.success(f"Blueprint Loaded! Total Pages: {len(reader.pages)}")
     
-    # Extract all text from the PDF
+    # Extract text for scanning
     full_text = ""
     for page in reader.pages:
         text = page.extract_text()
         if text:
             full_text += text + "\n"
 
-    # --- DEFINE OUR ADVANCED REGEX PATTERNS ---
-    # This dictionary maps the item to a specialized search pattern
-    # Example pattern: r"(\d+)\s*(?:-|x)?\s*gfci" looks for a number, optional spaces/dashes, and 'gfci'
-    electrical_manifest = {
-        "Main Panel": {"pattern": r"(\d+)\s*(?:-|x)?\s*(?:amp)?\s*(?:panel|load center)", "cost": 450.00, "mins": 120},
-        "GFCI Receptacle": {"pattern": r"(\d+)\s*(?:-|x)?\s*gfci", "cost": 18.00, "mins": 20},
-        "Disconnect Switch": {"pattern": r"(\d+)\s*(?:-|x)?\s*(?:phase)?\s*disconnect", "cost": 85.00, "mins": 45},
-        "Single Pole Switch": {"pattern": r"(\d+)\s*(?:-|x)?\s*single pole", "cost": 1.50, "mins": 15}
-    }
-
-    scanned_data = []
-    
-    st.write("### 🧠 Intelligent Material Extraction")
-    
     for item, info in electrical_manifest.items():
-        # Find all matches of our pattern in the blueprint text
-        # re.IGNORECASE makes sure it catches "GFCI", "gfci", or "Gfci"
         matches = re.findall(info["pattern"], full_text, re.IGNORECASE)
-        
-        # If matches are found, sum up the quantities extracted
         total_qty = 0
         for match in matches:
             try:
@@ -61,25 +52,47 @@ if uploaded_file is not None:
             "Unit Cost ($)": info["cost"],
             "Mins to Install": info["mins"]
         })
+else:
+    # Fallback: Populate the table with zeros so the user can use it manually without uploading a file
+    for item, info in electrical_manifest.items():
+        scanned_data.append({
+            "Item Name": item,
+            "Detected Qty": 0,  # Starts at 0 so user can type their own numbers
+            "Unit Cost ($)": info["cost"],
+            "Mins to Install": info["mins"]
+        })
 
-    # Convert to DataFrame
-    df = pd.DataFrame(scanned_data)
-    
-    # Display editable table so the user can audit the AI's math
-    st.caption("Review extracted quantities below. Double-click any cell to manually adjust.")
-    edited_df = st.data_editor(df, num_rows="dynamic")
+# --- RENDER THE CALCULATOR ---
+st.write("### 📊 Material & Labor Takeoff Worksheet")
+st.caption("If the automated scan is blank or you haven't uploaded a file, double-click the 'Detected Qty' cells to enter your counts manually.")
 
-    # --- FINANCIAL MATH ---
-    edited_df["Total Mat."] = edited_df["Detected Qty"] * edited_df["Unit Cost ($)"]
-    edited_df["Total Labor"] = (edited_df["Detected Qty"] * edited_df["Mins to Install"] / 60) * labor_rate
-    
-    total_mat = edited_df["Total Mat."].sum()
-    total_labor = edited_df["Total Labor"].sum()
-    final_bid = (total_mat + total_labor) * (1 + overhead)
+df = pd.DataFrame(scanned_data)
 
-    # --- EXECUTIVE DASHBOARD ---
-    st.divider()
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Parsed Material Cost", f"${total_mat:,.2f}")
-    c2.metric("Estimated Labor Cost", f"${total_labor:,.2f}")
-    c3.metric("Total Suggested Bid", f"${final_bid:,.2f}", delta=f"{overhead*100}% Markup Included")
+# Crucial fix: Force the editor to treat numbers correctly as integers/floats
+edited_df = st.data_editor(
+    df, 
+    num_rows="dynamic",
+    column_config={
+        "Detected Qty": st.column_config.NumberColumn("Detected Qty", min_value=0, step=1, format="%d"),
+        "Unit Cost ($)": st.column_config.NumberColumn("Unit Cost ($)", format="$%.2f"),
+        "Mins to Install": st.column_config.NumberColumn("Mins to Install", format="%d mins")
+    }
+)
+
+# --- RE-ENGINEERED LIVE MATH ---
+# Ensure columns are treated as raw numbers for calculations
+edited_df["Detected Qty"] = pd.to_numeric(edited_df["Detected Qty"]).fillna(0)
+edited_df["Unit Cost ($)"] = pd.to_numeric(edited_df["Unit Cost ($)"]).fillna(0)
+edited_df["Mins to Install"] = pd.to_numeric(edited_df["Mins to Install"]).fillna(0)
+
+# Run line calculations
+total_mat = (edited_df["Detected Qty"] * edited_df["Unit Cost ($)"]).sum()
+total_labor = ((edited_df["Detected Qty"] * edited_df["Mins to Install"] / 60) * labor_rate).sum()
+final_bid = (total_mat + total_labor) * (1 + overhead)
+
+# --- LIVE FINANCIAL DASHBOARD ---
+st.divider()
+c1, c2, c3 = st.columns(3)
+c1.metric("Total Material Cost", f"${total_mat:,.2f}")
+c2.metric("Total Labor Cost", f"${total_labor:,.2f}")
+c3.metric("Total Suggested Bid", f"${final_bid:,.2f}", delta=f"{overhead*100:.0f}% Markup Included")
