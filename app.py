@@ -3,13 +3,15 @@ import pdfplumber
 import pandas as pd
 import re
 from io import BytesIO
+import math
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from streamlit_image_coordinates import streamlit_image_coordinates
 
 st.set_page_config(page_title="SparkyTakeoff Enterprise", layout="wide")
 
-st.title("⚡ SparkyTakeoff: Enterprise Visual Edition")
+st.title("⚡ SparkyTakeoff: Spatial Scaling Edition")
 
 # --- SIDEBAR: GLOBAL SETTINGS & KEYWORD TUNING ---
 with st.sidebar:
@@ -30,8 +32,6 @@ with st.sidebar:
 def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw):
     pdf_file = BytesIO(uploaded_file_bytes)
     full_text = ""
-    
-    # Open with pdfplumber for rock-solid extraction
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
@@ -73,6 +73,8 @@ def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw):
 uploaded_file = st.file_uploader("Upload Blueprint PDF for Dynamic Scan & Visualization", type="pdf")
 
 if uploaded_file is not None:
+    # Read file bytes securely
+    uploaded_file.seek(0)
     file_bytes = uploaded_file.read()
     scanned_data = process_and_scan_blueprint(file_bytes, panel_kw, gfci_kw, disc_kw, switch_kw)
 else:
@@ -86,11 +88,32 @@ else:
 
 master_df = pd.DataFrame(scanned_data)
 
+# --- INITIALIZE SESSION STATE FOR SPATIAL TRACKING ---
+if "click_history" not in st.session_state:
+    st.session_state.click_history = []
+if "scale_pixels_per_foot" not in st.session_state:
+    st.session_state.scale_pixels_per_foot = None
+if "conduit_runs" not in st.session_state:
+    st.session_state.conduit_runs = 0.0
+
 # --- ENTERPRISE INTERFACE: TABULAR VIEWPORTS ---
-tab1, tab2 = st.tabs(["📊 Estimation Worksheet", "🗺️ Interactive Blueprint Viewport"])
+tab1, tab2 = st.tabs(["📊 Estimation Worksheet", "🗺️ Spatial Measurement Viewport"])
 
 with tab1:
     st.write(r"### Active Estimation Workspace")
+    
+    # Inject dynamic Conduit measurement row into the core worksheet matrix if measured
+    if st.session_state.conduit_runs > 0:
+        conduit_row = pd.DataFrame([{
+            "Item Name": "3/4\" EMT Conduit Run (Linear Ft)",
+            "Phase": "Rough-In",
+            "Zone/Location": "Branch Run Takeoff",
+            "Detected Qty": int(st.session_state.conduit_runs),
+            "Unit Cost ($)": 1.25, # $1.25 per linear foot material cost
+            "Mins to Install": 4   # 4 minutes labor installation per foot
+        }])
+        master_df = pd.concat([master_df, conduit_row], ignore_index=True)
+
     edited_df = st.data_editor(
         master_df, 
         num_rows="dynamic",
@@ -101,7 +124,7 @@ with tab1:
             "Mins to Install": st.column_config.NumberColumn("Labor Mins", format="%d mins")
         },
         use_container_width=True,
-        key="workspace_editor"
+        key="spatial_workspace_editor"
     )
 
     edited_df["Detected Qty"] = pd.to_numeric(edited_df["Detected Qty"]).fillna(0)
@@ -119,25 +142,76 @@ with tab1:
     col3.metric("Target Contract Price", f"${final_bid:,.2f}", delta=f"{overhead*100:.0f}% Gross Margin")
 
 with tab2:
-    st.write("### 🗺️ Blueprint Document Viewport")
+    st.write("### 🗺️ Calibration & Spatial Measuring Canvas")
     if file_bytes is not None:
         with pdfplumber.open(BytesIO(file_bytes)) as pdf:
             total_pages = len(pdf.pages)
             
-            col_ctrl1, col_ctrl2 = st.columns([1, 4])
-            with col_ctrl1:
-                page_number = st.number_input("Page Selector", min_value=1, max_value=total_pages, value=1, step=1)
-            with col_ctrl2:
-                st.info(f"Viewing sheet {page_number} of {total_pages}.")
-                
-            # Render the page visually to an image natively using pdfplumber's built-in drawing wrapper
+            c_col1, c_col2, c_col3 = st.columns([1, 1, 2])
+            with c_col1:
+                page_number = st.number_input("Select Sheet", min_value=1, max_value=total_pages, value=1, step=1)
+            with c_col2:
+                mode = st.radio("Canvas Mode", ["1. Calibrate Scale", "2. Measure Run"])
+            with c_col3:
+                if st.button("🔄 Clear Click History & Reset Scale"):
+                    st.session_state.click_history = []
+                    st.session_state.scale_pixels_per_foot = None
+                    st.session_state.conduit_runs = 0.0
+                    st.rerun()
+
+            # Render page layout to an PIL image object
             page = pdf.pages[page_number - 1]
+            img = page.to_image(resolution=100)
+            pil_img = img.original
             
-            # High precision scale for clear lines
-            img = page.to_image(resolution=150)
-            st.image(img.original, use_container_width=True, caption=f"Page {page_number} - Direct Vector Stream")
+            # Interactive Coordinate Canvas Window
+            st.caption("Click directly on the plan drawing below to register vector target points.")
+            value = streamlit_image_coordinates(pil_img, key="blueprint_canvas", use_container_width=True)
+            
+            if value is not None:
+                clicked_point = (value["x"], value["y"])
+                # Append click safely if it's new to avoid infinite re-renders
+                if not st.session_state.click_history or st.session_state.click_history[-1] != clicked_point:
+                    st.session_state.click_history.append(clicked_point)
+                    st.rerun()
+            
+            # --- CANVAS LOGIC ARCHITECTURE ---
+            st.write("#### 🧭 Coordinate Tracking Logs")
+            st.write(f"Registered Clicks: `{st.session_state.click_history}`")
+            
+            if mode == "1. Calibrate Scale":
+                st.info("📐 **Calibration Instructions:** Click Point A, then click Point B along a known dimension vector line on the blueprint plan.")
+                if len(st.session_state.click_history) >= 2:
+                    p1 = st.session_state.click_history[-2]
+                    p2 = st.session_state.click_history[-1]
+                    pixel_dist = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+                    
+                    known_ft = st.number_input("Enter real-world length of the clicked dimension line (Feet)", min_value=1.0, value=10.0)
+                    if st.button("💾 Lock Scaling Calibration Factor"):
+                        st.session_state.scale_pixels_per_foot = pixel_dist / known_ft
+                        st.success(f"Scale Locked: {st.session_state.scale_pixels_per_foot:.2f} pixels equals 1.0 real-world foot!")
+            
+            elif mode == "2. Measure Run":
+                if st.session_state.scale_pixels_per_foot is None:
+                    st.warning("⚠️ Scale Factor uncalibrated. Please execute '1. Calibrate Scale' mode first before measuring.")
+                else:
+                    st.info("📏 **Measuring Instructions:** Click sequentially along the structural path of a conduit run to trace its layout coordinates.")
+                    if len(st.session_state.click_history) >= 2:
+                        # Compute aggregate segments distance trace
+                        total_pixel_len = 0.0
+                        for i in range(len(st.session_state.click_history) - 1):
+                            pt1 = st.session_state.click_history[i]
+                            pt2 = st.session_state.click_history[i+1]
+                            total_pixel_len += math.sqrt((pt2[0] - pt1[0])**2 + (pt2[1] - pt1[1])**2)
+                        
+                        calculated_feet = total_pixel_len / st.session_state.scale_pixels_per_foot
+                        st.metric("Traced Path Length", f"{calculated_feet:.2f} Linear Feet")
+                        
+                        if st.button("➕ Inject Measured Footage into Estimate Matrix"):
+                            st.session_state.conduit_runs += calculated_feet
+                            st.success(f"Injected {calculated_feet:.2f} L.F. of 3/4\" EMT Conduit directly into Worksheet!")
     else:
-        st.info("💡 Please upload a blueprint PDF document at the top to initialize the Interactive Blueprint Viewport.")
+        st.info("💡 Please upload a blueprint PDF document at the top to initialize the Interactive Spatial Measurement Viewport.")
 
 # --- EXPORT INTERFACE ---
 st.write("### 📥 Document Distribution Panel")
