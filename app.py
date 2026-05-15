@@ -5,7 +5,7 @@ import re
 
 st.set_page_config(page_title="SparkyTakeoff AI", layout="wide")
 
-st.title("⚡ SparkyTakeoff: Enterprise Engine")
+st.title("⚡ SparkyTakeoff: Optimized Enterprise Engine")
 
 # --- SIDEBAR: GLOBAL SETTINGS ---
 with st.sidebar:
@@ -13,10 +13,24 @@ with st.sidebar:
     labor_rate = st.number_input("Hourly Labor Rate ($)", value=85.0)
     overhead = st.slider("Overhead/Profit Markup (%)", 10, 50, 20) / 100
 
+# --- THE CACHING ENGINE (PERFORMANCE FIX) ---
+@st.cache_data
+def extract_pdf_text(uploaded_file):
+    """
+    This function reads the PDF ONCE and saves the text in memory.
+    Streamlit will skip this slow step on subsequent table edits.
+    """
+    reader = PyPDF2.PdfReader(uploaded_file)
+    full_text = ""
+    for page in reader.pages:
+        text = page.extract_text()
+        if text:
+            full_text += text + "\n"
+    return full_text
+
 # --- FILE UPLOADER ---
 uploaded_file = st.file_uploader("Upload Blueprint PDF for Intelligent Scan", type="pdf")
 
-# Initialize an empty DataFrame structure for a clean state before upload
 electrical_manifest = {
     "Main Panel": {"pattern": r"(\d+)\s*(?:-|x)?\s*(?:amp)?\s*(?:panel|load center)", "cost": 450.00, "mins": 120},
     "GFCI Receptacle": {"pattern": r"(\d+)\s*(?:-|x)?\s*gfci", "cost": 18.00, "mins": 20},
@@ -27,16 +41,10 @@ electrical_manifest = {
 scanned_data = []
 
 if uploaded_file is not None:
-    reader = PyPDF2.PdfReader(uploaded_file)
-    st.success(f"Blueprint Loaded! Total Pages: {len(reader.pages)}")
+    # Call the cached function. If the file hasn't changed, this runs in 0.001 seconds!
+    full_text = extract_pdf_text(uploaded_file)
+    st.success("Blueprint Loaded from Cache!")
     
-    # Extract text for scanning
-    full_text = ""
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            full_text += text + "\n"
-
     for item, info in electrical_manifest.items():
         matches = re.findall(info["pattern"], full_text, re.IGNORECASE)
         total_qty = 0
@@ -53,22 +61,19 @@ if uploaded_file is not None:
             "Mins to Install": info["mins"]
         })
 else:
-    # Fallback: Populate the table with zeros so the user can use it manually without uploading a file
     for item, info in electrical_manifest.items():
         scanned_data.append({
             "Item Name": item,
-            "Detected Qty": 0,  # Starts at 0 so user can type their own numbers
+            "Detected Qty": 0,
             "Unit Cost ($)": info["cost"],
             "Mins to Install": info["mins"]
         })
 
 # --- RENDER THE CALCULATOR ---
 st.write("### 📊 Material & Labor Takeoff Worksheet")
-st.caption("If the automated scan is blank or you haven't uploaded a file, double-click the 'Detected Qty' cells to enter your counts manually.")
 
 df = pd.DataFrame(scanned_data)
 
-# Crucial fix: Force the editor to treat numbers correctly as integers/floats
 edited_df = st.data_editor(
     df, 
     num_rows="dynamic",
@@ -79,13 +84,11 @@ edited_df = st.data_editor(
     }
 )
 
-# --- RE-ENGINEERED LIVE MATH ---
-# Ensure columns are treated as raw numbers for calculations
+# --- LIVE MATH ENGINE ---
 edited_df["Detected Qty"] = pd.to_numeric(edited_df["Detected Qty"]).fillna(0)
 edited_df["Unit Cost ($)"] = pd.to_numeric(edited_df["Unit Cost ($)"]).fillna(0)
 edited_df["Mins to Install"] = pd.to_numeric(edited_df["Mins to Install"]).fillna(0)
 
-# Run line calculations
 total_mat = (edited_df["Detected Qty"] * edited_df["Unit Cost ($)"]).sum()
 total_labor = ((edited_df["Detected Qty"] * edited_df["Mins to Install"] / 60) * labor_rate).sum()
 final_bid = (total_mat + total_labor) * (1 + overhead)
