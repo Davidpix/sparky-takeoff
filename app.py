@@ -5,7 +5,7 @@ import re
 
 st.set_page_config(page_title="SparkyTakeoff AI", layout="wide")
 
-st.title("⚡ SparkyTakeoff: Optimized Enterprise Engine")
+st.title("⚡ SparkyTakeoff: Elite Performance Edition")
 
 # --- SIDEBAR: GLOBAL SETTINGS ---
 with st.sidebar:
@@ -13,12 +13,12 @@ with st.sidebar:
     labor_rate = st.number_input("Hourly Labor Rate ($)", value=85.0)
     overhead = st.slider("Overhead/Profit Markup (%)", 10, 50, 20) / 100
 
-# --- THE CACHING ENGINE (PERFORMANCE FIX) ---
+# --- THE CACHING ENGINE (COMPLETE EXTRACTION & SCAN FIX) ---
 @st.cache_data
-def extract_pdf_text(uploaded_file):
+def process_and_scan_blueprint(uploaded_file):
     """
-    This function reads the PDF ONCE and saves the text in memory.
-    Streamlit will skip this slow step on subsequent table edits.
+    Reads the PDF AND runs the Regex scan ONCE. 
+    Saves the resulting data structure in memory for instant re-runs.
     """
     reader = PyPDF2.PdfReader(uploaded_file)
     full_text = ""
@@ -26,25 +26,16 @@ def extract_pdf_text(uploaded_file):
         text = page.extract_text()
         if text:
             full_text += text + "\n"
-    return full_text
-
-# --- FILE UPLOADER ---
-uploaded_file = st.file_uploader("Upload Blueprint PDF for Intelligent Scan", type="pdf")
-
-electrical_manifest = {
-    "Main Panel": {"pattern": r"(\d+)\s*(?:-|x)?\s*(?:amp)?\s*(?:panel|load center)", "cost": 450.00, "mins": 120},
-    "GFCI Receptacle": {"pattern": r"(\d+)\s*(?:-|x)?\s*gfci", "cost": 18.00, "mins": 20},
-    "Disconnect Switch": {"pattern": r"(\d+)\s*(?:-|x)?\s*(?:phase)?\s*disconnect", "cost": 85.00, "mins": 45},
-    "Single Pole Switch": {"pattern": r"(\d+)\s*(?:-|x)?\s*single pole", "cost": 1.50, "mins": 15}
-}
-
-scanned_data = []
-
-if uploaded_file is not None:
-    # Call the cached function. If the file hasn't changed, this runs in 0.001 seconds!
-    full_text = extract_pdf_text(uploaded_file)
-    st.success("Blueprint Loaded from Cache!")
+            
+    # Define rules inside the cached function
+    electrical_manifest = {
+        "Main Panel": {"pattern": r"(\d+)\s*(?:-|x)?\s*(?:amp)?\s*(?:panel|load center)", "cost": 450.00, "mins": 120},
+        "GFCI Receptacle": {"pattern": r"(\d+)\s*(?:-|x)?\s*gfci", "cost": 18.00, "mins": 20},
+        "Disconnect Switch": {"pattern": r"(\d+)\s*(?:-|x)?\s*(?:phase)?\s*disconnect", "cost": 85.00, "mins": 45},
+        "Single Pole Switch": {"pattern": r"(\d+)\s*(?:-|x)?\s*single pole", "cost": 1.50, "mins": 15}
+    }
     
+    scanned_results = []
     for item, info in electrical_manifest.items():
         matches = re.findall(info["pattern"], full_text, re.IGNORECASE)
         total_qty = 0
@@ -54,24 +45,32 @@ if uploaded_file is not None:
             except ValueError:
                 continue
         
-        scanned_data.append({
+        scanned_results.append({
             "Item Name": item,
             "Detected Qty": total_qty,
             "Unit Cost ($)": info["cost"],
             "Mins to Install": info["mins"]
         })
+    return scanned_results
+
+# --- FILE UPLOADER ---
+uploaded_file = st.file_uploader("Upload Blueprint PDF for Intelligent Scan", type="pdf")
+
+# --- DATA INITIALIZATION ---
+if uploaded_file is not None:
+    # This execution runs instantly on table edits!
+    scanned_data = process_and_scan_blueprint(uploaded_file)
 else:
-    for item, info in electrical_manifest.items():
-        scanned_data.append({
-            "Item Name": item,
-            "Detected Qty": 0,
-            "Unit Cost ($)": info["cost"],
-            "Mins to Install": info["mins"]
-        })
+    # Default clean fallback state
+    scanned_data = [
+        {"Item Name": "Main Panel", "Detected Qty": 0, "Unit Cost ($)": 450.00, "Mins to Install": 120},
+        {"Item Name": "GFCI Receptacle", "Detected Qty": 0, "Unit Cost ($)": 18.00, "Mins to Install": 20},
+        {"Item Name": "Disconnect Switch", "Detected Qty": 0, "Unit Cost ($)": 85.00, "Mins to Install": 45},
+        {"Item Name": "Single Pole Switch", "Detected Qty": 0, "Unit Cost ($)": 1.50, "Mins to Install": 15}
+    ]
 
 # --- RENDER THE CALCULATOR ---
 st.write("### 📊 Material & Labor Takeoff Worksheet")
-
 df = pd.DataFrame(scanned_data)
 
 edited_df = st.data_editor(
@@ -95,7 +94,7 @@ final_bid = (total_mat + total_labor) * (1 + overhead)
 
 # --- LIVE FINANCIAL DASHBOARD ---
 st.divider()
-c1, c2, c3 = st.columns(3)
-c1.metric("Total Material Cost", f"${total_mat:,.2f}")
-c2.metric("Total Labor Cost", f"${total_labor:,.2f}")
-c3.metric("Total Suggested Bid", f"${final_bid:,.2f}", delta=f"{overhead*100:.0f}% Markup Included")
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Material Cost", f"${total_mat:,.2f}")
+col2.metric("Total Labor Cost", f"${total_labor:,.2f}")
+col3.metric("Total Suggested Bid", f"${final_bid:,.2f}", delta=f"{overhead*100:.0f}% Markup Included")
