@@ -13,10 +13,20 @@ st.set_page_config(page_title="Active Worksheet", layout="wide")
 
 st.title("📊 Core Estimation Worksheet")
 
-# --- ENSURE PARENT INITIALIZATION ---
+# --- ENSURE GLOBAL SYSTEM STRUCTURAL INTEGRITY ---
 if "company_name" not in st.session_state:
-    st.error("Please return to the main Dashboard page to initialize your session parameters.")
+    st.error("⚠️ Please return to the main Dashboard Gateway page to initialize your session parameters.")
     st.stop()
+
+# Initialize price DB safety keys if a user goes straight to page 1
+if "vendor_pricing" not in st.session_state:
+    st.session_state.vendor_pricing = {
+        "Main Panel Enclosure": 450.00, 
+        "GFCI Receptacle": 18.00, 
+        "Disconnect Switch": 85.00, 
+        "Single Pole Switch": 1.50,
+        "3/4\" EMT Conduit Run (Linear Ft)": 1.25
+    }
 
 # --- LIVE MARKET SIMULATOR LINK ---
 today_str = datetime.date.today().strftime("%Y%m%d")
@@ -32,11 +42,15 @@ with st.sidebar:
     switch_kw = st.text_input("Switch Keywords", value="single pole, 1-pole switch")
     
     st.divider()
-    st.metric("Live Market Cost Index Adjuster", f"{((market_multiplier - 1) * 100):.2f}%")
+    st.metric("Live Commodity Index Cost Multiplier", f"{((market_multiplier - 1) * 100):.2f}%")
 
-# --- TEXT SCANNING UTILITY ---
+# --- CORE TEXT SCANNING ENGINE ---
 @st.cache_data
-def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw, live_multiplier):
+def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw, prices_dict):
+    """
+    Scans the blueprint text using custom patterns.
+    Drives unit material costs directly from the custom Vendor Matrix database.
+    """
     pdf_file = BytesIO(uploaded_file_bytes)
     full_text = ""
     with pdfplumber.open(pdf_file) as pdf:
@@ -49,11 +63,12 @@ def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw, live
         parts = [p.strip() for p in raw_input.split(",")]
         return r"(\d+)\s*(?:-|x)?\s*(?:amp)?\s*(?:" + "|".join(parts) + ")"
 
+    # CONNECTED DIRECTLY TO THE VENDOR PRICING DATABASE
     electrical_manifest = {
-        "Main Panel Enclosure": {"pattern": clean_pattern(p_kw), "cost": round(450.00 * live_multiplier, 2), "mins": 120, "phase": "Rough-In", "zone": "Service Room"},
-        "GFCI Receptacle": {"pattern": clean_pattern(g_kw), "cost": round(18.00 * live_multiplier, 2), "mins": 20, "phase": "Trim-Out", "zone": "Wet Areas (Kitchen/Bath)"},
-        "Disconnect Switch": {"pattern": clean_pattern(d_kw), "cost": round(85.00 * live_multiplier, 2), "mins": 45, "phase": "Rough-In", "zone": "HVAC / Equipment"},
-        "Single Pole Switch": {"pattern": clean_pattern(s_kw), "cost": round(1.50 * live_multiplier, 2), "mins": 15, "phase": "Trim-Out", "zone": "General Lighting"}
+        "Main Panel Enclosure": {"pattern": clean_pattern(p_kw), "cost": prices_dict["Main Panel Enclosure"], "mins": 120, "phase": "Rough-In", "zone": "Service Room"},
+        "GFCI Receptacle": {"pattern": clean_pattern(g_kw), "cost": prices_dict["GFCI Receptacle"], "mins": 20, "phase": "Trim-Out", "zone": "Wet Areas (Kitchen/Bath)"},
+        "Disconnect Switch": {"pattern": clean_pattern(d_kw), "cost": prices_dict["Disconnect Switch"], "mins": 45, "phase": "Rough-In", "zone": "HVAC / Equipment"},
+        "Single Pole Switch": {"pattern": clean_pattern(s_kw), "cost": prices_dict["Single Pole Switch"], "mins": 15, "phase": "Trim-Out", "zone": "General Lighting"}
     }
     
     scanned_results = []
@@ -62,52 +77,80 @@ def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw, live
         total_qty = sum(int(match) for match in matches if match.isdigit())
         
         scanned_results.append({
-            "Item Name": item, "Phase": info["phase"], "Zone/Location": info["zone"],
-            "Detected Qty": total_qty, "Unit Cost ($)": info["cost"], "Mins to Install": info["mins"]
+            "Item Name": item, 
+            "Phase": info["phase"], 
+            "Zone/Location": info["zone"],
+            "Detected Qty": total_qty, 
+            "Unit Cost ($)": info["cost"], 
+            "Mins to Install": info["mins"]
         })
     return scanned_results
 
-# --- EXECUTE SCAN ---
+# --- EXECUTE ACTIVE SCAN DATASTREAM ---
 if st.session_state.uploaded_file_bytes is not None:
-    scanned_data = process_and_scan_blueprint(st.session_state.uploaded_file_bytes, panel_kw, gfci_kw, disc_kw, switch_kw, market_multiplier)
+    # Pass the vendor pricing dictionary token straight into the caching thread
+    scanned_data = process_and_scan_blueprint(
+        st.session_state.uploaded_file_bytes, 
+        panel_kw, gfci_kw, disc_kw, switch_kw, 
+        st.session_state.vendor_pricing
+    )
 else:
     scanned_data = [
-        {"Item Name": "Main Panel Enclosure", "Phase": "Rough-In", "Zone/Location": "Service Room", "Detected Qty": 0, "Unit Cost ($)": round(450.00 * market_multiplier, 2), "Mins to Install": 120},
-        {"Item Name": "Disconnect Switch", "Phase": "Rough-In", "Zone/Location": "HVAC / Equipment", "Detected Qty": 0, "Unit Cost ($)": round(85.00 * market_multiplier, 2), "Mins to Install": 45},
-        {"Item Name": "GFCI Receptacle", "Phase": "Trim-Out", "Zone/Location": "Wet Areas (Kitchen/Bath)", "Detected Qty": 0, "Unit Cost ($)": round(18.00 * market_multiplier, 2), "Mins to Install": 20},
-        {"Item Name": "Single Pole Switch", "Phase": "Trim-Out", "Zone/Location": "General Lighting", "Detected Qty": 0, "Unit Cost ($)": round(1.50 * market_multiplier, 2), "Mins to Install": 15}
+        {"Item Name": "Main Panel Enclosure", "Phase": "Rough-In", "Zone/Location": "Service Room", "Detected Qty": 0, "Unit Cost ($)": st.session_state.vendor_pricing["Main Panel Enclosure"], "Mins to Install": 120},
+        {"Item Name": "Disconnect Switch", "Phase": "Rough-In", "Zone/Location": "HVAC / Equipment", "Detected Qty": 0, "Unit Cost ($)": st.session_state.vendor_pricing["Disconnect Switch"], "Mins to Install": 45},
+        {"Item Name": "GFCI Receptacle", "Phase": "Trim-Out", "Zone/Location": "Wet Areas (Kitchen/Bath)", "Detected Qty": 0, "Unit Cost ($)": st.session_state.vendor_pricing["GFCI Receptacle"], "Mins to Install": 20},
+        {"Item Name": "Single Pole Switch", "Phase": "Trim-Out", "Zone/Location": "General Lighting", "Detected Qty": 0, "Unit Cost ($)": st.session_state.vendor_pricing["Single Pole Switch"], "Mins to Install": 15}
     ]
 
 master_df = pd.DataFrame(scanned_data)
 
-# Inject Conduit session results
+# Inject Measured Canvas Conduit Footage row from vendor matrix price tokens
 if st.session_state.conduit_runs > 0:
-    master_df = pd.concat([master_df, pd.DataFrame([{"Item Name": "3/4\" EMT Conduit Run (Linear Ft)", "Phase": "Rough-In", "Zone/Location": "Branch Run Takeoff", "Detected Qty": int(st.session_state.conduit_runs), "Unit Cost ($)": round(1.25 * market_multiplier, 2), "Mins to Install": 4}])], ignore_index=True)
+    conduit_row = pd.DataFrame([{
+        "Item Name": "3/4\" EMT Conduit Run (Linear Ft)", 
+        "Phase": "Rough-In", 
+        "Zone/Location": "Branch Run Takeoff", 
+        "Detected Qty": int(st.session_state.conduit_runs), 
+        "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Conduit Run (Linear Ft)"], 
+        "Mins to Install": 4
+    }])
+    master_df = pd.concat([master_df, conduit_row], ignore_index=True)
 
-# Inject Vision session results
+# Inject Vision Computer Vision Count row using custom pricing matrix structures
 for item_name, count in st.session_state.vision_counts.items():
     if count > 0:
-        master_df = pd.concat([master_df, pd.DataFrame([{"Item Name": f"AI Scan: {item_name}", "Phase": "Trim-Out", "Zone/Location": "Vision Takeoff", "Detected Qty": count, "Unit Cost ($)": round(24.50 * market_multiplier, 2), "Mins to Install": 25}])], ignore_index=True)
+        vision_row = pd.DataFrame([{
+            "Item Name": f"AI Scan: {item_name}", 
+            "Phase": "Trim-Out", 
+            "Zone/Location": "Vision Takeoff", 
+            "Detected Qty": count, 
+            "Unit Cost ($)": 24.50, # Vision base profile fallback
+            "Mins to Install": 25
+        }])
+        master_df = pd.concat([master_df, vision_row], ignore_index=True)
 
-# --- UI MATRIX WORKSPACE ---
+# --- WORKSPACE GRID DISPLAY INTERFACE ---
+st.caption("Review compiled data metrics below. Double-click any quantity cell to adjust.")
 edited_df = st.data_editor(master_df, num_rows="dynamic", use_container_width=True)
 
+# Force data types for downstream mathematical execution
 edited_df["Detected Qty"] = pd.to_numeric(edited_df["Detected Qty"]).fillna(0)
 edited_df["Unit Cost ($)"] = pd.to_numeric(edited_df["Unit Cost ($)"]).fillna(0)
 edited_df["Mins to Install"] = pd.to_numeric(edited_df["Mins to Install"]).fillna(0)
 
+# Aggregation calculations
 total_mat = (edited_df["Detected Qty"] * edited_df["Unit Cost ($)"]).sum()
 total_labor = ((edited_df["Detected Qty"] * edited_df["Mins to Install"] / 60) * st.session_state.labor_rate).sum()
 final_bid = (total_mat + total_labor) * (1 + st.session_state.overhead)
 
-# --- LIVE METRIC STRIPS ---
+# --- LIVE METRIC DASHBOARD STRIPS ---
 st.divider()
 colA, colB, colC = st.columns(3)
 colA.metric("Material Cost Subtotal", f"${total_mat:,.2f}")
 colB.metric("Labor Cost Subtotal", f"${total_labor:,.2f}")
-colC.metric("Target Contract Price", f"${final_bid:,.2f}", delta=f"{st.session_state.overhead * 100:.0f}% Margin Configured")
+colC.metric("Target Contract Price", f"${final_bid:,.2f}", delta=f"{st.session_state.overhead * 100:.0f}% Gross Margin Linked")
 
-# --- EXCEL COMPILATION HOOK ---
+# --- HIGH-FIDELITY EXCEL COMPILATION HOOK ---
 def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_pct, rate, comp_name):
     output = BytesIO()
     wb = openpyxl.Workbook()
@@ -125,7 +168,7 @@ def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_
     ws1["A1"] = f"{comp_name.upper()} PROPOSAL"; ws1["A1"].font = title_font
     ws1.merge_cells("A4:B4"); ws1["A4"] = "PROJECT FINANCIAL SUMMARY"; ws1["A4"].fill = charcoal_fill; ws1["A4"].font = section_font
     
-    metrics = [("Material Cost (Live Index)", mat_cost), ("Labor Cost Allocation", labor_cost), ("Labor Rate Configuration ($/hr)", rate), ("Markup Burden Percentage", overhead_pct)]
+    metrics = [("Material Cost Subtotal", mat_cost), ("Labor Cost Allocation", labor_cost), ("Labor Rate Configuration ($/hr)", rate), ("Markup Burden Percentage", overhead_pct)]
     for idx, (m, v) in enumerate(metrics, start=5):
         ws1[f"A{idx}"] = m; ws1[f"A{idx}"].font = regular_font; ws1[f"A{idx}"].border = thin_border
         ws1[f"B{idx}"] = v; ws1[f"B{idx}"].font = regular_font; ws1[f"B{idx}"].border = thin_border
@@ -146,10 +189,22 @@ def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_
         ws2.cell(row=r, column=3, value=r_data["Zone/Location"]).font = regular_font
         ws2.cell(row=r, column=4, value=r_data["Detected Qty"]).number_format = '#,##0'
         ws2.cell(row=r, column=5, value=r_data["Unit Cost ($)"]).number_format = '$#,##0.00'
-        for c in range(1, 6): ws2.cell(row=r, column=c).border = thin_border
+        
+        if r_idx % 2 == 0:
+            for col_c in range(1, 6): ws2.cell(row=r, column=col_c).fill = ice_fill
+        for col_c in range(1, 6): ws2.cell(row=r, column=col_c).border = thin_border
+
+    for sheet in [ws1, ws2]:
+        for col in sheet.columns:
+            vals = [str(cell.value or '') for cell in col]
+            max_len = max(len(v) for v in vals) if vals else 10
+            col_letter = get_column_letter(col[0].column)
+            sheet.column_dimensions[col_letter].width = max(max_len + 3, 14)
 
     wb.save(output)
     return output.getvalue()
 
+# --- DOCUMENT GENERATION INTERFACE ---
+st.write("### 📥 Document Distribution Panel")
 excel_data = generate_executive_excel(edited_df, total_mat, total_labor, final_bid, st.session_state.overhead, st.session_state.labor_rate, st.session_state.company_name)
 st.download_button("🚀 Export Executive Proposal Package (.xlsx)", data=excel_data, file_name="Executive_Bid.xlsx")
