@@ -46,8 +46,9 @@ lang_dict = {
         "ai_core": "🧠 OmniMind AI Core", "dash": "📊 Telemetry Dashboard", "comm_rollout": "🏢 Commercial Rollout", 
         "legal_contract": "📝 Master Contracts", "field_signoff": "🔍 Field Sign-Off", "punch_list": "🛠️ QA & Punch List", 
         "nec_calcs": "⚡ NEC Load Engine", "labor": "⏱️ Field Labor & DFR", "forensics": "📷 Site Forensics", 
-        "tools": "🧰 IoT Tool Fleet", "pitch_white": "🎨 Brand White-Label", "audit_logs": "📋 Audit Trail & Reports", 
-        "procure": "📦 Procurement & POs", "saas_licensing": "🔑 SaaS Tenant Licensing", "chat_hub": "💬 Field Dispatch Hub", "api": "☁️ Cloud API"
+        "tools": "🧰 IoT Tool Fleet", "warranty": "🔄 SLAs & Digital Twin", "pitch_white": "🎨 Brand White-Label", 
+        "audit_logs": "📋 Audit Trail & Reports", "procure": "📦 Procurement & POs", 
+        "saas_licensing": "🔑 SaaS Tenant Licensing", "chat_hub": "💬 Field Dispatch Hub", "api": "☁️ Cloud API"
     }
 }
 
@@ -75,10 +76,10 @@ if "clinic_hardware_matrix" not in st.session_state: st.session_state.clinic_har
 if "security_audit_score" not in st.session_state: st.session_state.security_audit_score = None
 if "labor_logs" not in st.session_state: st.session_state.labor_logs = []
 if "forensic_photos" not in st.session_state: st.session_state.forensic_photos = []
+if "sla_contracts" not in st.session_state: st.session_state.sla_contracts = []
 if "tool_fleet" not in st.session_state: 
     st.session_state.tool_fleet = [
         {"Asset Tag": "MKE-001", "Tool Type": "M18 Fuel Hammer Drill", "Status": "Company Vault", "Assigned To": "Unassigned", "Value": 299.00},
-        {"Asset Tag": "MKE-002", "Tool Type": "M18 Hackzall", "Status": "Company Vault", "Assigned To": "Unassigned", "Value": 199.00},
         {"Asset Tag": "KLI-001", "Tool Type": "Klein Tools Network Tester", "Status": "Company Vault", "Assigned To": "Unassigned", "Value": 350.00}
     ]
 
@@ -144,8 +145,7 @@ if not st.session_state.user_authenticated:
                     st.session_state.user_email = profile["email"]
                     st.session_state.user_role = profile["assigned_role"]
                     st.session_state.company_name = profile["company_name"]
-                    st.success("Access Verified.")
-                    time.sleep(0.5); st.rerun()
+                    st.success("Access Verified."); time.sleep(0.5); st.rerun()
                 else: st.error("Invalid credentials.")
                 
     with tab_activate:
@@ -159,16 +159,11 @@ if not st.session_state.user_authenticated:
             if st.form_submit_button("⚡ Initialize Workspace & Set Credentials", use_container_width=True):
                 matching_token = [k for k in st.session_state.generated_license_keys if k["Key Token"] == act_token and k["Assigned Client"].lower() == act_email.lower()]
                 if matching_token:
-                    payload = {
-                        "email": act_email, "password_hash": act_password,
-                        "company_name": act_company if act_company else "Invited Enterprise Partner",
-                        "assigned_role": f"🏗️ {matching_token[0]['Tier']} Tenant"
-                    }
+                    payload = {"email": act_email, "password_hash": act_password, "company_name": act_company if act_company else "Invited Enterprise Partner", "assigned_role": f"🏗️ {matching_token[0]['Tier']} Tenant"}
                     supabase_api_call(endpoint="user_registry", method="POST", payload=payload)
                     for idx, key in enumerate(st.session_state.generated_license_keys):
                         if key["Key Token"] == act_token: st.session_state.generated_license_keys[idx]["Status"] = "Active / Verified"
-                    st.success("🎉 Workspace activated cleanly! Head over to the Secure Login tab.")
-                    time.sleep(1); st.rerun()
+                    st.success("🎉 Workspace activated cleanly! Head over to the Secure Login tab."); time.sleep(1); st.rerun()
                 else: st.error("🚨 Activation Denied.")
     st.stop()
 
@@ -189,7 +184,7 @@ if chosen_preset != st.session_state.ui_theme_preset:
     st.session_state.ui_theme_preset = chosen_preset; st.rerun()
 
 st.sidebar.divider()
-menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["nec_calcs"], t["co_lien"], t["labor"], t["tools"], t["forensics"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["punch_list"], t["pitch_white"], t["audit_logs"], t["procure"], t["saas_licensing"], t["chat_hub"], t["api"]]
+menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["nec_calcs"], t["co_lien"], t["labor"], t["tools"], t["forensics"], t["warranty"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["punch_list"], t["pitch_white"], t["audit_logs"], t["procure"], t["saas_licensing"], t["chat_hub"], t["api"]]
 selected_page = st.sidebar.radio("Navigation Menu", menu_options)
 st.sidebar.divider()
 if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=True):
@@ -202,8 +197,6 @@ st.divider()
 # --- 11. CENTRALIZED RUNNING ROUTING BLOCKS ---
 if selected_page == t["home"]:
     st.write(f"### {t['home']}")
-    user_units_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
-    
     if st.button("🚀 One-Click Sandbox Simulation: Instant Demo Populate Mode", use_container_width=True):
         st.session_state.bank_connected = True
         st.session_state.tenant_balances[current_user] = {"wallet": 45000.00, "escrow": 220000.00}
@@ -213,7 +206,7 @@ if selected_page == t["home"]:
             {"Tenant Owner": current_user, "Floor": "Floor 02", "Unit Number": "Room 201", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "In Shop Progress", "Installation Status": "Staged On-Site", "GC Sign-Off": "Awaiting Field Completion", "Value Release": 2250.00}
         ]
         st.session_state.commercial_units = pd.DataFrame(sim_data)
-        st.success("Your private production workspace has been cleanly synchronized with the cloud! All records are now completely permanent."); time.sleep(0.5); st.rerun()
+        st.success("Private production workspace natively populated."); time.sleep(0.5); st.rerun()
 
 elif selected_page == t["matrix"]:
     st.write(f"### {t['matrix']}")
@@ -247,7 +240,7 @@ elif selected_page == t["takeoff"]:
                     ]
                     for item in cv_extractions: item["Total Overhead"] = item["Quantity"] * item["Est. Unit Cost"]
                     st.session_state.takeoff_results.extend(cv_extractions)
-                    st.success(f"Vision successful! OmniMind isolated total hardware nodes from the drawing."); time.sleep(1); st.rerun()
+                    st.success(f"Vision successful! OmniMind isolated hardware nodes from the drawing."); time.sleep(1); st.rerun()
     with tab_results:
         if st.session_state.takeoff_results:
             df_res = pd.DataFrame(st.session_state.takeoff_results)
@@ -275,69 +268,9 @@ elif selected_page == t["bid"]:
         generate_bid = st.button("📝 Generate Executive Proposal", use_container_width=True)
     with col_doc:
         if generate_bid:
+            with st.spinner("OmniMind is drafting the proposal..."): time.sleep(1.2)
             proposal_html = f"<div style='background-color: #F8FAFC; color: #0F172A; padding: 40px; border-radius: 8px;'><h2 style='color: #38BDF8;'>EXECUTIVE COMMERCIAL PROPOSAL</h2><p><b>TOTAL FIRM FIXED PRICE:</b> <span style='color: #10B981; font-size: 18px;'>${final_bid_val:,.2f}</span></p></div>"
             st.markdown(proposal_html, unsafe_allow_html=True)
-
-# --- NEW MODULE: IOT TOOL FLEET MANAGEMENT ---
-elif selected_page == t["tools"]:
-    st.write(f"### {t['tools']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🧰 Fleet Asset Tracking & Geofence Security</b><br>Assign high-value tools directly to active labor nodes. Track inventory liability to prevent site shrinkage.</div>", unsafe_allow_html=True)
-    
-    col_assign, col_fleet = st.columns([1, 1.3])
-    
-    active_workers = [log['Name'] for log in st.session_state.labor_logs if log['Status'] == 'Active']
-    
-    with col_assign:
-        st.write("#### 📡 Asset Handshake")
-        st.caption("Scan asset out from the Company Vault to an active crew member on-site.")
-        
-        vault_tools = [t for t in st.session_state.tool_fleet if t['Status'] == "Company Vault"]
-        
-        if not vault_tools:
-            st.info("All company assets are currently deployed in the field.")
-        elif not active_workers:
-            st.warning("No personnel currently clocked in to receive tools.")
-        else:
-            selected_tool = st.selectbox("Select Asset to Dispatch", [f"{t['Asset Tag']} - {t['Tool Type']}" for t in vault_tools])
-            assigned_worker = st.selectbox("Assign to Field Agent", active_workers)
-            
-            if st.button("🔒 Authorize Asset Handshake", use_container_width=True):
-                asset_id = selected_tool.split(" - ")[0]
-                for idx, t_obj in enumerate(st.session_state.tool_fleet):
-                    if t_obj['Asset Tag'] == asset_id:
-                        st.session_state.tool_fleet[idx]['Status'] = "Field Deployed"
-                        st.session_state.tool_fleet[idx]['Assigned To'] = assigned_worker
-                log_system_event(current_user, "Asset Dispatch", f"Assigned {asset_id} to {assigned_worker}.")
-                st.success(f"Asset {asset_id} successfully mapped to {assigned_worker}. Liability transferred."); time.sleep(1); st.rerun()
-
-        st.write("---")
-        st.write("#### 📹 Site Surveillance Telemetry")
-        if st.button("Ping UniFi Protect Cameras (Staging Area)"):
-            with st.spinner("Connecting to UniFi NVR... Requesting RTSP Stream..."):
-                time.sleep(2)
-                st.markdown("<div class='unifi-stealth-green'><b>✅ CONNECTION SECURED</b><br>No anomalous movement detected near the staging vault. System clear.</div>", unsafe_allow_html=True)
-
-    with col_fleet:
-        st.write("#### 📋 Active Fleet Ledger")
-        st.dataframe(pd.DataFrame(st.session_state.tool_fleet), use_container_width=True, hide_index=True)
-        
-        deployed_value = sum([t['Value'] for t in st.session_state.tool_fleet if t['Status'] == "Field Deployed"])
-        st.markdown(f"<div class='unifi-stealth-red'><b>⚠️ ACTIVE FIELD LIABILITY:</b> ${deployed_value:,.2f}</div>", unsafe_allow_html=True)
-        
-        st.write("---")
-        st.write("#### 🔙 Recover Asset")
-        deployed_tools = [t for t in st.session_state.tool_fleet if t['Status'] == "Field Deployed"]
-        if deployed_tools:
-            recover_tool = st.selectbox("Select Asset to Return", [f"{t['Asset Tag']} - {t['Tool Type']} ({t['Assigned To']})" for t in deployed_tools])
-            if st.button("📥 Scan Back to Company Vault"):
-                r_asset_id = recover_tool.split(" - ")[0]
-                for idx, t_obj in enumerate(st.session_state.tool_fleet):
-                    if t_obj['Asset Tag'] == r_asset_id:
-                        st.session_state.tool_fleet[idx]['Status'] = "Company Vault"
-                        st.session_state.tool_fleet[idx]['Assigned To'] = "Unassigned"
-                st.success("Asset secured back into the vault."); time.sleep(1); st.rerun()
-        else:
-            st.caption("No assets currently deployed.")
 
 elif selected_page == t["clinic"]:
     st.write(f"### {t['clinic']}")
@@ -401,6 +334,25 @@ elif selected_page == t["labor"]:
     with col_dfr:
         if st.button("⚙️ Compile AI Daily Field Report"): st.success("DFR Compiled!")
 
+elif selected_page == t["tools"]:
+    st.write(f"### {t['tools']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>🧰 Fleet Asset Tracking & Geofence Security</b></div>", unsafe_allow_html=True)
+    col_assign, col_fleet = st.columns([1, 1.3])
+    active_workers = [log['Name'] for log in st.session_state.labor_logs if log['Status'] == 'Active']
+    with col_assign:
+        vault_tools = [t for t in st.session_state.tool_fleet if t['Status'] == "Company Vault"]
+        if vault_tools and active_workers:
+            selected_tool = st.selectbox("Select Asset to Dispatch", [f"{t['Asset Tag']} - {t['Tool Type']}" for t in vault_tools])
+            assigned_worker = st.selectbox("Assign to Field Agent", active_workers)
+            if st.button("🔒 Authorize Asset Handshake", use_container_width=True):
+                asset_id = selected_tool.split(" - ")[0]
+                for idx, t_obj in enumerate(st.session_state.tool_fleet):
+                    if t_obj['Asset Tag'] == asset_id:
+                        st.session_state.tool_fleet[idx]['Status'] = "Field Deployed"; st.session_state.tool_fleet[idx]['Assigned To'] = assigned_worker
+                st.success(f"Asset assigned to {assigned_worker}."); time.sleep(1); st.rerun()
+    with col_fleet:
+        st.dataframe(pd.DataFrame(st.session_state.tool_fleet), use_container_width=True, hide_index=True)
+
 elif selected_page == t["forensics"]:
     st.write(f"### {t['forensics']}")
     st.markdown("<div class='unifi-stealth-blade'><b>📷 Immutable Site Progress Forensics</b></div>", unsafe_allow_html=True)
@@ -418,6 +370,50 @@ elif selected_page == t["forensics"]:
         if st.session_state.forensic_photos:
             for f_log in st.session_state.forensic_photos:
                 st.markdown(f"<div style='background-color: #0F172A; border: 1px solid #1E293B; border-left: 3px solid #10B981; padding: 12px; margin-bottom: 8px; border-radius: 4px;'><b style='color:#F8FAFC;'>{f_log['Unit Node']}</b> - <span style='color:#94A3B8; font-size:12px;'>{f_log['Timestamp']}</span><br><i>{f_log['Notes']}</i><br><code style='color:#38BDF8; background:none; padding:0;'>LOC: {f_log['GPS Checksum']}</code><br><code style='color:#EF4444; background:none; padding:0;'>HASH: {f_log['Immutable Hash']}</code></div>", unsafe_allow_html=True)
+
+# --- NEW MODULE: WARRANTY SLAs & DIGITAL TWIN ---
+elif selected_page == t["warranty"]:
+    st.write(f"### {t['warranty']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>🔄 Digital Twin & Recurring SLA Engine</b><br>Don't just hand over the keys. Convert completed installations into long-term, high-margin Service Level Agreements (SLAs).</div>", unsafe_allow_html=True)
+    
+    tab_twin, tab_sla = st.tabs(["🏗️ Asset Digital Twin Handoff", "💳 Recurring SLA Contracts"])
+    
+    with tab_twin:
+        st.write("#### 📡 Installed Asset Handoff Matrix")
+        st.caption("Generate scannable QR tags for installed hardware. Clinic managers can scan these to instantly trigger field maintenance logs.")
+        if not st.session_state.clinic_hardware_matrix:
+            st.info("No clinic IT hardware registered. Provision assets in the 'Clinic Infra' tab first.")
+        else:
+            for idx, hw in enumerate(st.session_state.clinic_hardware_matrix):
+                with st.expander(f"{hw['Location']} — {hw['Device']}"):
+                    st.write(f"**MAC Address:** `{hw['MAC Address']}`")
+                    st.write(f"**Network VLAN:** `{hw['VLAN']}`")
+                    st.write("**Maintenance QR Code Tag:**")
+                    st.code(f"QR_DATA_BLOB:\n[OMNIBUILD_ASSET_ID: {hw['MAC Address'].replace(':', '')}]\n>>> SCAN TO OPEN REPAIR TICKET <<<", language="text")
+
+    with tab_sla:
+        st.write("#### 🔄 Transition to Monthly Recurring Revenue (MRR)")
+        col_mrr_form, col_mrr_dash = st.columns([1, 1.2])
+        
+        with col_mrr_form:
+            sla_client = st.text_input("Client/Facility Name", value="Dr. Sol Medical Clinic")
+            sla_tier = st.selectbox("SLA Support Tier", ["Silver ($299/mo) - Standard Response", "Gold ($599/mo) - 24hr Response + Network Patching", "Platinum Enterprise ($1,299/mo) - 2hr Urgent + Replacement"])
+            if st.button("📝 Generate & Dispatch SLA Contract", use_container_width=True):
+                st.session_state.sla_contracts.append({
+                    "Client": sla_client,
+                    "Tier": sla_tier,
+                    "Status": "Awaiting Signature",
+                    "Date Issued": datetime.datetime.now().strftime("%Y-%m-%d")
+                })
+                st.success(f"SLA Contract routed to {sla_client}. Securing your MRR pipeline!")
+                time.sleep(1); st.rerun()
+
+        with col_mrr_dash:
+            st.write("#### 📈 Active Subscription Ledger")
+            if st.session_state.sla_contracts:
+                st.dataframe(pd.DataFrame(st.session_state.sla_contracts), use_container_width=True, hide_index=True)
+            else:
+                st.caption("No recurring service contracts generated.")
 
 elif selected_page == t["comm_rollout"]:
     st.write(f"### {t['comm_rollout']}")
@@ -497,9 +493,11 @@ elif selected_page == t["chat_hub"]:
     msg_text = st.text_area("Broadcast Site Update Note")
     if st.button("⚡ Send Message"):
         st.session_state.field_dispatch_messages.insert(0, {"Timestamp": datetime.datetime.now().strftime("%I:%M %p"), "Sender": current_user, "Message String": sanitize_input(msg_text)}); st.rerun()
-    for m in st.session_state.field_dispatch_messages:
-        st.markdown(f"<div class='chat-bubble-sub'><b>{m['Sender']}:</b> {m['Message String']}</div>", unsafe_allow_html=True)
 
 elif selected_page == t["api"]:
     st.write(f"### {t['api']}")
     st.code("curl -X GET https://api.omnibuildos.com/v1/materials -H 'Authorization: Bearer KEY'")
+
+elif selected_page == t["ai_core"]:
+    st.write(f"### {t['ai_core']}")
+    if st.button("⚡ Run Live Cross-Table Cognitive Diagnostics"): st.success("Diagnostics run successfully.")
