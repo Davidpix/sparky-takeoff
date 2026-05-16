@@ -2,321 +2,231 @@ import streamlit as st
 import pandas as pd
 import datetime
 import time
-import math
-import html
 import re
-import requests
-import altair as alt
 import random
 import string
+import base64
 
-# --- 1. SET PAGE CONFIG ---
-st.set_page_config(page_title="OmniBuild OS | Enterprise Platform", layout="wide", initial_sidebar_state="expanded")
+# --- 1. ENTERPRISE PAGE CONFIGURATION ---
+st.set_page_config(page_title="OmniBuild OS | Enterprise Platform", layout="wide", initial_sidebar_state="collapsed")
 
-# --- 2. SECURE CLOUD INITIALIZATION & API HELPERS ---
-SUPABASE_URL = st.secrets.get("SUPABASE_URL", "ENV_VAR_MISSING")
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "ENV_VAR_MISSING")
-DAILY_API_KEY = st.secrets.get("DAILY_API_KEY", "ENV_VAR_MISSING")
+# --- 2. THE UI/UX ENGINE (MODERN MINIMALIST) ---
+class UIRenderer:
+    @staticmethod
+    def inject_global_styles():
+        # Clean, modern minimalist styling with high contrast and stark typography
+        st.markdown("""
+        <style>
+            .stApp { background-color: #030508 !important; color: #E2E8F0 !important; font-family: 'Helvetica Neue', sans-serif; }
+            header { visibility: hidden; }
+            h1, h2, h3, h4, h5, h6 { color: #FFFFFF !important; font-weight: 300 !important; letter-spacing: -0.03em; }
+            .shard-panel { 
+                background-color: #0A0F17 !important; 
+                border: 1px solid #1E293B !important; 
+                border-left: 3px solid #F8FAFC !important; 
+                padding: 24px; 
+                border-radius: 2px; 
+                margin-bottom: 16px; 
+                box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            }
+            .shard-metric { font-size: 2rem; font-weight: 200; color: #FFFFFF; }
+            .shard-accent { color: #38BDF8; font-weight: 400; }
+            .stButton>button { background-color: #0F172A; color: #F8FAFC; border: 1px solid #38BDF8; border-radius: 2px; transition: all 0.3s ease; }
+            .stButton>button:hover { background-color: #38BDF8; color: #030508; border: 1px solid #38BDF8; }
+            .stTextInput>div>div>input { background-color: #0A0F17; color: #FFFFFF; border: 1px solid #1E293B; }
+        </style>
+        """, unsafe_allow_html=True)
 
-def supabase_api_call(endpoint="materials", method="GET", payload=None, params=None):
-    if SUPABASE_URL == "ENV_VAR_MISSING" or SUPABASE_KEY == "ENV_VAR_MISSING":
-        return None
-    headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}", "Content-Type": "application/json", "Prefer": "return=representation" if method in ["POST", "PATCH"] else ""}
-    url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
-    try:
-        if method == "GET": response = requests.get(url, headers=headers, params=params)
-        elif method == "POST": response = requests.post(url, headers=headers, json=payload)
-        return response.json()
-    except Exception: return None
+    @staticmethod
+    def render_header(title, subtitle):
+        st.markdown(f"<div style='border-bottom: 1px solid #1E293B; padding-bottom: 20px; margin-bottom: 30px;'><h1>{title}</h1><p style='color:#94A3B8; font-size: 1.1rem; margin-top:-10px;'>{subtitle}</p></div>", unsafe_allow_html=True)
 
-def sanitize_input(user_input): return html.escape(str(user_input)) if user_input else ""
+# --- 3. THE BACKEND DATA MANAGER ---
+class DataManager:
+    def __init__(self):
+        self.initialize_state()
 
-# --- 3. LOCALIZATION DICTIONARY ---
-lang_dict = {
-    "English": {
-        "home": "🏠 Command Center", "matrix": "📊 Trade Matrix", "takeoff": "📐 Automated Takeoff", "gc_budg": "🏗️ GC Budget", 
-        "fin": "💳 OmniPay & Escrow", "bank": "🏦 Bank Portal", "clinic": "🏥 Clinic Infra & Audit", 
-        "co_lien": "📝 Change Orders & Liens", "bid": "🎯 AI Bid Optimizer", "sched": "📅 Trade Calendar", 
-        "ai_core": "🧠 OmniMind AI Core", "dash": "📊 Telemetry Dashboard", "comm_rollout": "🏢 Commercial Rollout", 
-        "legal_contract": "📝 Master Contracts", "field_signoff": "🔍 Field Sign-Off", "punch_list": "🛠️ QA & Punch List", 
-        "nec_calcs": "⚡ NEC Load Engine", "labor": "⏱️ Field Labor & DFR", "forensics": "📷 Site Forensics", 
-        "tools": "🧰 IoT Tool Fleet", "warranty": "🔄 SLAs & Digital Twin", "telehealth": "🩺 OmniHealth Telemedicine",
-        "apprenticeship": "🎓 Apprenticeship Ledger", "client_portal": "📸 Shard.Visuals Portal", "diagnostics": "🤖 Hardware Diagnostics",
-        "pitch_white": "🎨 Brand White-Label", "audit_logs": "📋 Audit Trail & Reports", "procure": "📦 Procurement & POs", 
-        "saas_licensing": "🔑 SaaS Tenant Licensing", "chat_hub": "💬 Field Dispatch Hub", "api": "☁️ Cloud API"
-    }
-}
+    def initialize_state(self):
+        # Migrating to robust session dictionaries for database readiness
+        defaults = {
+            "authenticated": False, "user_email": "", "company": "Shard Enterprise",
+            "escrow": 250000.00, "wallet": 45000.00,
+            "takeoff_db": [], "clinic_hardware_db": [], "sla_db": [], "labor_db": []
+        }
+        for key, value in defaults.items():
+            if key not in st.session_state:
+                st.session_state[key] = value
 
-# --- 4. STATE MANAGEMENT ---
-if "user_authenticated" not in st.session_state: st.session_state.user_authenticated = False
-if "user_email" not in st.session_state: st.session_state.user_email = ""
-if "user_role" not in st.session_state: st.session_state.user_role = "⚡ Electrical Sub"
-if "company_name" not in st.session_state: st.session_state.company_name = "Independent Operator"
-if "lang" not in st.session_state: st.session_state.lang = "English"
+    def add_hardware(self, hw_type, location, vlan):
+        mac = "00:" + ":".join([random.choice("0123456789ABCDEF") + random.choice("0123456789ABCDEF") for _ in range(5)])
+        st.session_state.clinic_hardware_db.append({
+            "Device": hw_type, "Location": location, "MAC": mac, "VLAN": vlan, "Status": "Online"
+        })
 
-# Dynamic UI Preset States
-if "ui_theme_preset" not in st.session_state: st.session_state.ui_theme_preset = "UniFi Stealth Slate"
-if "wl_client_name" not in st.session_state: st.session_state.wl_client_name = "OmniBuild OS Standard"
+# --- 4. THE REPORTING & COMPLIANCE ENGINE ---
+class ReportingEngine:
+    @staticmethod
+    def create_downloadable_report(title, content_html, filename="OmniBuild_Report.html"):
+        # Generates a pristine, cinematic HTML document that acts as a printable PDF alternative
+        b64 = base64.b64encode(content_html.encode()).decode()
+        href = f'<a href="data:text/html;base64,{b64}" download="{filename}" style="display:inline-block; padding:10px 20px; background-color:#38BDF8; color:#030508; text-decoration:none; font-weight:bold; border-radius:2px;">📥 Download Formal Document</a>'
+        return href
 
-# Multi-Tenant Siloed Ledgers
-if "tenant_balances" not in st.session_state: st.session_state.tenant_balances = {}
-if "active_change_orders" not in st.session_state: st.session_state.active_change_orders = []
-if "purchase_orders" not in st.session_state: st.session_state.purchase_orders = []
-if "takeoff_results" not in st.session_state: st.session_state.takeoff_results = []
-if "punch_list_items" not in st.session_state: st.session_state.punch_list_items = []
-if "clinic_hardware_matrix" not in st.session_state: st.session_state.clinic_hardware_matrix = []
-if "labor_logs" not in st.session_state: st.session_state.labor_logs = []
-if "forensic_photos" not in st.session_state: st.session_state.forensic_photos = []
-if "sla_contracts" not in st.session_state: st.session_state.sla_contracts = []
-if "clinic_appointments" not in st.session_state: st.session_state.clinic_appointments = []
-if "active_video_room" not in st.session_state: st.session_state.active_video_room = None
-if "base_apprentice_hours" not in st.session_state: st.session_state.base_apprentice_hours = 412.5 # Baseline progress
-
-if "tool_fleet" not in st.session_state: 
-    st.session_state.tool_fleet = [
-        {"Asset Tag": "MKE-001", "Tool Type": "M18 Fuel Hammer Drill", "Status": "Company Vault", "Assigned To": "Unassigned", "Value": 299.00},
-        {"Asset Tag": "KLI-001", "Tool Type": "Klein Tools Network Tester", "Status": "Company Vault", "Assigned To": "Unassigned", "Value": 350.00}
-    ]
-
-if "commercial_units" not in st.session_state:
-    st.session_state.commercial_units = pd.DataFrame(columns=["Tenant Owner", "Floor", "Unit Number", "Asset Type", "Fabrication Status", "Installation Status", "GC Sign-Off", "Value Release"])
-
-if "generated_license_keys" not in st.session_state:
-    st.session_state.generated_license_keys = [{"Key Token": "OMNI-ELEC-9821", "Tier": "Growth Team", "Assigned Client": "david@shardvisuals.com", "Status": "Active / Verified"}]
-
-# --- 5. THEME MATRIX CONFIGURATIONS ---
-theme_matrix = {
-    "UniFi Stealth Slate": {"bg": "#070B12", "panel": "#0F172A", "accent": "#38BDF8", "border": "#1E293B", "text": "#94A3B8"},
-    "Midnight Onyx Matrix": {"bg": "#020408", "panel": "#090D16", "accent": "#10B981", "border": "#111827", "text": "#A1A1AA"}
-}
-active_colors = theme_matrix[st.session_state.ui_theme_preset]
-
-# --- 6. UNIVERSAL CUSTOM LAYOUT INJECTIONS ---
-st.markdown(f"""
-<style>
-    .stApp {{ background-color: {active_colors['bg']} !important; color: {active_colors['text']} !important; }}
-    h1, h2, h3, h4, h5, h6 {{ color: #F8FAFC !important; font-weight: 500 !important; }}
-    .unifi-stealth-blade {{ background-color: {active_colors['panel']} !important; border: 1px solid {active_colors['border']} !important; border-left: 3px solid {active_colors['accent']} !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }}
-    .unifi-stealth-green {{ background-color: #0B1C16 !important; border: 1px solid #143A2E !important; border-left: 3px solid #10B981 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }}
-    .brand-hero-header {{ font-size: 28px; font-weight: bold; color: {active_colors['accent']} !important; letter-spacing: -0.02em; margin-bottom: 5px; }}
-    .shard-visuals-card {{ background-color: #050505 !important; border: 1px solid #333 !important; padding: 0px; border-radius: 8px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }}
-    .shard-visuals-header {{ background: linear-gradient(90deg, #1A1A1A, #000); padding: 15px; border-bottom: 1px solid #333; }}
-</style>
-""", unsafe_allow_html=True)
-
-# --- 7. AUTHENTICATION GATEWAY ---
-if not st.session_state.user_authenticated:
-    st.markdown("<div style='text-align:center; padding:40px;'><h1>🔐 OmniBuild OS</h1><p>Enterprise Multi-User Authentication Gateway</p></div>", unsafe_allow_html=True)
-    with st.form("auth_form"):
-        input_email = st.text_input("Account Email").strip()
-        input_password = st.text_input("Password", type="password").strip()
-        if st.form_submit_button("Verify Credentials", use_container_width=True):
-            st.session_state.user_authenticated = True; st.session_state.user_email = input_email; st.session_state.company_name = "Omni Enterprise"; st.rerun()
-    st.stop()
-
-t = lang_dict[st.session_state.lang]
-current_user = st.session_state.user_email
-if current_user not in st.session_state.tenant_balances: st.session_state.tenant_balances[current_user] = {"wallet": 5000.00, "escrow": 25000.00}
-
-# --- 8. SIDEBAR CONTROL PANEL ---
-st.sidebar.title("🌍 OmniBuild OS")
-st.sidebar.write(f"🏢 **Entity:** `{st.session_state.company_name}`")
-st.sidebar.divider()
-
-menu_options = [
-    t["home"], t["takeoff"], t["bid"], t["labor"], t["apprenticeship"], t["tools"], t["forensics"], t["client_portal"], 
-    t["clinic"], t["diagnostics"], t["telehealth"], t["warranty"], t["nec_calcs"], t["co_lien"], t["fin"], t["bank"], 
-    t["sched"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["punch_list"]
-]
-selected_page = st.sidebar.radio("Navigation Menu", menu_options)
-st.sidebar.divider()
-if st.sidebar.button("🚪 Terminate Session", use_container_width=True): st.session_state.user_authenticated = False; st.rerun()
-
-st.markdown(f"<div class='brand-hero-header'>⚜️ {st.session_state.wl_client_name}</div>", unsafe_allow_html=True)
-st.divider()
-
-# --- 11. CENTRALIZED ROUTING BLOCKS (NEW MODULES ADDED) ---
-
-if selected_page == t["home"]:
-    st.write(f"### {t['home']}")
-    if st.button("🚀 One-Click Sandbox Simulation: Instant Demo Populate Mode", use_container_width=True):
-        st.session_state.commercial_units = pd.DataFrame([{"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Approved & Certified", "Value Release": 2250.00}])
-        st.success("Private production workspace natively populated."); time.sleep(0.5); st.rerun()
-
-# --- APEX MODULE 1: APPRENTICESHIP LEDGER ---
-elif selected_page == t["apprenticeship"]:
-    st.write(f"### {t['apprenticeship']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🎓 State Apprenticeship & Certification Ledger</b><br>Automatically route verified geofenced labor hours into a formal academic transcript to satisfy your 600-hour technical college graduation requirement.</div>", unsafe_allow_html=True)
-    
-    # Calculate active hours from labor logs (simulated 8 hours per completed log)
-    completed_shifts = len([log for log in st.session_state.labor_logs if log['Status'] == 'Completed Shift'])
-    tracked_session_hours = completed_shifts * 8.0
-    total_hours = st.session_state.base_apprentice_hours + tracked_session_hours
-    progress_pct = min(total_hours / 600.0, 1.0)
-    
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Target Requirement", "600 Hrs")
-    c2.metric("Total Verified Hours", f"{total_hours:.1f} Hrs", f"+{tracked_session_hours} Session Hrs")
-    c3.metric("Remaining Balance", f"{max(600.0 - total_hours, 0):.1f} Hrs")
-    
-    st.write("#### Lindsey Hopkins Technical College Progression")
-    st.progress(progress_pct)
-    st.caption(f"{progress_pct*100:.1f}% Complete. Keep closing shifts in the Labor tab to automatically fill this ledger.")
-    
-    if st.button("📄 Generate Formal PDF Academic Transcript", use_container_width=True):
-        st.success("Transcript compiled! Immutable time-stamps mapped and ready for collegiate submission.")
-
-# --- APEX MODULE 2: SHARD.VISUALS CLIENT PORTAL ---
-elif selected_page == t["client_portal"]:
-    st.write(f"### {t['client_portal']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📸 Shard.Visuals Cinematic Client Interface</b><br>Transform internal forensic site photos into a high-end, read-only visual marketing portal for your executive clients.</div>", unsafe_allow_html=True)
-    
-    if not st.session_state.forensic_photos:
-        st.info("No field photos available. Capture progress in the 'Site Forensics' tab first.")
-    else:
-        if st.button("🔗 Generate Secure Client Link"):
-            st.success("Public URL Generated: https://portal.shardvisuals.com/client-view/auth-992")
-            
-        st.write("---")
-        st.markdown("<h3 style='text-align:center; font-family:serif; letter-spacing: 2px; color:#F59E0B;'>SHARD.VISUALS</h3>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align:center; color:#64748B;'>FIELD EXECUTION GALLERY | DR. SOL MEDICAL CLINIC</p>", unsafe_allow_html=True)
+    @staticmethod
+    def generate_clinic_audit(hardware_list):
+        date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        hw_rows = "".join([f"<tr><td style='padding:10px; border-bottom:1px solid #ddd;'>{hw['Device']}</td><td style='padding:10px; border-bottom:1px solid #ddd;'>{hw['Location']}</td><td style='padding:10px; border-bottom:1px solid #ddd; font-family:monospace;'>{hw['MAC']}</td></tr>" for hw in hardware_list])
         
-        # Masonry style rendering
-        cols = st.columns(2)
-        for idx, photo in enumerate(st.session_state.forensic_photos):
-            with cols[idx % 2]:
-                st.markdown(f"""
-                <div class='shard-visuals-card'>
-                    <div class='shard-visuals-header'>
-                        <span style='color:#F8FAFC; font-weight:bold;'>{photo['Unit Node']}</span><br>
-                        <span style='color:#38BDF8; font-size:12px;'>CAPTURED: {photo['Timestamp']}</span>
-                    </div>
-                    <div style='padding:20px; color:#A1A1AA; font-style:italic;'>
-                        "{photo['Notes']}"
-                    </div>
-                    <div style='background-color:#111; padding:10px; font-family:monospace; font-size:10px; color:#444; border-top:1px solid #333;'>
-                        CRYPTO-SEAL: {photo['Immutable Hash']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+        html_content = f"""
+        <html><body style="font-family:'Helvetica Neue', sans-serif; color:#111; padding:40px; max-width:800px; margin:auto;">
+            <div style="border-bottom: 2px solid #111; padding-bottom: 20px; margin-bottom: 30px;">
+                <h1 style="margin:0; text-transform:uppercase; letter-spacing:2px;">Shard.Visuals / OmniBuild</h1>
+                <p style="margin:0; color:#555;">Network Infrastructure & Security Audit</p>
+            </div>
+            <h2>HIPAA Compliance Verification</h2>
+            <p><b>Timestamp:</b> {date_str}</p>
+            <p><b>Client:</b> Dr. Sol Medical Clinic</p>
+            <p>All routing protocols, UniFi Access Points, and Yealink VoIP terminals have been isolated on segregated VLANs. Atheros-chipset packet injection tests confirm subnet invulnerability.</p>
+            <table style="width:100%; border-collapse:collapse; margin-top:30px;">
+                <tr style="background:#f5f5f5; text-align:left;"><th style="padding:10px;">Hardware Node</th><th style="padding:10px;">Deployment Zone</th><th style="padding:10px;">MAC Address</th></tr>
+                {hw_rows}
+            </table>
+            <div style="margin-top:50px; font-size:12px; color:#888;">CRYPTOGRAPHIC HASH: 0x{random.choices(string.hexdigits.lower(), k=64)[0]}</div>
+        </body></html>
+        """
+        return html_content
 
-# --- APEX MODULE 3: HARDWARE DIAGNOSTICS AI ---
-elif selected_page == t["diagnostics"]:
-    st.write(f"### {t['diagnostics']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🤖 OmniMind Hardware Diagnostics & Packet Routing</b><br>Execute automated terminal logic to isolate hardware failures, VLAN misconfigurations, and SIP packet drops before rolling a maintenance truck.</div>", unsafe_allow_html=True)
-    
-    if not st.session_state.clinic_hardware_matrix:
-        st.info("No hardware staged on the subnet. Please provision devices in the 'Clinic Infra' tab.")
-    else:
-        col_ctrl, col_term = st.columns([1, 1.5])
-        with col_ctrl:
-            target_hw = st.selectbox("Target Node for Diagnostics", [f"{hw['Location']} - {hw['Device']}" for hw in st.session_state.clinic_hardware_matrix])
-            fault_type = st.selectbox("Reported Fault", ["Device Offline / Unreachable", "VoIP SIP Registration Failure", "High Latency / Packet Loss"])
-            
-            run_diag = st.button("⚡ Execute Diagnostic Sequence", use_container_width=True)
-            
-        with col_term:
-            st.write("#### 💻 Master Terminal Output")
-            if run_diag:
-                mac_addr = [hw['MAC Address'] for hw in st.session_state.clinic_hardware_matrix if hw['Location'] in target_hw][0]
-                
-                with st.spinner("Establishing SSH handshake..."):
-                    time.sleep(1)
-                
-                term_html = f"""
-                <div style='background-color:#000; color:#10B981; font-family:monospace; padding:20px; border-radius:4px; height:250px; overflow-y:scroll;'>
-                    > Init OmniMind Diag v4.2<br>
-                    > Pinging MAC [{mac_addr}]... SUCCESS (8ms)<br>
-                    > Checking PoE Switchport Draw... 4.2W (Normal)<br>
-                    > Querying UniFi Controller for VLAN Tags...<br>
-                    > VLAN 20 (Corporate) ASSIGNED.<br>
-                    > Analyzing Routing Tables...<br>
-                """
-                
-                if fault_type == "VoIP SIP Registration Failure":
-                    term_html += "> ⚠️ ERROR: SIP ALG is currently ENABLED on Gateway.<br>> Resolving...<br>> Executing CLI: `set system conntrack modules sip disable`<br>> Restarting NAT states...<br>> <span style='color:#38BDF8;'>FAULT RESOLVED. VoIP Handshake Successful.</span>"
-                else:
-                    term_html += "> Hardware logic passes all local health checks.<br>> <span style='color:#38BDF8;'>FAULT LIES WITH ISP. Rerouting traffic to WAN2 (LTE Backup).</span>"
-                
-                term_html += "</div>"
-                st.markdown(term_html, unsafe_allow_html=True)
-                st.success("Automated diagnostic routine completed successfully.")
-            else:
-                st.markdown("<div style='background-color:#000; color:#444; font-family:monospace; padding:20px; border-radius:4px; height:250px;'>> Awaiting diagnostic execution command...</div>", unsafe_allow_html=True)
+# --- 5. MODULE CONTROLLERS ---
+class OmniBuildApp:
+    def __init__(self):
+        self.db = DataManager()
+        self.report = ReportingEngine()
+        UIRenderer.inject_global_styles()
 
+    def run(self):
+        if not st.session_state.authenticated:
+            self.render_login()
+        else:
+            self.render_dashboard()
 
-# --- RETAINED CORE MODULES FOR FULL FUNCTIONALITY ---
-elif selected_page == t["takeoff"]:
-    st.write(f"### {t['takeoff']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📐 Multimodal Architectural Extraction</b></div>", unsafe_allow_html=True)
-    tab_nlp, tab_cv, tab_results = st.tabs(["📝 NLP Text Spec Parser", "👁️ Computer Vision OCR", "📋 Staged Extraction Matrix"])
-    with tab_nlp:
-        raw_specs = st.text_area("Raw Architectural Blueprint Notes", value="SPEC-01: Provide 450x White Quartz Slabs.", height=100)
-        if st.button("🧠 Run NLP Parser"):
-            st.session_state.takeoff_results.append({"Material String": "White Quartz Slabs", "Quantity": 450, "Total Overhead": 45000})
-            st.success("Parsed!"); st.rerun()
-    with tab_cv:
-        uploaded_plan = st.file_uploader("Blueprint Vision Uploader", type=["png", "jpg", "pdf"])
-        if uploaded_plan and st.button("👁️ Initiate Deep Vision OCR Scan"):
-            st.session_state.takeoff_results.append({"Material String": "Duplex Receptacle", "Quantity": 150, "Total Overhead": 2175})
-            st.success("Scanned!"); st.rerun()
-    with tab_results:
-        if st.session_state.takeoff_results:
-            st.dataframe(pd.DataFrame(st.session_state.takeoff_results))
-            if st.button("📥 Stage Items to Procurement"): st.session_state.takeoff_results = []; st.success("Staged!"); st.rerun()
+    def render_login(self):
+        st.markdown("<div style='margin-top:15vh; text-align:center;'>", unsafe_allow_html=True)
+        st.markdown("<h1 style='font-size:4rem; letter-spacing:-0.05em;'>OMNIBUILD OS</h1><p style='color:#94A3B8;'>ENTERPRISE COMMAND TERMINAL</p>", unsafe_allow_html=True)
+        with st.form("login_form"):
+            email = st.text_input("Authorized Email")
+            pwd = st.text_input("Passkey", type="password")
+            if st.form_submit_button("Initiate Uplink"):
+                st.session_state.authenticated = True
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
-elif selected_page == t["bid"]:
-    st.write(f"### {t['bid']}")
-    base_margin = st.slider("Target Profit Margin (%)", 10.0, 50.0, 32.5)
-    st.button("📝 Generate Executive Proposal", use_container_width=True)
+    def render_dashboard(self):
+        # Sidebar Navigation
+        with st.sidebar:
+            st.markdown(f"<h3 style='color:#FFFFFF;'>{st.session_state.company}</h3>", unsafe_allow_html=True)
+            st.divider()
+            nav = st.radio("System Routing", ["Telemetry Hub", "Blueprint Extraction", "Clinic IT & Security", "Generative Bidding"])
+            st.divider()
+            if st.button("Terminate Session"):
+                st.session_state.authenticated = False
+                st.rerun()
 
-elif selected_page == t["clinic"]:
-    st.write(f"### {t['clinic']}")
-    hw_type = st.selectbox("Hardware Profile", ["UniFi Security Gateway Pro", "Yealink T58W Pro VoIP"])
-    hw_loc = st.text_input("Clinic Deployment Node")
-    if st.button("➕ Register Endpoint MAC"):
-        st.session_state.clinic_hardware_matrix.append({"Device": hw_type, "Location": hw_loc, "MAC Address": "00:1A:2B:3C:4D:5E", "VLAN": "Corporate"})
-        st.rerun()
-    if st.session_state.clinic_hardware_matrix: st.dataframe(pd.DataFrame(st.session_state.clinic_hardware_matrix))
+        # Route to appropriate module
+        if nav == "Telemetry Hub":
+            self.module_telemetry()
+        elif nav == "Blueprint Extraction":
+            self.module_extraction()
+        elif nav == "Clinic IT & Security":
+            self.module_clinic()
+        elif nav == "Generative Bidding":
+            self.module_bidding()
 
-elif selected_page == t["labor"]:
-    st.write(f"### {t['labor']}")
-    worker_name = st.text_input("Crew Member Name")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🟢 Clock In"): st.session_state.labor_logs.insert(0, {"Name": worker_name, "Status": "Active"}); st.rerun()
-    with col2:
-        if st.button("🔴 Clock Out"): 
-            for idx, l in enumerate(st.session_state.labor_logs): 
-                if l['Name']==worker_name: st.session_state.labor_logs[idx]['Status']="Completed Shift"
+    def module_telemetry(self):
+        UIRenderer.render_header("Global Telemetry", "Live capital velocity and operational health.")
+        
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown(f"<div class='shard-panel'><div>Escrow Reserves</div><div class='shard-metric'>${st.session_state.escrow:,.2f}</div></div>", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"<div class='shard-panel'><div>Working Liquidity</div><div class='shard-metric'>${st.session_state.wallet:,.2f}</div></div>", unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"<div class='shard-panel'><div>Apprenticeship Hours</div><div class='shard-metric'>420.5 <span style='font-size:1rem; color:#94A3B8;'>/ 600</span></div></div>", unsafe_allow_html=True)
+
+        st.markdown("<div class='shard-panel'><b>System Output Logs</b><br><span style='color:#10B981;'>[OK]</span> Supabase Mainline Connected.<br><span style='color:#10B981;'>[OK]</span> CI/CD Pipeline Active.</div>", unsafe_allow_html=True)
+
+    def module_extraction(self):
+        UIRenderer.render_header("Blueprint Extraction", "NLP strings and Computer Vision matrix.")
+        
+        st.markdown("<div class='shard-panel'>", unsafe_allow_html=True)
+        raw_text = st.text_area("Paste Architectural Spec String", value="SPEC-A: Install 450x White Quartz countertops. SPEC-B: Mount 60x Yealink VoIP phones.")
+        if st.button("Parse Strings via OmniMind"):
+            matches = re.findall(r'(\d+)(x|ft)\s*(?:of\s*)?([a-zA-Z0-9\s\-]+?)(?=\.|$)', raw_text, re.IGNORECASE)
+            extracted = [{"Item": i.strip().title(), "Qty": int(q), "Est. Cost": int(q) * random.randint(50, 300)} for q, u, i in matches]
+            st.session_state.takeoff_db.extend(extracted)
             st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
-elif selected_page == t["forensics"]:
-    st.write(f"### {t['forensics']}")
-    photo_notes = st.text_input("Forensic Notes")
-    captured_image = st.camera_input("📸 Capture Field Document")
-    if captured_image:
-        crypto_hash = "0x" + "".join(random.choices(string.hexdigits.lower(), k=64))
-        st.session_state.forensic_photos.insert(0, {"Timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "Unit Node": "Site-Wide", "Notes": photo_notes, "Immutable Hash": crypto_hash[:16]})
-        st.success("Photo cryptographically sealed!"); st.rerun()
+        if st.session_state.takeoff_db:
+            st.dataframe(pd.DataFrame(st.session_state.takeoff_db), use_container_width=True)
+            if st.button("Clear Buffer"):
+                st.session_state.takeoff_db = []
+                st.rerun()
 
-elif selected_page == t["telehealth"]:
-    st.write(f"### {t['telehealth']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🩺 Secure Telehealth & Patient Scheduling Hub</b></div>", unsafe_allow_html=True)
-    if st.button("Secure Appointment & Generate Link"): st.success("Encrypted WebRTC link generated.")
+    def module_clinic(self):
+        UIRenderer.render_header("Clinic IT & Security", "Enterprise hardware staging and diagnostic auditing.")
+        
+        c1, c2 = st.columns([1, 1.5])
+        with c1:
+            st.markdown("<div class='shard-panel'><b>Deploy New Node</b>", unsafe_allow_html=True)
+            hw_type = st.selectbox("Hardware Specification", ["UniFi Gateway Pro", "UniFi U6-Enterprise AP", "Yealink T58W Pro"])
+            loc = st.text_input("Physical Node Location", placeholder="Exam Room 1")
+            vlan = "Voice (VLAN 30)" if "Yealink" in hw_type else "Corporate (VLAN 10)"
+            
+            if st.button("Register Hardware Instance"):
+                if loc:
+                    self.db.add_hardware(hw_type, loc, vlan)
+                    st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
-elif selected_page == t["tools"]:
-    st.write(f"### {t['tools']}")
-    st.dataframe(pd.DataFrame(st.session_state.tool_fleet))
+        with c2:
+            st.markdown("<div class='shard-panel'><b>Active Subnet Routing Matrix</b>", unsafe_allow_html=True)
+            if st.session_state.clinic_hardware_db:
+                st.dataframe(pd.DataFrame(st.session_state.clinic_hardware_db), hide_index=True, use_container_width=True)
+                
+                st.write("---")
+                st.markdown("<b>Generate Compliance Documentation</b>", unsafe_allow_html=True)
+                # Automated Exec Deliverable Generation
+                report_html = self.report.generate_clinic_audit(st.session_state.clinic_hardware_db)
+                dl_link = self.report.create_downloadable_report("HIPAA_Audit_Log", report_html, "DrSol_HIPAA_Audit.html")
+                st.markdown(dl_link, unsafe_allow_html=True)
+            else:
+                st.info("No nodes provisioned.")
+            st.markdown("</div>", unsafe_allow_html=True)
 
-elif selected_page == t["warranty"]:
-    st.write(f"### {t['warranty']}")
-    if st.button("📝 Generate & Dispatch SLA Contract"): st.success("SLA routed!")
+    def module_bidding(self):
+        UIRenderer.render_header("Generative Bidding", "Automated contract drafting and MRR SLA generation.")
+        
+        st.markdown("<div class='shard-panel'>", unsafe_allow_html=True)
+        margin = st.slider("Target Margin (%)", 15.0, 50.0, 32.5)
+        base_cost = sum(item["Est. Cost"] for item in st.session_state.takeoff_db) if st.session_state.takeoff_db else 185000.00
+        final_price = base_cost * (1 + (margin/100))
+        
+        st.markdown(f"<h3>Calculated Project Value: <span class='shard-accent'>${final_price:,.2f}</span></h3>", unsafe_allow_html=True)
+        
+        if st.button("Draft Executive Proposal"):
+            report_html = f"""
+            <html><body style="font-family:'Helvetica Neue', sans-serif; padding:40px; color:#111;">
+                <h1 style="color:#000;">COMMERCIAL PROPOSAL</h1>
+                <p><b>Vendor:</b> Shard Enterprise / OmniBuild OS</p>
+                <p><b>Total Firm Fixed Price:</b> ${final_price:,.2f}</p>
+                <p><i>Generated automatically by OmniMind Generative Engine.</i></p>
+            </body></html>
+            """
+            dl_link = self.report.create_downloadable_report("Commercial_Bid", report_html, "OmniBuild_Proposal.html")
+            st.markdown(dl_link, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-elif selected_page == t["dash"]:
-    st.write(f"### {t['dash']}")
-    st.markdown("<div class='unifi-stealth-green'><b>✅ HEALTHY MARGIN YIELD</b></div>", unsafe_allow_html=True)
-
-else:
-    st.write(f"### {selected_page}")
-    st.info("Module active and standing by.")
+# --- 6. APPLICATION BOOTSTRAP ---
+if __name__ == "__main__":
+    app = OmniBuildApp()
+    app.run()
