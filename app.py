@@ -119,7 +119,7 @@ else:
         menu_options = [
             "🏠 Command Dashboard",
             "📊 Takeoff Data Matrix", 
-            "⚡ Panel Balancing & AIC Physics", 
+            "⚡ Engineering & Code Physics", 
             "📈 Commodities & Thermal Limits", 
             "🗓️ AIA Cash Flow Forecast",
             "🛑 Scope Leakage / Change Orders",
@@ -154,19 +154,16 @@ else:
         home_col1, home_col2 = st.columns([1.5, 1])
         with home_col1:
             st.write("#### 📅 Automated Construction Gantt Schedule")
-            if st.session_state.accessibility_mode: st.caption("Based on your materials and crew size, here is how many days the project will take.")
-            
-            # Dynamic Phase Duration Math
+            crew_daily_capacity = total_field_crew * 8
             rough_in_hours = ((df_takeoff[df_takeoff['Phase'] == 'Rough-In']["Qty"] * df_takeoff[df_takeoff['Phase'] == 'Rough-In']["Mins"]) / 60).sum() * neca_multiplier
             trim_hours = ((df_takeoff[df_takeoff['Phase'] == 'Trim']["Qty"] * df_takeoff[df_takeoff['Phase'] == 'Trim']["Mins"]) / 60).sum() * neca_multiplier
             
-            crew_daily_capacity = total_field_crew * 8
             rough_in_days = math.ceil(rough_in_hours / crew_daily_capacity) if crew_daily_capacity > 0 else 1
             trim_days = math.ceil(trim_hours / crew_daily_capacity) if crew_daily_capacity > 0 else 1
             
-            start_date = datetime.date.today() + datetime.timedelta(days=7) # Starts next week
+            start_date = datetime.date.today() + datetime.timedelta(days=7)
             rough_in_end = start_date + datetime.timedelta(days=rough_in_days)
-            trim_start = rough_in_end + datetime.timedelta(days=2) # 2 days buffer
+            trim_start = rough_in_end + datetime.timedelta(days=2)
             trim_end = trim_start + datetime.timedelta(days=trim_days)
             
             gantt_data = pd.DataFrame([
@@ -174,7 +171,6 @@ else:
                 {"Task": "Phase 2: Trim-Out (Devices)", "Start": trim_start, "End": trim_end, "Duration": trim_days}
             ])
             
-            # Altair Gantt Chart
             chart = alt.Chart(gantt_data).mark_bar(cornerRadius=4, height=30).encode(
                 x=alt.X('Start:T', title='Timeline', axis=alt.Axis(format='%b %d', grid=True, gridColor="#1E293B" if not st.session_state.accessibility_mode else "#E2E8F0")),
                 x2='End:T',
@@ -182,33 +178,25 @@ else:
                 color=alt.Color('Task:N', legend=None, scale=alt.Scale(range=["#38BDF8", "#10B981"])),
                 tooltip=[alt.Tooltip('Task:N'), alt.Tooltip('Start:T', format='%b %d'), alt.Tooltip('End:T', format='%b %d'), alt.Tooltip('Duration:Q', title='Work Days')]
             ).properties(height=180).configure_view(strokeWidth=0).configure_axis(domain=False)
-            
             st.altair_chart(chart, use_container_width=True)
             
         with home_col2:
             st.write("#### 🚨 Central Alert Scanner")
-            if final_risk_adjusted_hours > (10 * crew_daily_capacity): # Arbitrary 10-day limit check
+            if final_risk_adjusted_hours > (10 * crew_daily_capacity): 
                 st.markdown("<div class='unifi-stealth-alert' style='padding:10px; margin-bottom:8px;'><b>⚠️ Schedule Warning:</b> High labor hours. Consider expanding crew.</div>", unsafe_allow_html=True)
             if st.session_state.copper_multiplier > 0:
                 st.markdown(f"<div class='unifi-stealth-alert' style='padding:10px; margin-bottom:8px;'><b>📈 Market Alert:</b> Copper materials marked up by {st.session_state.copper_multiplier*100:.0f}%.</div>", unsafe_allow_html=True)
             if len(st.session_state.change_order_vault) > 0:
                 st.markdown(f"<div class='unifi-stealth-blade' style='padding:10px; border-left-color:#10B981; margin-bottom:8px;'><b>✅ Active Adjustments:</b> {len(st.session_state.change_order_vault)} Change Orders billed.</div>", unsafe_allow_html=True)
-            
-            # Default "All Clear" if few alerts
             if final_risk_adjusted_hours <= (10 * crew_daily_capacity) and st.session_state.copper_multiplier == 0:
                 st.markdown("<div class='unifi-stealth-blade' style='padding:10px; border-left-color:#10B981;'><b>✅ System Optimal:</b> All physics and financial parameters are within safe bounds.</div>", unsafe_allow_html=True)
 
     elif "Matrix" in selected_page or "Material" in selected_page:
         st.write("### 🎛️ Material Database & Quantities")
-        if st.session_state.accessibility_mode: st.info("Review and edit the exact materials needed for this job. Costs automatically update based on your changes.")
         st.data_editor(df_takeoff, num_rows="dynamic", use_container_width=True)
 
-    elif "Physics" in selected_page or "Safety" in selected_page:
-        if st.session_state.accessibility_mode:
-            st.write("### 🛡️ Electrical Safety & Power Checks")
-            st.info("This section ensures the electrical design is safe, won't cause fires, and passes city inspections.")
-        else:
-            st.write("### ⚡ NEC Engineering Physics & Code Compliance")
+    elif "Physics" in selected_page or "Safety" in selected_page or "Engineering" in selected_page:
+        st.write("### 🛡️ Electrical Safety & Power Checks" if st.session_state.accessibility_mode else "### ⚡ NEC Engineering Physics & Code Compliance")
 
         st.write("#### 1. Power Panel Balance Check")
         p_col1, p_col2 = st.columns([1, 2])
@@ -228,19 +216,68 @@ else:
             wire_gauge_choice = st.selectbox("Wire Thickness Size", ["#14 AWG (Thinnest)", "#12 AWG", "#10 AWG", "#8 AWG (Thickest)"])
         with diag_col2:
             if "#14" in wire_gauge_choice and target_run_amperage > 15:
-                st.markdown("<div class='unifi-stealth-danger'><h5>🚨 FIRE HAZARD: WIRE TOO THIN</h5><p>This wire will melt under 16 Amps. Upgrade to #12 AWG immediately.</p></div>", unsafe_allow_html=True)
+                st.markdown("<div class='unifi-stealth-danger'><h5>🚨 FIRE HAZARD: WIRE TOO THIN</h5><p>This wire will melt under your current load. Upgrade to #12 AWG immediately.</p></div>", unsafe_allow_html=True)
             else:
-                st.markdown("<div class='unifi-stealth-blade'><h5>✅ WIRE SIZE IS SAFE</h5><p>No risk of overheating or power loss.</p></div>", unsafe_allow_html=True)
+                st.markdown("<div class='unifi-stealth-blade'><h5>✅ WIRE SIZE IS SAFE</h5></div>", unsafe_allow_html=True)
+
+        # --- NEW PILLAR: CONDUIT FILL OPTIMIZER ---
+        st.divider()
+        st.write("#### 3. Pipe Size Calculator" if st.session_state.accessibility_mode else "#### 3. NEC Conduit Fill & Raceway Optimizer (Chapter 9)")
+        if st.session_state.accessibility_mode: st.caption("Ensures we buy the right size pipe so the wires actually fit without getting jammed.")
+        
+        fill_col1, fill_col2 = st.columns(2)
+        with fill_col1:
+            st.write("**Build Your Wire Bundle:**")
+            qty_12 = st.number_input("Count of #12 AWG Wires", min_value=0, value=4, step=1)
+            qty_10 = st.number_input("Count of #10 AWG Wires", min_value=0, value=1, step=1)
+            qty_8 = st.number_input("Count of #8 AWG Wires", min_value=0, value=0, step=1)
+        
+        with fill_col2:
+            # Wire Area (sq in) THHN
+            area_12 = 0.0133
+            area_10 = 0.0211
+            area_8 = 0.0366
+            
+            total_bundle_area = (qty_12 * area_12) + (qty_10 * area_10) + (qty_8 * area_8)
+            total_wires = qty_12 + qty_10 + qty_8
+            
+            # EMT 40% Fill Capacities (sq in)
+            emt_caps = {
+                "1/2\" EMT": 0.122,
+                "3/4\" EMT": 0.213,
+                "1\" EMT": 0.346,
+                "1-1/4\" EMT": 0.598
+            }
+            
+            recommended_pipe = "Exceeds standard limits"
+            for pipe_size, cap in emt_caps.items():
+                if total_bundle_area <= cap:
+                    recommended_pipe = pipe_size
+                    break
+            
+            st.write(f"Total Wires in Pipe: **{total_wires}**")
+            st.write(f"Bundle Cross-Sectional Area: **{total_bundle_area:.4f} sq. in.**")
+            
+            if total_wires > 0:
+                st.markdown(f"""
+                <div class='unifi-stealth-blade' style='border-left-color: #38BDF8;'>
+                    <h5 style='color:#38BDF8; margin:0;'>🛠️ MINIMUM PIPE REQUIRED</h5>
+                    <p style='font-size:24px; font-weight:bold; margin:4px 0;'>{recommended_pipe}</p>
+                    <p style='font-size:11px; margin:0;'>Complies with NEC 40% maximum fill capacity limits.</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("Add wires to calculate required pipe size.")
 
         st.divider()
-        st.write("#### 3. Main Breaker Explosion Check" if st.session_state.accessibility_mode else "#### 3. NEC 110.9 Fault Current (AIC)")
+        st.write("#### 4. Main Breaker Explosion Check" if st.session_state.accessibility_mode else "#### 4. NEC 110.9 Fault Current (AIC)")
         aic_col1, aic_col2 = st.columns(2)
         with aic_col1:
             transformer_kva = st.selectbox("City Transformer Size", [25, 50, 100, 150], index=2)
             breaker_rating_aic = st.selectbox("Your Breaker Strength", [10000, 22000, 65000], index=0)
         with aic_col2:
             if breaker_rating_aic == 10000 and transformer_kva >= 100:
-                st.markdown("<div class='unifi-stealth-danger'><h5>🚨 CRITICAL: BREAKER WILL FAIL</h5><p>The city transformer is too powerful for standard breakers. Upgrade to 22,000 rating.</p></div>", unsafe_allow_html=True)
+                st.markdown("<div class='unifi-stealth-danger'><h5>🚨 CRITICAL: BREAKER WILL FAIL</h5><p>Upgrade to 22,000 AIC rating.</p></div>", unsafe_allow_html=True)
             else:
                 st.markdown("<div class='unifi-stealth-blade'><h5>✅ BREAKER STRENGTH APPROVED</h5></div>", unsafe_allow_html=True)
 
@@ -250,12 +287,6 @@ else:
         volatility_selection = st.slider("Simulate Copper Price Jump (%)", -20, 50, 0, step=5)
         if st.button("Apply New Price to Estimate"):
             st.session_state.copper_multiplier = volatility_selection / 100; st.rerun()
-            
-        st.divider()
-        st.write("#### 2. Rooftop Heat Degradation" if st.session_state.accessibility_mode else "#### 2. Ambient Thermal Correction (NEC 310.15)")
-        rooftop_exposure = st.checkbox("Are wires being installed on a hot outdoor roof?", value=False)
-        if rooftop_exposure:
-            st.markdown("<div class='unifi-stealth-alert'><h5>⚠️ EXTREME HEAT DETECTED</h5><p>Rooftops trap heat. The wire's capacity to carry power has been reduced by 24% for safety. We may need to buy thicker wire.</p></div>", unsafe_allow_html=True)
 
     elif "Draws" in selected_page or "Payment" in selected_page:
         st.write("### 🗓️ Payment Schedule & Cash Flow" if st.session_state.accessibility_mode else "### 🗓️ AIA Progress Billing Draw Schedule")
@@ -265,7 +296,7 @@ else:
         pct_trimout = st.slider("Final payment when finished (%)", 10, 30, 20, step=5)
         
         draw_df = pd.DataFrame({
-            "Construction Phase": ["1: Upfront Deposit", "2: In-Wall Pipes Done", "3: Wires Installed", "4: Final Sign-off"],
+            "Construction Phase": ["1: Upfront", "2: Rough-In", "3: Wire Pull", "4: Final Sign-off"],
             "Amount You Receive ($)": [final_gross_target_bid*(pct_mobilization/100), final_gross_target_bid*(pct_roughin/100), final_gross_target_bid*(pct_wirepull/100), final_gross_target_bid*(pct_trimout/100)]
         })
         st.data_editor(draw_df, use_container_width=True, disabled=True)
@@ -293,7 +324,7 @@ else:
             earned = final_gross_target_bid * (actual_pct/100)
             cpi = earned / actual_cost_to_date if actual_cost_to_date else 1
             if cpi < 1.0:
-                st.markdown(f"<div class='unifi-stealth-danger'><h5>📉 BLEEDING CASH</h5><p>You are spending money faster than you are completing the work. You are projected to lose your profit margin.</p></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='unifi-stealth-danger'><h5>📉 BLEEDING CASH</h5></div>", unsafe_allow_html=True)
             else:
                 st.markdown(f"<div class='unifi-stealth-blade'><h5>✅ PROFIT ON TRACK</h5></div>", unsafe_allow_html=True)
 
@@ -310,7 +341,7 @@ else:
             st.write("#### True Company Cost")
             st.markdown(f"<div class='unifi-stealth-blade'><h5 style='color:#10B981;'>💸 TRUE COST PER HOUR</h5><p style='font-size:24px;'>${burdened_rate:.2f} / hr</p></div>", unsafe_allow_html=True)
 
-    # --- FOOTER TERMINAL (HIDDEN IN ACCESSIBLE MODE) ---
+    # --- FOOTER TERMINAL ---
     if not st.session_state.accessibility_mode:
         st.divider()
         st.markdown("<p style='color:#475569; font-size:10px; font-weight:600;'>📋 SYSTEM CORE TERMINAL</p>", unsafe_allow_html=True)
