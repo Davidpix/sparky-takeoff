@@ -6,6 +6,8 @@ import math
 from streamlit_image_coordinates import streamlit_image_coordinates
 import numpy as np
 from skimage.feature import match_template
+# Import ImageDraw to enable direct canvas modification
+from PIL import ImageDraw
 
 st.set_page_config(page_title="Spatial Canvas", layout="wide")
 
@@ -26,9 +28,7 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
         
         st.divider()
         st.write("#### 📐 Architectural Scale Presets")
-        st.caption("Quickly lock in standard engineering or architectural drafting scale constraints without manual calibration.")
         
-        # Mapping drop-down select options to calculated Pixel-Per-Foot ratios based on standard 72 DPI PDF coordinates
         scale_preset = st.selectbox(
             "Select Standard Plan Scale",
             options=[
@@ -40,16 +40,11 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
             ]
         )
         
-        # Handle scaling preset changes instantly
         if scale_preset != "Manual Calibration Mode":
-            if "1/4\"" in scale_preset:
-                st.session_state.scale_pixels_per_foot = 18.0  # 72 / 4
-            elif "1/8\"" in scale_preset:
-                st.session_state.scale_pixels_per_foot = 9.0   # 72 / 8
-            elif "10'-0\"" in scale_preset:
-                st.session_state.scale_pixels_per_foot = 7.2   # 72 / 10
-            elif "20'-0\"" in scale_preset:
-                st.session_state.scale_pixels_per_foot = 3.6   # 72 / 20
+            if "1/4\"" in scale_preset: st.session_state.scale_pixels_per_foot = 18.0
+            elif "1/8\"" in scale_preset: st.session_state.scale_pixels_per_foot = 9.0
+            elif "10'-0\"" in scale_preset: st.session_state.scale_pixels_per_foot = 7.2
+            elif "20'-0\"" in scale_preset: st.session_state.scale_pixels_per_foot = 3.6
             st.success(f"Locked Preset Factor: {st.session_state.scale_pixels_per_foot:.1f} Px/Ft")
 
     with col_y:
@@ -64,7 +59,8 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
 
     page = pdf.pages[page_number - 1]
     img = page.to_image(resolution=100)
-    pil_img = img.original
+    # Convert image to RGB format so we can draw bright neon colors onto it
+    pil_img = img.original.convert("RGB")
     
     if mode == "3. AI Symbol Scan":
         st.info("🤖 **Computer Vision Mode:** Select a visual electrical pattern. The scikit-image cross-correlation array will cross-examine pixel densities.")
@@ -83,6 +79,21 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
                 st.session_state.vision_counts[clean_name] = final_count
                 st.success(f"Vision sweep complete. Locked {final_count} instances into workspace data!")
     else:
+        # --- PILLOW DYNAMIC DRAWING COATING ENGINE ---
+        # Intercept the blueprint and paint vector path targets over it
+        if st.session_state.click_history:
+            draw = ImageDraw.Draw(pil_img)
+            
+            # 1. Paint connecting neon lines for tracking conduit paths
+            if len(st.session_state.click_history) >= 2 and mode == "2. Measure Linear Run":
+                draw.line(st.session_state.click_history, fill="#00FFFF", width=4) # Premium Cyan vector trace line
+                
+            # 2. Paint individual target target rings over every single clicked point
+            for point in st.session_state.click_history:
+                x, y = point
+                r = 6  # Radius size of target dot
+                draw.ellipse([x - r, y - r, x + r, y + r], fill="#FF3366", outline="#FFFFFF", width=1) # Neon hot pink anchor point
+
         st.caption("Active Drawing Canvas Vector Array Interface")
         value = streamlit_image_coordinates(pil_img, key="multipage_blueprint_canvas", use_container_width=True)
         
@@ -92,8 +103,6 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
                 st.session_state.click_history.append(pt)
                 st.rerun()
                 
-        st.write(f"Logged Active Coordinates: `{st.session_state.click_history}`")
-        
         if mode == "1. Calibrate Scale":
             if scale_preset != "Manual Calibration Mode":
                 st.warning("💡 You are currently using an Architectural Scale Preset. To manually calibrate using custom points instead, switch the dropdown on the left back to 'Manual Calibration Mode'.")
