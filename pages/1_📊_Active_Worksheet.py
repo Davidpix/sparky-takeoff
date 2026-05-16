@@ -13,7 +13,7 @@ import math
 st.set_page_config(page_title="Active Worksheet", layout="wide")
 
 st.title("📊 Engineering Control Worksheet & Takeoff Engine")
-st.write("This portal executes automated NEC compliance cross-examinations, structural voltage drop physics calculations, and smart assembly kitting matrices.")
+st.write("This portal executes automated NEC compliance cross-examinations, structural voltage drop physics calculations, and advanced photometric layout matrices.")
 
 if "company_name" not in st.session_state:
     st.error("⚠️ Please return to the main Dashboard Gateway page to initialize your session parameters.")
@@ -42,14 +42,46 @@ with eng_col2:
     wire_size_selection = st.selectbox(
         "Design Wire Gauge Size (Copper)",
         options=["#14 AWG", "#12 AWG", "#10 AWG", "#8 AWG", "#6 AWG", "#4 AWG"],
-        index=1 # Default to #12 AWG standard commercial branch wire
+        index=1
     )
-    # Define circular mil areas and properties for precise engineering calculations
     cm_map = {"#14 AWG": 4110, "#12 AWG": 6530, "#10 AWG": 10380, "#8 AWG": 16510, "#6 AWG": 26240, "#4 AWG": 41740}
     active_cm = cm_map[wire_size_selection]
 
 with eng_col3:
-    apply_kitting = st.checkbox("Enable Smart Assembly Kitting (Explode base counts into individual parts)", value=True)
+    apply_kitting = st.checkbox("Enable Smart Assembly Kitting (Explode Counts)", value=True)
+
+# --- NEW: ADVANCED PHOTOMETRIC & POWER DENSITY CALCULATION ENGINE ---
+st.divider()
+st.write("### 💡 Automated Photometric Layout & NEC Load Density Planner")
+st.caption("Calculate light fixture distributions using the Zonal Cavity Lumens Method and cross-reference service sizing limits per NEC 220.12.")
+
+photo_col1, photo_col2, photo_col3 = st.columns(3)
+with photo_col1:
+    room_length = st.number_input("Target Area Room Length (Feet)", min_value=5.0, value=30.0, step=1.0)
+    room_width = st.number_input("Target Area Room Width (Feet)", min_value=5.0, value=20.0, step=1.0)
+    room_area = room_length * room_width
+    st.write(f"Calculated Working Area: **{room_area:.1f} sq. ft.**")
+
+with photo_col2:
+    target_footcandles = st.slider("Target Illumination Intensity (Footcandles / LUX)", 10, 100, 40)
+    fixture_lumen_output = st.number_input("Lumens Emitted per LED Fixture", min_value=500, max_value=10000, value=3200, step=100)
+
+with photo_col3:
+    occupancy_type = st.selectbox("NEC Space Classification (NEC Table 220.12)", ["Dwelling Unit / Residential (2.0 VA/sq.ft)", "Office Space (1.3 VA/sq.ft)", "Store / Retail (1.9 VA/sq.ft)"])
+    va_multiplier = 2.0 if "Residential" in occupancy_type else (1.3 if "Office" in occupancy_type else 1.9)
+
+# Compute Photometrics Matrix
+# N = (E * A) / (Lumens * CU * LLF)
+cu_factor = 0.60
+llf_factor = 0.85
+calculated_fixtures_needed = math.ceil((target_footcandles * room_area) / (fixture_lumen_output * cu_factor * llf_factor))
+
+# Compute NEC Service Load
+nec_minimum_va_load = room_area * va_multiplier
+
+p_res1, p_res2 = st.columns(2)
+p_res1.success(f"💡 **Photometric Recommendation:** To maintain an optimal illumination level of {target_footcandles} footcandles, you must deploy exactly **{calculated_fixtures_needed} Recessed LED Fixtures** in this zone.")
+p_res2.info(f"⚡ **NEC Load Calculation:** Minimum continuous power footprint for this room area is locked at **{nec_minimum_va_load:,.1f} Volt-Amperes (VA)** per NEC Table 220.12 specifications.")
 
 # --- READ DISTRIBUTOR MATRIX RATES ---
 if "vendor_pricing" not in st.session_state:
@@ -74,13 +106,18 @@ if "sheet_ledger" in st.session_state:
 
 rows_to_compile = []
 
+# Automatically inject the photometrically designed LED fixtures into our pricing matrices
+if calculated_fixtures_needed > 0:
+    rows_to_compile.append({
+        "Item Name": "Specification Grade 2x2 Recessed LED Troffer", "Phase": "Trim-Out", "Zone/Location": "Photometric Layout Zone",
+        "Detected Qty": int(calculated_fixtures_needed), "Unit Cost ($)": 65.00, "Mins to Install": 25
+    })
+
 # --- EXECUTE 3D VOLTAGE DROP PHYSICS CALCULATION ---
 if total_raw_footage > 0:
     st.divider()
     st.write("### ⚡ Dynamic Electrical Performance Analysis")
-    
-    # 2 * K * I * D / CM
-    k_constant = 12.9  # Copper resistivity factor
+    k_constant = 12.9  
     computed_v_drop = (2 * k_constant * circuit_amperage * total_raw_footage) / active_cm
     v_drop_percentage = (computed_v_drop / target_voltage) * 100
     
@@ -89,10 +126,8 @@ if total_raw_footage > 0:
     
     if v_drop_percentage > 3.0:
         v_colB.metric("Voltage Drop Ratio", f"{v_drop_percentage:.2f}%", delta="⚠️ EXCEEDS 3% NEC THRESHOLD", delta_color="inverse")
-        st.error(f"🚨 **Engineering Alert:** Sizing constraint violation! A drop of **{v_drop_percentage:.2f}%** on a {target_voltage}V layout over {total_raw_footage:.1f}ft creates efficiency loss. Sizing up your conductor to the next gauge size is highly recommended.")
     else:
         v_colB.metric("Voltage Drop Ratio", f"{v_drop_percentage:.2f}%", delta="✅ COMPLIANT DESIGN")
-        st.success("✨ **Engineering Pass:** Voltage tolerances match recommended international limits.")
 
     # --- EXECUTE MECHANICAL CONDUIT MATERIALIZER & NEC COMPLIANCE ---
     conduit_sticks = math.ceil(total_raw_footage / 10.0)
@@ -114,7 +149,7 @@ if total_raw_footage > 0:
         "Detected Qty": int(straps_needed), "Unit Cost ($)": round(0.45 * price_ratio, 2), "Mins to Install": 2
     })
 
-# --- PROCESS REGEX TEXT DATA BLUEPRINT SCANS ---
+# --- PROCESS BLUEPRINT REGEX DATA TEXT SCANS ---
 with st.sidebar:
     st.header("🔍 Custom Regex Profiles")
     panel_kw = st.text_input("Main Panel Keywords", value="panel, load center, mlo")
@@ -157,16 +192,14 @@ if st.session_state.uploaded_file_bytes is not None:
 else:
     base_data = []
 
-# --- ADVANCED PILLAR 3: SMART ASSEMBLY KITTING EXPLODER MATRIX ---
+# --- SMART ASSEMBLY KITTING EXPLODER MATRIX ---
 final_compiled_rows = []
-
 for row in base_data:
     item = row["Item Name"]
     qty = row["Detected Qty"]
     
     if qty > 0 and apply_kitting:
         if item == "GFCI Receptacle":
-            # Explode 1 component switch count into a true 5-part installation sub-kit package
             final_compiled_rows.append({"Item Name": "Commercial Grade 20A GFCI Device", "Phase": "Trim-Out", "Zone/Location": row["Zone/Location"], "Detected Qty": qty, "Unit Cost ($)": row["Unit Cost ($)"], "Mins to Install": 12})
             final_compiled_rows.append({"Item Name": "4\" Square Deep Steel Box (2-1/8\")", "Phase": "Rough-In", "Zone/Location": row["Zone/Location"], "Detected Qty": qty, "Unit Cost ($)": 3.10, "Mins to Install": 6})
             final_compiled_rows.append({"Item Name": "1-Gang Devia Plaster Mud Ring (1/2\")", "Phase": "Rough-In", "Zone/Location": row["Zone/Location"], "Detected Qty": qty, "Unit Cost ($)": 1.85, "Mins to Install": 3})
