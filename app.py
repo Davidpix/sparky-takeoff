@@ -46,8 +46,8 @@ lang_dict = {
         "ai_core": "🧠 OmniMind AI Core", "dash": "📊 Telemetry Dashboard", "comm_rollout": "🏢 Commercial Rollout", 
         "legal_contract": "📝 Master Contracts", "field_signoff": "🔍 Field Sign-Off", "punch_list": "🛠️ QA & Punch List", 
         "nec_calcs": "⚡ NEC Load Engine", "labor": "⏱️ Field Labor & DFR", "forensics": "📷 Site Forensics", 
-        "pitch_white": "🎨 Brand White-Label", "audit_logs": "📋 Audit Trail & Reports", "procure": "📦 Procurement & POs", 
-        "saas_licensing": "🔑 SaaS Tenant Licensing", "chat_hub": "💬 Field Dispatch Hub", "api": "☁️ Cloud API"
+        "tools": "🧰 IoT Tool Fleet", "pitch_white": "🎨 Brand White-Label", "audit_logs": "📋 Audit Trail & Reports", 
+        "procure": "📦 Procurement & POs", "saas_licensing": "🔑 SaaS Tenant Licensing", "chat_hub": "💬 Field Dispatch Hub", "api": "☁️ Cloud API"
     }
 }
 
@@ -75,6 +75,12 @@ if "clinic_hardware_matrix" not in st.session_state: st.session_state.clinic_har
 if "security_audit_score" not in st.session_state: st.session_state.security_audit_score = None
 if "labor_logs" not in st.session_state: st.session_state.labor_logs = []
 if "forensic_photos" not in st.session_state: st.session_state.forensic_photos = []
+if "tool_fleet" not in st.session_state: 
+    st.session_state.tool_fleet = [
+        {"Asset Tag": "MKE-001", "Tool Type": "M18 Fuel Hammer Drill", "Status": "Company Vault", "Assigned To": "Unassigned", "Value": 299.00},
+        {"Asset Tag": "MKE-002", "Tool Type": "M18 Hackzall", "Status": "Company Vault", "Assigned To": "Unassigned", "Value": 199.00},
+        {"Asset Tag": "KLI-001", "Tool Type": "Klein Tools Network Tester", "Status": "Company Vault", "Assigned To": "Unassigned", "Value": 350.00}
+    ]
 
 if "commercial_units" not in st.session_state:
     st.session_state.commercial_units = pd.DataFrame(columns=["Tenant Owner", "Floor", "Unit Number", "Asset Type", "Fabrication Status", "Installation Status", "GC Sign-Off", "Value Release"])
@@ -183,7 +189,7 @@ if chosen_preset != st.session_state.ui_theme_preset:
     st.session_state.ui_theme_preset = chosen_preset; st.rerun()
 
 st.sidebar.divider()
-menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["nec_calcs"], t["co_lien"], t["labor"], t["forensics"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["punch_list"], t["pitch_white"], t["audit_logs"], t["procure"], t["saas_licensing"], t["chat_hub"], t["api"]]
+menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["nec_calcs"], t["co_lien"], t["labor"], t["tools"], t["forensics"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["punch_list"], t["pitch_white"], t["audit_logs"], t["procure"], t["saas_licensing"], t["chat_hub"], t["api"]]
 selected_page = st.sidebar.radio("Navigation Menu", menu_options)
 st.sidebar.divider()
 if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=True):
@@ -214,13 +220,10 @@ elif selected_page == t["matrix"]:
     st.markdown("<div class='unifi-stealth-blade'><b>Trade Matrix Configuration Layer</b></div>", unsafe_allow_html=True)
     st.dataframe(pd.DataFrame([{"Trade Code": "ELEC-ROUGH", "Title": "Rough-In Conduit", "Rate/Hr": 45.00}, {"Trade Code": "STONE-FAB", "Title": "Countertop Cut", "Rate/Hr": 65.00}]), use_container_width=True, hide_index=True)
 
-# --- UPGRADED MODULE: DUAL NLP & COMPUTER VISION TAKEOFF ---
 elif selected_page == t["takeoff"]:
     st.write(f"### {t['takeoff']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📐 Multimodal Architectural Extraction</b><br>Extract quantities via Natural Language Processing (NLP) or deploy Computer Vision (CV) to scan flat image blueprints.</div>", unsafe_allow_html=True)
-    
+    st.markdown("<div class='unifi-stealth-blade'><b>📐 Multimodal Architectural Extraction</b></div>", unsafe_allow_html=True)
     tab_nlp, tab_cv, tab_results = st.tabs(["📝 NLP Text Spec Parser", "👁️ Computer Vision OCR", "📋 Staged Extraction Matrix"])
-    
     with tab_nlp:
         sample_text = "SPEC-01: Provide and install 450x White Quartz Slabs for master vanities. SPEC-02: Pull 1200ft of 3/4-inch ENT conduit."
         raw_specs = st.text_area("Raw Architectural Blueprint Notes / BOM Strings", value=sample_text, height=150)
@@ -232,28 +235,19 @@ elif selected_page == t["takeoff"]:
                     extracted = [{"Material String": item.strip().title(), "Quantity": int(qty), "Measurement": "Linear Feet" if unit.lower() == 'ft' else "Units", "Est. Unit Cost": random.randint(25, 350) * 1.5, "Total Overhead": int(qty) * (random.randint(25, 350) * 1.5)} for qty, unit, item in matches]
                     st.session_state.takeoff_results.extend(extracted)
                     st.success(f"NLP Engine processed {len(extracted)} distinct material nodes."); time.sleep(0.5); st.rerun()
-
     with tab_cv:
-        st.write("Upload a flat floor plan image (PNG, JPG, PDF) to scan for electrical symbols (e.g., Duplex Receptacles, Switches, Fixtures).")
         uploaded_plan = st.file_uploader("Blueprint Vision Uploader", type=["png", "jpg", "jpeg", "pdf"])
         if uploaded_plan:
             if st.button("👁️ Initiate Deep Vision OCR Scan", use_container_width=True):
-                with st.spinner("Compiling neural net weights... Scanning for architectural symbology..."):
+                with st.spinner("Scanning for architectural symbology..."):
                     time.sleep(2.5)
-                    # Simulated OCR extraction data
                     cv_extractions = [
-                        {"Material String": "20A Duplex Receptacle (NEMA 5-20R)", "Quantity": random.randint(40, 150), "Measurement": "Units", "Est. Unit Cost": 14.50, "Total Overhead": 0},
-                        {"Material String": "Single-Pole Toggle Switch", "Quantity": random.randint(15, 60), "Measurement": "Units", "Est. Unit Cost": 8.75, "Total Overhead": 0},
+                        {"Material String": "20A Duplex Receptacle", "Quantity": random.randint(40, 150), "Measurement": "Units", "Est. Unit Cost": 14.50, "Total Overhead": 0},
                         {"Material String": "2x4 LED Troffer Fixture", "Quantity": random.randint(20, 80), "Measurement": "Units", "Est. Unit Cost": 145.00, "Total Overhead": 0}
                     ]
-                    for item in cv_extractions:
-                        item["Total Overhead"] = item["Quantity"] * item["Est. Unit Cost"]
-                    
+                    for item in cv_extractions: item["Total Overhead"] = item["Quantity"] * item["Est. Unit Cost"]
                     st.session_state.takeoff_results.extend(cv_extractions)
-                    log_system_event(current_user, "CV Extraction", f"AI identified {len(cv_extractions)} symbol classes from {uploaded_plan.name}.")
-                    st.success(f"Vision successful! OmniMind isolated {sum(item['Quantity'] for item in cv_extractions)} total hardware nodes from the drawing.")
-                    time.sleep(1); st.rerun()
-
+                    st.success(f"Vision successful! OmniMind isolated total hardware nodes from the drawing."); time.sleep(1); st.rerun()
     with tab_results:
         if st.session_state.takeoff_results:
             df_res = pd.DataFrame(st.session_state.takeoff_results)
@@ -261,12 +255,8 @@ elif selected_page == t["takeoff"]:
             calc_total = df_res["Total Overhead"].sum()
             st.markdown(f"<div class='unifi-stealth-gold'><b>CALCULATED PROCUREMENT ESTIMATE:</b> ${calc_total:,.2f}</div>", unsafe_allow_html=True)
             if st.button("📥 Stage Items to Procurement Buyout Engine", use_container_width=True):
-                st.session_state.purchase_orders.insert(0, {"PO ID": f"PO-{len(st.session_state.purchase_orders)+1:03d}", "Amount": calc_total, "Status": "Fabrication", "lat": 25.7617 + random.uniform(-0.02, 0.02), "lon": -80.1918 + random.uniform(-0.02, 0.02)})
-                st.success("Materials successfully staged in the master procurement matrix!")
-                st.session_state.takeoff_results = [] # clear after buyout
-                time.sleep(1); st.rerun()
-        else:
-            st.info("Extraction matrix empty. Run NLP or Vision scans to populate.")
+                st.session_state.purchase_orders.insert(0, {"PO ID": f"PO-{len(st.session_state.purchase_orders)+1:03d}", "Amount": calc_total, "Status": "Fabrication", "lat": 25.7617, "lon": -80.1918})
+                st.session_state.takeoff_results = []; st.success("Staged!"); time.sleep(1); st.rerun()
 
 elif selected_page == t["bid"]:
     st.write(f"### {t['bid']}")
@@ -281,17 +271,73 @@ elif selected_page == t["bid"]:
         contingency_val = subtotal * (contingency / 100)
         margin_val = (subtotal + contingency_val) * (base_margin / 100)
         final_bid_val = subtotal + contingency_val + margin_val
-        st.write(f"**Calculated Material Cost:** ${mat_cost:,.2f}")
-        st.write(f"**Calculated Labor Burden:** ${labor_cost:,.2f}")
         st.markdown(f"<div class='unifi-stealth-green'><b>Projected Bid Value:</b> ${final_bid_val:,.2f}</div>", unsafe_allow_html=True)
         generate_bid = st.button("📝 Generate Executive Proposal", use_container_width=True)
-
     with col_doc:
         if generate_bid:
-            with st.spinner("OmniMind is drafting the proposal..."): time.sleep(1.2)
-            proposal_id = f"PRP-{random.randint(10000, 99999)}"
             proposal_html = f"<div style='background-color: #F8FAFC; color: #0F172A; padding: 40px; border-radius: 8px;'><h2 style='color: #38BDF8;'>EXECUTIVE COMMERCIAL PROPOSAL</h2><p><b>TOTAL FIRM FIXED PRICE:</b> <span style='color: #10B981; font-size: 18px;'>${final_bid_val:,.2f}</span></p></div>"
             st.markdown(proposal_html, unsafe_allow_html=True)
+
+# --- NEW MODULE: IOT TOOL FLEET MANAGEMENT ---
+elif selected_page == t["tools"]:
+    st.write(f"### {t['tools']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>🧰 Fleet Asset Tracking & Geofence Security</b><br>Assign high-value tools directly to active labor nodes. Track inventory liability to prevent site shrinkage.</div>", unsafe_allow_html=True)
+    
+    col_assign, col_fleet = st.columns([1, 1.3])
+    
+    active_workers = [log['Name'] for log in st.session_state.labor_logs if log['Status'] == 'Active']
+    
+    with col_assign:
+        st.write("#### 📡 Asset Handshake")
+        st.caption("Scan asset out from the Company Vault to an active crew member on-site.")
+        
+        vault_tools = [t for t in st.session_state.tool_fleet if t['Status'] == "Company Vault"]
+        
+        if not vault_tools:
+            st.info("All company assets are currently deployed in the field.")
+        elif not active_workers:
+            st.warning("No personnel currently clocked in to receive tools.")
+        else:
+            selected_tool = st.selectbox("Select Asset to Dispatch", [f"{t['Asset Tag']} - {t['Tool Type']}" for t in vault_tools])
+            assigned_worker = st.selectbox("Assign to Field Agent", active_workers)
+            
+            if st.button("🔒 Authorize Asset Handshake", use_container_width=True):
+                asset_id = selected_tool.split(" - ")[0]
+                for idx, t_obj in enumerate(st.session_state.tool_fleet):
+                    if t_obj['Asset Tag'] == asset_id:
+                        st.session_state.tool_fleet[idx]['Status'] = "Field Deployed"
+                        st.session_state.tool_fleet[idx]['Assigned To'] = assigned_worker
+                log_system_event(current_user, "Asset Dispatch", f"Assigned {asset_id} to {assigned_worker}.")
+                st.success(f"Asset {asset_id} successfully mapped to {assigned_worker}. Liability transferred."); time.sleep(1); st.rerun()
+
+        st.write("---")
+        st.write("#### 📹 Site Surveillance Telemetry")
+        if st.button("Ping UniFi Protect Cameras (Staging Area)"):
+            with st.spinner("Connecting to UniFi NVR... Requesting RTSP Stream..."):
+                time.sleep(2)
+                st.markdown("<div class='unifi-stealth-green'><b>✅ CONNECTION SECURED</b><br>No anomalous movement detected near the staging vault. System clear.</div>", unsafe_allow_html=True)
+
+    with col_fleet:
+        st.write("#### 📋 Active Fleet Ledger")
+        st.dataframe(pd.DataFrame(st.session_state.tool_fleet), use_container_width=True, hide_index=True)
+        
+        deployed_value = sum([t['Value'] for t in st.session_state.tool_fleet if t['Status'] == "Field Deployed"])
+        st.markdown(f"<div class='unifi-stealth-red'><b>⚠️ ACTIVE FIELD LIABILITY:</b> ${deployed_value:,.2f}</div>", unsafe_allow_html=True)
+        
+        st.write("---")
+        st.write("#### 🔙 Recover Asset")
+        deployed_tools = [t for t in st.session_state.tool_fleet if t['Status'] == "Field Deployed"]
+        if deployed_tools:
+            recover_tool = st.selectbox("Select Asset to Return", [f"{t['Asset Tag']} - {t['Tool Type']} ({t['Assigned To']})" for t in deployed_tools])
+            if st.button("📥 Scan Back to Company Vault"):
+                r_asset_id = recover_tool.split(" - ")[0]
+                for idx, t_obj in enumerate(st.session_state.tool_fleet):
+                    if t_obj['Asset Tag'] == r_asset_id:
+                        st.session_state.tool_fleet[idx]['Status'] = "Company Vault"
+                        st.session_state.tool_fleet[idx]['Assigned To'] = "Unassigned"
+                st.success("Asset secured back into the vault."); time.sleep(1); st.rerun()
+        else:
+            st.caption("No assets currently deployed.")
 
 elif selected_page == t["clinic"]:
     st.write(f"### {t['clinic']}")
@@ -355,56 +401,23 @@ elif selected_page == t["labor"]:
     with col_dfr:
         if st.button("⚙️ Compile AI Daily Field Report"): st.success("DFR Compiled!")
 
-# --- NEW MODULE: SECURE SITE FORENSICS ---
 elif selected_page == t["forensics"]:
     st.write(f"### {t['forensics']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📷 Immutable Site Progress Forensics</b><br>Capture real-time field progress. OmniMind will lock the image with GPS metadata, timestamp it, and generate a cryptographic SHA hash to protect against GC disputes.</div>", unsafe_allow_html=True)
-    
+    st.markdown("<div class='unifi-stealth-blade'><b>📷 Immutable Site Progress Forensics</b></div>", unsafe_allow_html=True)
     col_cam, col_ledger = st.columns([1, 1.2])
-    
     with col_cam:
-        user_units_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
-        if user_units_df.empty:
-            st.info("No units assigned to your tenant node.")
-        else:
-            photo_unit = st.selectbox("Assign Photo to Location Node", user_units_df["Unit Number"].tolist())
-            photo_notes = st.text_input("Forensic Notes", placeholder="e.g., Block A drywall framing complete...")
-            
-            # Using Streamlit's native camera input
-            captured_image = st.camera_input("📸 Capture Field Document")
-            
-            if captured_image:
-                with st.spinner("Encrypting visual metadata and generating block hash..."):
-                    time.sleep(1.5)
-                    # Simulate SHA-256 hash generation
-                    crypto_hash = "0x" + "".join(random.choices(string.hexdigits.lower(), k=64))
-                    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    
-                    st.session_state.forensic_photos.insert(0, {
-                        "Timestamp": timestamp,
-                        "Unit Node": photo_unit,
-                        "Notes": sanitize_input(photo_notes),
-                        "GPS Checksum": "25.7617° N, -80.1918° W (Verified)",
-                        "Immutable Hash": crypto_hash[:16] + "..." + crypto_hash[-8:]
-                    })
-                    
-                    log_system_event(current_user, "Forensics", f"Secured immutable field photo for {photo_unit}.")
-                    st.success("Photo cryptographically sealed into the master ledger!"); time.sleep(1); st.rerun()
-
+        photo_notes = st.text_input("Forensic Notes")
+        captured_image = st.camera_input("📸 Capture Field Document")
+        if captured_image:
+            with st.spinner("Encrypting visual metadata..."):
+                time.sleep(1.5)
+                crypto_hash = "0x" + "".join(random.choices(string.hexdigits.lower(), k=64))
+                st.session_state.forensic_photos.insert(0, {"Timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "Unit Node": "Site-Wide", "Notes": sanitize_input(photo_notes), "GPS Checksum": "25.7617° N, -80.1918° W", "Immutable Hash": crypto_hash[:16] + "..." + crypto_hash[-8:]})
+                st.success("Photo cryptographically sealed!"); time.sleep(1); st.rerun()
     with col_ledger:
-        st.write("#### 🗄️ Cryptographic Forensic Ledger")
         if st.session_state.forensic_photos:
-            for idx, f_log in enumerate(st.session_state.forensic_photos):
-                st.markdown(f"""
-                <div style='background-color: #0F172A; border: 1px solid #1E293B; border-left: 3px solid #10B981; padding: 12px; margin-bottom: 8px; border-radius: 4px;'>
-                    <b style='color:#F8FAFC;'>{f_log['Unit Node']}</b> - <span style='color:#94A3B8; font-size:12px;'>{f_log['Timestamp']}</span><br>
-                    <i>{f_log['Notes']}</i><br>
-                    <code style='color:#38BDF8; background:none; padding:0;'>LOC: {f_log['GPS Checksum']}</code><br>
-                    <code style='color:#EF4444; background:none; padding:0;'>HASH: {f_log['Immutable Hash']}</code>
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.caption("No field photos currently sealed in the ledger.")
+            for f_log in st.session_state.forensic_photos:
+                st.markdown(f"<div style='background-color: #0F172A; border: 1px solid #1E293B; border-left: 3px solid #10B981; padding: 12px; margin-bottom: 8px; border-radius: 4px;'><b style='color:#F8FAFC;'>{f_log['Unit Node']}</b> - <span style='color:#94A3B8; font-size:12px;'>{f_log['Timestamp']}</span><br><i>{f_log['Notes']}</i><br><code style='color:#38BDF8; background:none; padding:0;'>LOC: {f_log['GPS Checksum']}</code><br><code style='color:#EF4444; background:none; padding:0;'>HASH: {f_log['Immutable Hash']}</code></div>", unsafe_allow_html=True)
 
 elif selected_page == t["comm_rollout"]:
     st.write(f"### {t['comm_rollout']}")
@@ -419,7 +432,6 @@ elif selected_page == t["fin"]:
     st.write(f"### {t['fin']}")
     u_bal = st.session_state.tenant_balances[current_user]
     st.markdown(f"<div class='unifi-stealth-blade'>🔒 <b>SECURE PROJECT ESCROW BALANCE:</b> ${u_bal['escrow']:,.2f} USD</div>", unsafe_allow_html=True)
-    if st.button("📄 Generate Formal Commercial Draw Invoice"): st.success("Official invoice rendered successfully!")
 
 elif selected_page == t["bank"]:
     st.write(f"### {t['bank']}")
@@ -457,7 +469,6 @@ elif selected_page == t["field_signoff"]:
 
 elif selected_page == t["punch_list"]:
     st.write(f"### {t['punch_list']}")
-    st.write("🛠️ Field Quality Assurance")
     punch_unit = st.text_input("Location / Node")
     if st.button("⚡ Dispatch Punch Ticket to Crew"): st.success("Ticket dispatched!")
 
@@ -492,7 +503,3 @@ elif selected_page == t["chat_hub"]:
 elif selected_page == t["api"]:
     st.write(f"### {t['api']}")
     st.code("curl -X GET https://api.omnibuildos.com/v1/materials -H 'Authorization: Bearer KEY'")
-
-elif selected_page == t["ai_core"]:
-    st.write(f"### {t['ai_core']}")
-    if st.button("⚡ Run Live Cross-Table Cognitive Diagnostics"): st.success("Diagnostics run successfully.")
