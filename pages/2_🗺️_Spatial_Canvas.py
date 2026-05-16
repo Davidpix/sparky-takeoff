@@ -10,8 +10,8 @@ from PIL import ImageDraw
 
 st.set_page_config(page_title="Spatial Canvas", layout="wide")
 
-st.title("🗺️ Blueprint Measurement Canvas")
-st.write("Use this page to trace circuit paths, map conduit lines, and execute dynamic engineering design calculations.")
+st.title("🗺️ Blueprint Measurement Canvas & Engineering Tools")
+st.write("Use this page to trace circuit paths, map conduit lines, and execute dynamic engineering box-sizing calculations.")
 
 if "uploaded_file_bytes" not in st.session_state or st.session_state.uploaded_file_bytes is None:
     st.error("⚠️ No blueprint detected in memory. Please go back to the main page, complete Step 4 (Upload Blueprint), and return here.")
@@ -45,33 +45,69 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
             }
             
         st.write("---")
-        mode = st.radio("2. Choose What Tool to Use:", ["1. Calibrate Scale", "2. Measure Linear Run", "3. AI Symbol Scan"])
+        mode = st.radio("2. Choose What Tool to Use:", ["1. Calibrate Scale", "2. Measure Linear Run", "3. AI Symbol Scan", "4. NEC Box Sizer"])
         
         st.write("---")
         st.write("#### 🏢 Active Takeoff Construction Zone")
         selected_zone = st.selectbox("Target Operational Area / Room", options=["General Branch Run", "Main Service Room", "Kitchen Layout", "Bathroom / Wet Areas", "Exterior / Site Work"])
         st.session_state.sheet_ledger[sheet_key]["active_zone"] = selected_zone
         
-        # --- ADVANCED PILLAR 1 ENHANCEMENT: NEC CONDUIT FILL CAPACITY CALCULATOR ---
-        st.write("---")
-        st.write("#### 📐 NEC Conduit Fill Capacity Checker (40% Cross-Sectional Limit)")
-        
-        cond_type = st.selectbox("Conduit Size to Analyze", ["1/2\" EMT", "3/4\" EMT", "1\" EMT"], index=1)
-        conductor_count = st.number_input("Number of Current-Carrying Wires in Pipe", min_value=1, max_value=20, value=3)
-        conductor_gauge = st.selectbox("Wire Type Profile", ["#14 THHN", "#12 THHN", "#10 THHN", "#8 THHN"])
-        
-        # Exact structural millimeter cross-sectional areas (sq inches) mapping Table 5 values
-        wire_area_map = {"#14 THHN": 0.0097, "#12 THHN": 0.0133, "#10 THHN": 0.0211, "#8 THHN": 0.0366}
-        conduit_total_area_map = {"1/2\" EMT": 0.304, "3/4\" EMT": 0.533, "1\" EMT": 0.864}
-        
-        total_wire_area = conductor_count * wire_area_map[conductor_gauge]
-        available_conduit_40_area = conduit_total_area_map[cond_type] * 0.40
-        fill_utilization_ratio = (total_wire_area / available_conduit_40_area) * 100
-        
-        if fill_utilization_ratio > 100.0:
-            st.error(f"🚨 **NEC Overfill Warning:** Pipe Overloaded! Total copper area ({total_wire_area:.4f} sq.in) exceeds the legal 40% maximum allowable capacity of {cond_type} ({available_conduit_40_area:.4f} sq.in). Wire jam or overheat risks detected.")
-        else:
-            st.success(f"✅ **NEC Code Pass:** Pipe occupancy is at **{fill_utilization_ratio:.1f}%** of legal capacity. Safe configuration.")
+        # --- NEW PILLAR: NEC ARTICLE 314.16 ELECTRICAL BOX SIZING CALCULATOR ---
+        if mode == "4. NEC Box Sizer":
+            st.write("---")
+            st.write("#### 📦 NEC Junction Box Volume Calculator")
+            st.caption("Formulate required box sizes based on conductor counts, device yokes, and internal fittings per NEC Table 314.16(B).")
+            
+            box_wire_gauge = st.selectbox("Circuit Conductor Size", ["#14 AWG", "#12 AWG", "#10 AWG"])
+            qty_conductors = st.number_input("Count of Insulated Wires Entering Box", min_value=1, max_value=20, value=4)
+            qty_devices = st.number_input("Count of Devices / Straps (Switches/Outlets)", min_value=0, max_value=4, value=1)
+            has_grounds = st.checkbox("Box Contains Grounding Conductors?", value=True)
+            has_internal_clamps = st.checkbox("Box Features Internal Cable Clamps?", value=False)
+            
+            # Map Table 314.16(B) cubic inch allowance factors
+            multiplier_map = {"#14 AWG": 2.00, "#12 AWG": 2.25, "#10 AWG": 2.50}
+            unit_vol = multiplier_map[box_wire_gauge]
+            
+            # Run NEC Code compilation loops
+            wire_volume_allocation = qty_conductors * unit_vol
+            device_volume_deduction = (qty_devices * 2) * unit_vol
+            ground_volume_factor = 1 * unit_vol if has_grounds else 0.0
+            clamp_volume_factor = 1 * unit_vol if has_internal_clamps else 0.0
+            
+            total_required_cubic_inches = wire_volume_allocation + device_volume_deduction + ground_volume_factor + clamp_volume_factor
+            
+            # Formulate the technical hardware recommendation
+            st.write("---")
+            st.metric("Total Required Box Volume", f"{total_required_cubic_inches:.2f} cu. in.")
+            
+            if total_required_cubic_inches <= 18.0:
+                st.success("📦 **Hardware Selection:** Use a standard **4\" x 1-1/2\" Square Box** (18.0 cu. in. capacity) safely.")
+            elif total_required_cubic_inches <= 21.0:
+                st.success("📦 **Hardware Selection:** Use a standard **4\" x 1-1/2\" Octagon Box** or deep single-gang box safely.")
+            elif total_required_cubic_inches <= 30.3:
+                st.success("📦 **Hardware Selection:** Upgrade to a **4\" x 2-1/8\" Deep Square Box** (30.3 cu. in. capacity) to meet code limits.")
+            else:
+                st.warning("⚠️ **Hardware Selection Overload:** Volume exceeds standard square boxes. Upgrade to a **4-11/16\" x 2-1/8\" Deep Industrial Box** (42.0 cu. in. capacity) to remain compliant.")
+
+        # --- RE-ESTABLISH BASELINE FUNCTIONALITIES ---
+        if mode != "4. NEC Box Sizer":
+            st.write("---")
+            st.write("#### 📐 NEC Conduit Fill Capacity Checker (40% Limit)")
+            cond_type = st.selectbox("Conduit Size to Analyze", ["1/2\" EMT", "3/4\" EMT", "1\" EMT"], index=1)
+            conductor_count = st.number_input("Number of Wires in Pipe", min_value=1, max_value=20, value=3)
+            conductor_gauge = st.selectbox("Wire Type Profile", ["#14 THHN", "#12 THHN", "#10 THHN", "#8 THHN"])
+            
+            wire_area_map = {"#14 THHN": 0.0097, "#12 THHN": 0.0133, "#10 THHN": 0.0211, "#8 THHN": 0.0366}
+            conduit_total_area_map = {"1/2\" EMT": 0.304, "3/4\" EMT": 0.533, "1\" EMT": 0.864}
+            
+            total_wire_area = conductor_count * wire_area_map[conductor_gauge]
+            available_conduit_40_area = conduit_total_area_map[cond_type] * 0.40
+            fill_utilization_ratio = (total_wire_area / available_conduit_40_area) * 100
+            
+            if fill_utilization_ratio > 100.0:
+                st.error(f"🚨 **NEC Overfill Warning:** occupancy is at **{fill_utilization_ratio:.1f}%**.")
+            else:
+                st.success(f"✅ **NEC Code Pass:** occupancy is at **{fill_utilization_ratio:.1f}%**.")
             
         st.write("---")
         st.write("#### 📐 Blueprint Scale Profile")
