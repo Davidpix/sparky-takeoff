@@ -267,11 +267,67 @@ elif selected_page == t["comm_rollout"]:
             for idx, row in edited_df.iterrows(): supabase_api_call(endpoint="commercial_units", method="POST", payload=row.to_dict())
             st.success("All data updates have been permanently saved to your cloud database arrays.")
 
+# --- UPGRADED MODULE: AUTOMATED INVOICE ENGINE ---
 elif selected_page == t["fin"]:
     st.write(f"### {t['fin']}")
     u_bal = st.session_state.tenant_balances[current_user]
     st.markdown(f"<div class='unifi-stealth-blade'>🔒 <b>SECURE PROJECT ESCROW BALANCE:</b> ${u_bal['escrow']:,.2f} USD</div>", unsafe_allow_html=True)
     st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'>💳 <b>OPERATIONAL WORKING WALLET LIQUIDITY:</b> ${u_bal['wallet']:,.2f} USD</div>", unsafe_allow_html=True)
+    
+    st.write("---")
+    st.write("#### 🧾 Automated Pay Application & Invoice Engine")
+    st.caption("Generate formal, printable draw requests mapped explicitly to legally approved field milestones.")
+    
+    approved_units = st.session_state.commercial_units[(st.session_state.commercial_units["Tenant Owner"] == current_user) & (st.session_state.commercial_units["GC Sign-Off"] == "Approved & Certified")]
+    
+    if approved_units.empty:
+        st.info("No approved units available for billing. Instruct the GC to complete field sign-offs to unlock invoice generation.")
+    else:
+        invoice_total = approved_units["Value Release"].sum()
+        if st.button("📄 Generate Formal Commercial Draw Invoice", use_container_width=True):
+            invoice_number = f"INV-{random.randint(1000,9999)}"
+            date_str = datetime.datetime.now().strftime("%B %d, %Y")
+            
+            line_items_html = ""
+            for _, row in approved_units.iterrows():
+                line_items_html += f"<tr><td style='padding: 8px; border-bottom: 1px solid #1E293B;'>{row['Floor']} - {row['Unit Number']}</td><td style='padding: 8px; border-bottom: 1px solid #1E293B;'>{row['Asset Type']}</td><td style='padding: 8px; border-bottom: 1px solid #1E293B; text-align: right;'>${row['Value Release']:,.2f}</td></tr>"
+                
+            invoice_html = f"""
+            <div style='background-color: #F8FAFC; color: #0F172A; padding: 40px; border-radius: 8px; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; margin-top: 20px;'>
+                <div style='display: flex; justify-content: space-between; border-bottom: 2px solid #CBD5E1; padding-bottom: 20px; margin-bottom: 20px;'>
+                    <div>
+                        <h2 style='margin: 0; color: #0F172A;'>{st.session_state.company_name}</h2>
+                        <p style='margin: 5px 0 0 0; color: #475569;'>Authorized Subcontractor Entity</p>
+                    </div>
+                    <div style='text-align: right;'>
+                        <h1 style='margin: 0; color: #38BDF8;'>PAY APPLICATION</h1>
+                        <p style='margin: 5px 0 0 0; font-weight: bold;'>{invoice_number}</p>
+                        <p style='margin: 0; color: #475569;'>{date_str}</p>
+                    </div>
+                </div>
+                <table style='width: 100%; border-collapse: collapse; margin-bottom: 30px;'>
+                    <thead>
+                        <tr style='background-color: #E2E8F0; text-align: left;'>
+                            <th style='padding: 10px;'>Location Node</th>
+                            <th style='padding: 10px;'>Asset / Scope</th>
+                            <th style='padding: 10px; text-align: right;'>Cleared Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {line_items_html}
+                    </tbody>
+                </table>
+                <div style='text-align: right; font-size: 20px;'>
+                    <b>TOTAL DRAW REQUEST: <span style='color: #10B981;'>${invoice_total:,.2f}</span></b>
+                </div>
+                <div style='margin-top: 50px; border-top: 1px dashed #CBD5E1; padding-top: 20px;'>
+                    <p style='margin: 0; font-size: 12px; color: #64748B;'>SYSTEM GENERATED: OmniBuild OS Core Financial Engine. All work listed above has been inspected and digitally signed by authorized GC personnel. Please remit wire transfer to designated corporate accounts.</p>
+                </div>
+            </div>
+            """
+            st.markdown(invoice_html, unsafe_allow_html=True)
+            log_system_event(current_user, "Invoice Generation", f"Rendered Pay Application {invoice_number} for total sum ${invoice_total:,.2f}.")
+            st.success("Official invoice rendered successfully! You can press Cmd+P (or Ctrl+P) on your keyboard to print or save this document directly as a PDF.")
 
 elif selected_page == t["bank"]:
     st.write(f"### {t['bank']}")
