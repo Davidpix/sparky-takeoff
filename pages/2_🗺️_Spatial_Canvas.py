@@ -11,6 +11,7 @@ st.set_page_config(page_title="Spatial Canvas", layout="wide")
 
 st.title("🗺️ Spatial Canvas & Vision Takeoff Core")
 
+# --- STRUCTURAL SECURITY INTEGRITY CHECK ---
 if "uploaded_file_bytes" not in st.session_state or st.session_state.uploaded_file_bytes is None:
     st.warning("⚠️ No project blueprint detected in active session memory. Please return to the Dashboard Gateway page and upload a master PDF file package.")
     st.stop()
@@ -22,6 +23,35 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
     with col_x:
         page_number = st.number_input("Target Drawing Sheet", min_value=1, max_value=total_pages, value=1)
         mode = st.radio("Canvas Tool Profile", ["1. Calibrate Scale", "2. Measure Linear Run", "3. AI Symbol Scan"])
+        
+        st.divider()
+        st.write("#### 📐 Architectural Scale Presets")
+        st.caption("Quickly lock in standard engineering or architectural drafting scale constraints without manual calibration.")
+        
+        # Mapping drop-down select options to calculated Pixel-Per-Foot ratios based on standard 72 DPI PDF coordinates
+        scale_preset = st.selectbox(
+            "Select Standard Plan Scale",
+            options=[
+                "Manual Calibration Mode",
+                "1/4\" = 1'-0\" (Residential Standard)",
+                "1/8\" = 1'-0\" (Commercial Standard)",
+                "1\" = 10'-0\" (Civil/Site Plan Standard)",
+                "1\" = 20'-0\" (Civil/Plot Standard)"
+            ]
+        )
+        
+        # Handle scaling preset changes instantly
+        if scale_preset != "Manual Calibration Mode":
+            if "1/4\"" in scale_preset:
+                st.session_state.scale_pixels_per_foot = 18.0  # 72 / 4
+            elif "1/8\"" in scale_preset:
+                st.session_state.scale_pixels_per_foot = 9.0   # 72 / 8
+            elif "10'-0\"" in scale_preset:
+                st.session_state.scale_pixels_per_foot = 7.2   # 72 / 10
+            elif "20'-0\"" in scale_preset:
+                st.session_state.scale_pixels_per_foot = 3.6   # 72 / 20
+            st.success(f"Locked Preset Factor: {st.session_state.scale_pixels_per_foot:.1f} Px/Ft")
+
     with col_y:
         st.write("#### Canvas Control Actions")
         if st.button("🔄 Clear Active Canvas Session History"):
@@ -30,6 +60,7 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
             st.session_state.conduit_runs = 0.0
             st.session_state.vision_counts = {}
             st.success("Canvas cache wiped!")
+            st.rerun()
 
     page = pdf.pages[page_number - 1]
     img = page.to_image(resolution=100)
@@ -64,6 +95,9 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
         st.write(f"Logged Active Coordinates: `{st.session_state.click_history}`")
         
         if mode == "1. Calibrate Scale":
+            if scale_preset != "Manual Calibration Mode":
+                st.warning("💡 You are currently using an Architectural Scale Preset. To manually calibrate using custom points instead, switch the dropdown on the left back to 'Manual Calibration Mode'.")
+            
             if len(st.session_state.click_history) >= 2:
                 p1, p2 = st.session_state.click_history[-2], st.session_state.click_history[-1]
                 p_dist = math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
@@ -72,14 +106,17 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
                     st.session_state.scale_pixels_per_foot = p_dist / known_ft
                     st.success(f"Scale Calibration locked at {st.session_state.scale_pixels_per_foot:.2f} px/ft!")
                     
-        elif mode == "2. Measure Linear Run" and st.session_state.scale_pixels_per_foot is not None:
-            if len(st.session_state.click_history) >= 2:
-                t_px = 0.0
-                for i in range(len(st.session_state.click_history)-1):
-                    pt1, pt2 = st.session_state.click_history[i], st.session_state.click_history[i+1]
-                    t_px += math.sqrt((pt2[0]-pt1[0])**2 + (pt2[1]-pt1[1])**2)
-                calc_ft = t_px / st.session_state.scale_pixels_per_foot
-                st.metric("Traced Circuit Distance", f"{calc_ft:.2f} Linear Ft")
-                if st.button("➕ Push Branch Length to Active Estimate"):
-                    st.session_state.conduit_runs += calc_ft
-                    st.success("Footage compiled successfully into core worksheet ledger!")
+        elif mode == "2. Measure Linear Run":
+            if st.session_state.scale_pixels_per_foot is None:
+                st.error("⚠️ Scale factor uncalibrated. Select an Architectural Scale Preset or complete manual calibration points before tracking runs.")
+            else:
+                if len(st.session_state.click_history) >= 2:
+                    t_px = 0.0
+                    for i in range(len(st.session_state.click_history)-1):
+                        pt1, pt2 = st.session_state.click_history[i], st.session_state.click_history[i+1]
+                        t_px += math.sqrt((pt2[0]-pt1[0])**2 + (pt2[1]-pt1[1])**2)
+                    calc_ft = t_px / st.session_state.scale_pixels_per_foot
+                    st.metric("Traced Circuit Distance", f"{calc_ft:.2f} Linear Ft")
+                    if st.button("➕ Push Branch Length to Active Estimate"):
+                        st.session_state.conduit_runs += calc_ft
+                        st.success("Footage compiled successfully into core worksheet ledger!")
