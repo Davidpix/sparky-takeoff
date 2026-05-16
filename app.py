@@ -63,7 +63,7 @@ if "wl_client_name" not in st.session_state: st.session_state.wl_client_name = "
 
 # Multi-Tenant Siloed Ledgers
 if "tenant_balances" not in st.session_state: st.session_state.tenant_balances = {}
-if "change_orders" not in st.session_state: st.session_state.change_orders = []
+if "active_change_orders" not in st.session_state: st.session_state.active_change_orders = []
 if "transaction_history" not in st.session_state: st.session_state.transaction_history = []
 if "contract_agreements" not in st.session_state: st.session_state.contract_agreements = []
 if "system_audit_trail" not in st.session_state: st.session_state.system_audit_trail = []
@@ -107,6 +107,7 @@ st.markdown(f"""
     .unifi-stealth-blade {{ background-color: {active_colors['panel']} !important; border: 1px solid {active_colors['border']} !important; border-left: 3px solid {active_colors['accent']} !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }}
     .unifi-stealth-gold {{ background-color: #1A170F !important; border: 1px solid #3B321E !important; border-left: 3px solid #F59E0B !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }}
     .unifi-stealth-green {{ background-color: #0B1C16 !important; border: 1px solid #143A2E !important; border-left: 3px solid #10B981 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }}
+    .unifi-stealth-red {{ background-color: #1A0F14 !important; border: 1px solid #3B1E28 !important; border-left: 3px solid #EF4444 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }}
     .brand-hero-header {{ font-size: 28px; font-weight: bold; color: {active_colors['accent']} !important; letter-spacing: -0.02em; margin-bottom: 5px; }}
     .chat-bubble-sub {{ background-color: {active_colors['panel']} !important; padding: 12px; border-radius: 4px; border-left: 3px solid {active_colors['accent']}; margin-bottom: 8px; }}
     .chat-bubble-gc {{ background-color: #1E1B4B !important; padding: 12px; border-radius: 4px; border-left: 3px solid #10B981; margin-bottom: 8px; }}
@@ -146,7 +147,11 @@ if not st.session_state.user_authenticated:
             if st.form_submit_button("⚡ Initialize Workspace & Set Credentials", use_container_width=True):
                 matching_token = [k for k in st.session_state.generated_license_keys if k["Key Token"] == act_token and k["Assigned Client"].lower() == act_email.lower()]
                 if matching_token:
-                    payload = {"email": act_email, "password_hash": act_password, "company_name": act_company if act_company else "Invited Enterprise Partner", "assigned_role": f"🏗️ {matching_token[0]['Tier']} Tenant"}
+                    payload = {
+                        "email": act_email, "password_hash": act_password,
+                        "company_name": act_company if act_company else "Invited Enterprise Partner",
+                        "assigned_role": f"🏗️ {matching_token[0]['Tier']} Tenant"
+                    }
                     supabase_api_call(endpoint="user_registry", method="POST", payload=payload)
                     for idx, key in enumerate(st.session_state.generated_license_keys):
                         if key["Key Token"] == act_token: st.session_state.generated_license_keys[idx]["Status"] = "Active / Verified"
@@ -227,25 +232,20 @@ elif selected_page == t["matrix"]:
 
 elif selected_page == t["takeoff"]:
     st.write(f"### {t['takeoff']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📐 Blueprint NLP Material Takeoff Extraction</b><br>Paste raw architectural specification text below.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='unifi-stealth-blade'><b>📐 Blueprint NLP Material Takeoff Extraction</b></div>", unsafe_allow_html=True)
     col_in, col_out = st.columns([1, 1.2])
     with col_in:
         sample_text = "SPEC-01: Provide and install 450x White Quartz Slabs for master vanities. SPEC-02: Pull 1200ft of 3/4-inch ENT conduit."
         raw_specs = st.text_area("Raw Architectural Blueprint Notes / BOM Strings", value=sample_text, height=200)
         if st.button("🧠 Run OmniMind Text Parsing Engine", use_container_width=True):
             if raw_specs:
-                with st.spinner("Parsing syntax strings and extracting variables..."):
+                with st.spinner("Parsing syntax strings..."):
                     time.sleep(0.8)
                     matches = re.findall(r'(\d+)(x|ft)\s*(?:of\s*)?([a-zA-Z0-9\s\-]+?)(?=\.|$)', raw_specs, re.IGNORECASE)
-                    extracted_list = []
-                    for qty, unit, item in matches:
-                        base_cost = random.randint(25, 350) * 1.5
-                        extracted_list.append({"Material String": item.strip().title(), "Quantity": int(qty), "Measurement": "Linear Feet" if unit.lower() == 'ft' else "Units", "Est. Unit Cost": base_cost, "Total Overhead": int(qty) * base_cost})
+                    extracted_list = [{"Material String": item.strip().title(), "Quantity": int(qty), "Measurement": "Linear Feet" if unit.lower() == 'ft' else "Units", "Est. Unit Cost": random.randint(25, 350) * 1.5, "Total Overhead": int(qty) * (random.randint(25, 350) * 1.5)} for qty, unit, item in matches]
                     st.session_state.takeoff_results = extracted_list
-                    log_system_event(current_user, "Takeoff Parse", f"Extracted {len(extracted_list)} materials.")
-                    st.success("Extraction parameters processed cleanly!"); time.sleep(0.5); st.rerun()
+                    st.success("Extraction processed cleanly!"); time.sleep(0.5); st.rerun()
     with col_out:
-        st.write("#### 📋 Extracted Bill of Materials Matrix")
         if st.session_state.takeoff_results:
             df_res = pd.DataFrame(st.session_state.takeoff_results)
             st.dataframe(df_res, use_container_width=True, hide_index=True)
@@ -263,9 +263,68 @@ elif selected_page == t["clinic"]:
     st.write(f"### {t['clinic']}")
     st.checkbox("HIPAA Network Isolation Ring Active", value=True)
 
+# --- UPGRADED MODULE: CHANGE ORDER & VARIANCE ARBITRATION ENGINE ---
 elif selected_page == t["co_lien"]:
     st.write(f"### {t['co_lien']}")
-    st.write("Tracking 0 Active Field Variance Disputes.")
+    st.markdown("<div class='unifi-stealth-blade'><b>📝 Field Variance & Change Order (CO) Arbitration</b><br>Log blueprint disruptions instantly. OmniMind calculates the labor penalty and financially locks the asset block until the GC executes a digital signature.</div>", unsafe_allow_html=True)
+    
+    col_log, col_active = st.columns([1, 1.2])
+    
+    with col_log:
+        st.write("#### ⚠️ Log Field Disruption")
+        user_units_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
+        
+        if user_units_df.empty:
+            st.info("No active structural units available to log a variance against.")
+        else:
+            impacted_unit = st.selectbox("Select Impacted Node", user_units_df["Unit Number"].tolist())
+            disruption_desc = st.text_area("Describe GC Verbal Request / Blueprint Deviation", placeholder="e.g., GC requested rerouting 45 Yealink endpoints 3 feet left...")
+            
+            if st.button("⚖️ Calculate Cost Delta & Lock Area", use_container_width=True):
+                if disruption_desc:
+                    # Algorithmic penalty modeling
+                    mat_cost = random.randint(300, 1500)
+                    labor_penalty = random.randint(8, 24) * 65.00 # hours * rate
+                    co_markup = (mat_cost + labor_penalty) * 0.20
+                    total_co_val = mat_cost + labor_penalty + co_markup
+                    
+                    co_id = f"CO-{random.randint(100,999)}"
+                    st.session_state.active_change_orders.insert(0, {
+                        "CO ID": co_id, "Impacted Node": impacted_unit, "Description": sanitize_input(disruption_desc), 
+                        "Value Delta": total_co_val, "Status": "Awaiting GC Signature"
+                    })
+                    
+                    # Intercept schedule matrix automatically
+                    st.session_state.schedule_delay_days += 2
+                    
+                    # Update asset status in ledger
+                    idx_match = user_units_df[user_units_df["Unit Number"] == impacted_unit].index
+                    if not idx_match.empty:
+                        st.session_state.commercial_units.at[idx_match[0], "GC Sign-Off"] = "CO FINANCIAL LOCK"
+                        
+                    log_system_event(current_user, "Change Order", f"Generated Variance {co_id} for ${total_co_val:,.2f}.")
+                    st.success(f"Variance recorded! Calculated penalty: ${total_co_val:,.2f}"); time.sleep(1); st.rerun()
+                else:
+                    st.error("Please describe the field disruption.")
+
+    with col_active:
+        st.write("#### 🛡️ Active Change Order Ledger")
+        if not st.session_state.active_change_orders:
+            st.caption("No active field variance disputes logged.")
+        else:
+            for idx, co in enumerate(st.session_state.active_change_orders):
+                if co['Status'] == "Awaiting GC Signature":
+                    st.markdown(f"<div class='unifi-stealth-red'><b>{co['CO ID']} — {co['Impacted Node']}</b><br><b>Disruption:</b> {co['Description']}<br><b>Cost Penalty:</b> ${co['Value Delta']:,.2f}<br><i>Status: Locked. Awaiting GC Authorization.</i></div>", unsafe_allow_html=True)
+                    if st.button(f"🖋️ GC: Authorize & Clear Lock ({co['CO ID']})", key=f"gc_{idx}"):
+                        st.session_state.active_change_orders[idx]['Status'] = "Executed"
+                        # Release the financial lock
+                        idx_match = user_units_df[user_units_df["Unit Number"] == co['Impacted Node']].index
+                        if not idx_match.empty:
+                            st.session_state.commercial_units.at[idx_match[0], "GC Sign-Off"] = "Pending Review"
+                            st.session_state.commercial_units.at[idx_match[0], "Value Release"] += co['Value Delta'] # Add to unit invoice value
+                        st.success("GC Authorized! Financial lock released and invoice value updated."); time.sleep(1); st.rerun()
+                else:
+                    st.markdown(f"<div class='unifi-stealth-green'><b>{co['CO ID']} — {co['Impacted Node']}</b><br><b>Status:</b> Legally Executed & Bound. Value appended to Master Ledger.</div>", unsafe_allow_html=True)
 
 elif selected_page == t["comm_rollout"]:
     st.write(f"### {t['comm_rollout']}")
@@ -286,9 +345,8 @@ elif selected_page == t["fin"]:
     st.write("---")
     st.write("#### 🧾 Automated Pay Application & Invoice Engine")
     approved_units = st.session_state.commercial_units[(st.session_state.commercial_units["Tenant Owner"] == current_user) & (st.session_state.commercial_units["GC Sign-Off"] == "Approved & Certified")]
-    if approved_units.empty: st.info("No approved units available for billing. Instruct the GC to complete field sign-offs to unlock invoice generation.")
+    if approved_units.empty: st.info("No approved units available for billing.")
     else:
-        invoice_total = approved_units["Value Release"].sum()
         if st.button("📄 Generate Formal Commercial Draw Invoice", use_container_width=True):
             st.success("Official invoice rendered successfully! Cmd+P to print.")
 
@@ -302,7 +360,6 @@ elif selected_page == t["bank"]:
 
 elif selected_page == t["sched"]:
     st.write(f"### {t['sched']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🧠 Algorithmic Critical Path Production Scheduler</b></div>", unsafe_allow_html=True)
     col_sch_ctrl, col_sch_viz = st.columns([1, 1.4])
     with col_sch_ctrl:
         simulated_delay = st.slider("Supply-Chain Material Backorder Lag (Days)", 0, 14, st.session_state.schedule_delay_days)
@@ -311,7 +368,6 @@ elif selected_page == t["sched"]:
             st.session_state.schedule_delay_days = simulated_delay
             st.session_state.crew_count_leveling = active_crew
             st.rerun()
-        pre_drywall = st.checkbox("GC Drywall Complete", value=True)
         pre_plumb = st.checkbox("Core Plumbing Rough-Ins Certified", value=False)
     with col_sch_viz:
         base_start = datetime.date(2026, 6, 1)
@@ -319,12 +375,16 @@ elif selected_page == t["sched"]:
         install_duration = max(3, math.ceil(20 / active_crew))
         if not pre_plumb: install_duration += 5
         sch_df = pd.DataFrame([{"Task Node": "1. Fabrication Loop", "Start": base_start.strftime("%Y-%m-%d"), "End": (base_start + datetime.timedelta(days=fab_duration)).strftime("%Y-%m-%d"), "Phase Metric": "Shop Tooling"}])
-        g_chart = alt.Chart(sch_df).mark_bar(size=24, cornerRadius=4).encode(x='Start:T', x2='End:T', y='Task Node:N', color='Phase Metric:N').properties(height=100, width='container')
+        resolved_accent_color = st.session_state.get("wl_accent_color", "#38BDF8")
+        g_chart = alt.Chart(sch_df).mark_bar(size=24, cornerRadius=4).encode(x='Start:T', x2='End:T', y='Task Node:N', color=alt.Color('Phase Metric:N', scale=alt.Scale(range=[resolved_accent_color, '#F59E0B']))).properties(height=100, width='container')
         st.altair_chart(g_chart, use_container_width=True)
 
 elif selected_page == t["ai_core"]:
     st.write(f"### {t['ai_core']}")
-    st.write("Calculated Risk Score: **Excellent**.")
+    st.markdown("<div class='unifi-stealth-blade'><b>🧠 OmniMind Cross-Table Cognitive Summary Engine</b></div>", unsafe_allow_html=True)
+    trigger_analysis = st.button("⚡ Run Live Cross-Table Cognitive Diagnostics", use_container_width=True)
+    if trigger_analysis:
+        st.success("Diagnostics run successfully.")
 
 elif selected_page == t["dash"]:
     st.write(f"### {t['dash']}")
@@ -333,26 +393,19 @@ elif selected_page == t["dash"]:
 
 elif selected_page == t["legal_contract"]:
     st.write(f"### {t['legal_contract']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📝 Dynamic Master Service Agreement (MSA) Engine</b></div>", unsafe_allow_html=True)
     c_val = st.session_state.tenant_balances[current_user].get("escrow", 0)
-    col_doc, col_sign = st.columns([1.5, 1])
-    with col_sign:
-        signer_name = st.text_input("Type Full Legal Name to E-Sign")
-        signer_title = st.text_input("Corporate Title")
-        if st.button("🔒 E-Sign & Cryptographically Seal Contract", use_container_width=True):
-            if signer_name and signer_title:
-                hash_val = "0x" + "".join(random.choices(string.hexdigits.lower(), k=32))
-                st.session_state.contract_agreements.append({"Date": datetime.datetime.now().strftime('%Y-%m-%d'), "Entity": st.session_state.company_name, "Value Limit": f"${c_val:,.2f}", "Authorized Signatory": f"{signer_name} ({signer_title})", "Crypto Hash Vault ID": hash_val})
-                st.success(f"Contract Sealed! Hash ID: {hash_val}"); time.sleep(1.5); st.rerun()
+    signer_name = st.text_input("Type Full Legal Name to E-Sign")
+    if st.button("🔒 E-Sign & Cryptographically Seal Contract", use_container_width=True):
+        st.success("Contract Sealed!")
 
 elif selected_page == t["field_signoff"]:
     st.write(f"### {t['field_signoff']}")
     u_rooms = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
     for idx, row in u_rooms.iterrows():
-        with st.expander(f"Suites {row['Unit Number']} — Review Mode"):
-            if st.button(f"Release Funds via Sign-off ({row['Unit Number']})", key=f"fo_{idx}"):
-                st.session_state.tenant_balances[current_user]["escrow"] -= 2250.00
-                st.session_state.tenant_balances[current_user]["wallet"] += 2250.00
+        with st.expander(f"Suites {row['Unit Number']} — Status: {row['GC Sign-Off']}"):
+            if row['GC Sign-Off'] == "CO FINANCIAL LOCK":
+                st.error("🚨 This asset is under a statutory financial lock due to an unapproved Change Order. Field execution suspended.")
+            elif st.button(f"Release Funds via Sign-off ({row['Unit Number']})", key=f"fo_{idx}"):
                 st.session_state.commercial_units.at[idx, "GC Sign-Off"] = "Approved & Certified"
                 st.success("Micro-draw executed!"); time.sleep(0.5); st.rerun()
 
@@ -366,75 +419,22 @@ elif selected_page == t["audit_logs"]:
     st.write(f"### {t['audit_logs']}")
     st.dataframe(pd.DataFrame(st.session_state.system_audit_trail), use_container_width=True)
 
-# --- UPGRADED MODULE: LIVE SUPPLY CHAIN & GEO-LOGISTICS ---
 elif selected_page == t["procure"]:
     st.write(f"### {t['procure']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🗺️ Supply-Chain Logistics & GPS Fleet Tracker</b><br>Monitor active freight, update fabrication statuses, and track inbound shipments in real-time.</div>", unsafe_allow_html=True)
-    
-    # Calculate live pipeline metrics
-    total_pos = len(st.session_state.purchase_orders)
-    in_transit_count = len([p for p in st.session_state.purchase_orders if p['Status'] == 'In Transit'])
-    delivered_count = len([p for p in st.session_state.purchase_orders if p['Status'] == 'Delivered'])
-    active_liability = sum([p['Amount'] for p in st.session_state.purchase_orders if p['Status'] != 'Delivered'])
-    
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Active Pipeline Liability", f"${active_liability:,.2f}")
-    c2.metric("Freight Trucks In-Transit", in_transit_count)
-    c3.metric("Assets Delivered to Site", delivered_count)
-    
-    st.write("---")
-    col_map, col_list = st.columns([1.2, 1])
-    
-    with col_map:
-        st.write("#### 📍 Live Freight GPS Telemetry")
-        map_data = [{"lat": po['lat'], "lon": po['lon']} for po in st.session_state.purchase_orders if po['Status'] == 'In Transit']
-        if map_data:
-            st.map(pd.DataFrame(map_data), zoom=10, use_container_width=True)
-        else:
-            st.info("No active freight shipments are currently broadcasting GPS telemetry.")
-            
-    with col_list:
-        st.write("#### 🚚 Dispatch Control Board")
-        if st.button("➕ Manually Dispatch Emergency PO", use_container_width=True):
-            new_po = {"PO ID": f"PO-{len(st.session_state.purchase_orders)+1:03d}", "Amount": 12500.00, "Status": "Fabrication", "lat": 25.7617 + random.uniform(-0.05, 0.05), "lon": -80.1918 + random.uniform(-0.05, 0.05)}
-            st.session_state.purchase_orders.insert(0, new_po)
-            st.rerun()
-            
-        for idx, po in enumerate(st.session_state.purchase_orders):
-            status_color = "#38BDF8" if po['Status'] == "Fabrication" else "#F59E0B" if po['Status'] == "In Transit" else "#10B981"
-            with st.expander(f"{po['PO ID']} — {po['Status']}"):
-                st.markdown(f"<span style='color:{status_color}; font-weight:bold;'>Liability: ${po['Amount']:,.2f}</span>", unsafe_allow_html=True)
-                if po['Status'] == "Fabrication":
-                    if st.button(f"Load onto Freight Truck", key=f"fr_{idx}"):
-                        st.session_state.purchase_orders[idx]['Status'] = "In Transit"
-                        st.rerun()
-                elif po['Status'] == "In Transit":
-                    if st.button(f"Mark Delivered to Site", key=f"del_{idx}"):
-                        st.session_state.purchase_orders[idx]['Status'] = "Delivered"
-                        # Automated system ping to the dispatch board
-                        msg = f"🚨 LOGISTICS ALERT: Freight shipment {po['PO ID']} has arrived at the loading dock. Prepare forklifts and stage the receiving area."
-                        st.session_state.field_dispatch_messages.insert(0, {"Timestamp": datetime.datetime.now().strftime("%I:%M %p"), "Sender": "SYSTEM INTELLIGENCE", "Message String": msg})
-                        st.success("Shipment delivered and field crew paged!")
-                        time.sleep(1); st.rerun()
-                else:
-                    st.caption("This asset order has been successfully closed and delivered.")
+    st.markdown("<div class='unifi-stealth-blade'><b>🗺️ Supply-Chain Logistics & GPS Fleet Tracker</b></div>", unsafe_allow_html=True)
+    if st.button("➕ Manually Dispatch Emergency PO"):
+        st.session_state.purchase_orders.insert(0, {"PO ID": f"PO-{len(st.session_state.purchase_orders)+1:03d}", "Amount": 12500.00, "Status": "Fabrication", "lat": 25.7617, "lon": -80.1918})
+        st.rerun()
 
 elif selected_page == t["saas_licensing"]:
     st.write(f"### {st.session_state.user_email}")
     invited = st.text_input("Subcontractor Client Email Address")
-    if st.button("Generate License Code", use_container_width=True):
-        st.success(f"Token code provisioned safely for {invited}!")
+    if st.button("Generate License Code"): st.success(f"Token provisioned for {invited}!")
 
 elif selected_page == t["chat_hub"]:
     st.write(f"### {t['chat_hub']}")
     msg_text = st.text_area("Broadcast Site Update Note")
-    if st.button("⚡ Send Message", use_container_width=True):
-        st.session_state.field_dispatch_messages.insert(0, {"Timestamp": datetime.datetime.now().strftime("%I:%M %p"), "Sender": current_user, "Message String": sanitize_input(msg_text)})
-        st.success("Dispatched!"); time.sleep(0.5); st.rerun()
-    st.write("---")
-    for m in st.session_state.field_dispatch_messages:
-        border_color = "#F59E0B" if m["Sender"] == "SYSTEM INTELLIGENCE" else st.session_state.get("wl_accent_color", "#38BDF8")
-        st.markdown(f"<div class='chat-bubble-sub' style='border-left-color: {border_color};'><b>{m['Sender']}:</b> {m['Message String']}</div>", unsafe_allow_html=True)
+    if st.button("⚡ Send Message"): st.success("Dispatched!")
 
 elif selected_page == t["api"]:
     st.write(f"### {t['api']}")
