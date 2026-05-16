@@ -42,19 +42,19 @@ lang_dict = {
     "English": {
         "home": "🏠 Command Center", "matrix": "📊 Trade Matrix", "takeoff": "📐 Automated Takeoff", "gc_budg": "🏗️ GC Budget", 
         "fin": "💳 OmniPay & Escrow", "sched": "📅 Trade Calendar", "inv": "🧾 Progress Billings", 
-        "bid": "🎯 AI Bid Optimizer", "clinic": "🏥 Clinic Infra & Audit", "api": "☁️ Cloud API",
+        "bid": "🎯 AI Bid Optimizer", "clinic": "🏥 Clinic Infra & Audit", "co_lien": "📝 Change Orders & Liens", "api": "☁️ Cloud API",
         "budget": "Master Budget", "wallet": "OmniWallet"
     },
     "Español": {
         "home": "🏠 Centro de Mando", "matrix": "📊 Matriz de Oficio", "takeoff": "📐 Despegue Automatizado", "gc_budg": "🏗️ Presupuesto GC",
         "fin": "💳 OmniPay y Fideicomiso", "sched": "📅 Calendario", "inv": "🧾 Facturación de Progreso",
-        "bid": "🎯 Optimizador IA", "clinic": "🏥 Infraestructura Clínica", "api": "☁️ API en la Nube",
+        "bid": "🎯 Optimizador IA", "clinic": "🏥 Infraestructura Clínica", "co_lien": "📝 Órdenes de Cambio", "api": "☁️ API en la Nube",
         "budget": "Presupuesto Maestro", "wallet": "Billetera Omni"
     },
     "Українська": {
         "home": "🏠 Головна панель", "matrix": "📊 Кошторисна матриця", "takeoff": "📐 Авто-Кошторис", "gc_budg": "🏗️ Бюджет GC",
         "fin": "💳 Фінанси та Ескроу", "sched": "📅 Графік робіт", "inv": "🧾 Прогресивне виставлення рахунків",
-        "bid": "🎯 AI Оптимізатор", "clinic": "🏥 Клінічна Інфраструктура", "api": "☁️ Хмарний API",
+        "bid": "🎯 AI Оптимізатор", "clinic": "🏥 Клінічна Інфраструктура", "co_lien": "📝 Зміни та Відмови від Прав", "api": "☁️ Хмарний API",
         "budget": "Головний бюджет", "wallet": "Гаманець Omni"
     }
 }
@@ -69,15 +69,9 @@ if "wallet_balance" not in st.session_state: st.session_state.wallet_balance = 1
 if "overhead" not in st.session_state: st.session_state.overhead = 0.20
 if "labor_rate" not in st.session_state: st.session_state.labor_rate = 60.00 
 
-# Persistent state arrays for clinic asset simulator
-if "clinic_assets" not in st.session_state:
-    st.session_state.clinic_assets = pd.DataFrame([
-        {"Hardware Asset": "Enterprise Core Switch (UniFi 24-Port)", "Location": "Main IT Closet", "Status": "Installed & Provisioned", "Audit Verified": True},
-        {"Hardware Asset": "Secure Wireless Access Point", "Location": "Patient Waiting Lobby", "Status": "Installed & Provisioned", "Audit Verified": True},
-        {"Hardware Asset": "VoIP Terminal Node (Yealink Handset)", "Location": "Front Reception Desk", "Status": "Staged / Pending Config", "Audit Verified": False},
-        {"Hardware Asset": "Secure Medical Workstation Laptop", "Location": "Dr. Sol Consult Room 1", "Status": "Configured & Active", "Audit Verified": True},
-        {"Hardware Asset": "HIPAA Backup Storage Array", "Location": "Main IT Closet", "Status": "Pending Physical Drop", "Audit Verified": False}
-    ])
+# Persistent state for Change Orders
+if "change_orders" not in st.session_state:
+    st.session_state.change_orders = []
 
 # --- 5. STYLING INJECTION ---
 st.markdown("""
@@ -85,11 +79,11 @@ st.markdown("""
     .stApp { background-color: #070B12 !important; color: #94A3B8 !important; }
     h1, h2, h3, h4, h5, h6 { color: #CBD5E1 !important; font-weight: 500 !important; }
     .unifi-stealth-blade { background-color: #0F172A !important; border: 1px solid #1E293B !important; border-left: 3px solid #38BDF8 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
-    .unifi-stealth-green { background-color: #0B1C16 !important; border: 1px solid #143A2E !important; border-left: 3px solid #10B981 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
+    .legal-document-container { background-color: #F8FAFC !important; color: #0F172A !important; border: 1px solid #E2E8F0 !important; padding: 25px; font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.5; border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.05); }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 6. GATEWAY (LOGIN) ---
+# --- 6. AUTHENTICATION GATEWAY ---
 if not st.session_state.user_authenticated:
     st.markdown("<div style='text-align:center; padding:40px;'><h1>🔐 OmniBuild OS</h1><p>Enterprise Multi-User Authentication Gateway</p></div>", unsafe_allow_html=True)
     tab_login, tab_register = st.tabs(["🔒 Secure Login", "📝 Beta Account Registration"])
@@ -109,20 +103,22 @@ if not st.session_state.user_authenticated:
                     time.sleep(0.5)
                     st.rerun()
                 else: st.error("Invalid credentials.")
-    with tab_register:
-        # Standard registration fields...
-        pass
     st.stop()
 
-# --- 7. DYNAMIC ISOLATED DATA RECOVERY ---
+# --- 7. DYNAMIC CONTRACT CALCULATIONS ---
 raw_cloud_data = supabase_api_call(endpoint="materials", method="GET", params={"user_email": f"eq.{st.session_state.user_email}"})
 if raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_data) > 0:
     full_df = pd.DataFrame(raw_cloud_data)
-    st.session_state.df_elec = full_df[full_df["trade_type"] == "Electrical"][["id", "item_name", "quantity", "cost_per_unit", "labor_minutes"]].rename(columns={"item_name": "Item", "quantity": "Qty", "cost_per_unit": "Cost", "labor_minutes": "Mins"})
+    df_elec_clean = full_df[full_df["trade_type"] == "Electrical"]
+    mat_sum = (df_elec_clean["quantity"] * df_elec_clean["cost_per_unit"]).sum()
+    lab_sum = ((df_elec_clean["quantity"] * df_elec_clean["labor_minutes"]) / 60).sum() * st.session_state.labor_rate
+    elec_base_total = (mat_sum + lab_sum) * (1 + st.session_state.overhead)
 else:
-    st.session_state.df_elec = pd.DataFrame(columns=["id", "Item", "Qty", "Cost", "Mins"])
+    elec_base_total = 0.0
 
-elec_total, elec_raw = calc_trade(st.session_state.df_elec) if 'calc_trade' in globals() else (0.0, 0.0)
+# Add approved change order totals dynamically to the base values
+approved_co_total = sum(co["Cost Impact"] for co in st.session_state.change_orders if co["Status"] == "Approved & Signed")
+current_contract_total = elec_base_total + approved_co_total
 
 # --- 8. SIDEBAR CONTROL PANEL ---
 st.sidebar.title("🌍 OmniBuild OS")
@@ -134,65 +130,107 @@ st.sidebar.write(f"👤 **User:** `{st.session_state.user_email}`")
 st.sidebar.write(f"🏢 **Entity:** `{st.session_state.company_name}`")
 st.sidebar.divider()
 
-# Allow both General Contractor and Electrical Profiles to access the Clinic Dashboard
 if "General Contractor" in st.session_state.user_role:
-    menu_options = [t["home"], t["gc_budg"], t["clinic"], t["api"]]
+    menu_options = [t["home"], t["gc_budg"], t["clinic"], t["co_lien"], t["api"]]
 else:
-    menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["inv"], t["clinic"], t["api"]]
+    menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["inv"], t["clinic"], t["co_lien"], t["api"]]
 
 selected_page = st.sidebar.radio("Navigation Menu", menu_options)
 st.sidebar.divider()
 if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=True):
     st.session_state.user_authenticated = False; st.rerun()
 
-# --- 9. VIEWPORTS CONTAINER ---
+# --- 9. TOP TELEMETRY MATRIX ---
+h_col1, h_col2, h_col3 = st.columns(3)
+with h_col1: st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color: #F59E0B;'><p style='margin:0; font-size:10px;'>Active Contract Value</p><h3 style='margin:0; color: #F59E0B;'>${current_contract_total:,.2f}</h3></div>", unsafe_allow_html=True)
+with h_col2: st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px;'>Approved Scope Changes</p><h3 style='margin:0;'>${approved_co_total:,.2f}</h3></div>", unsafe_allow_html=True)
+with h_col3: st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color: #10B981;'><p style='margin:0; font-size:10px;'>{t['wallet']}</p><h3 style='margin:0; color:#10B981;'>${st.session_state.wallet_balance:,.2f}</h3></div>", unsafe_allow_html=True)
+
+# --- 10. MODULE ROUTING CONTAINER ---
 if selected_page == t["home"]:
     st.write(f"### {t['home']}")
     st.markdown(f"<div class='unifi-stealth-blade'>Authorized Account Node: <b>{st.session_state.company_name}</b></div>", unsafe_allow_html=True)
 
 elif selected_page == t["matrix"]:
     st.write(f"### {t['matrix']}")
-    st.data_editor(st.session_state.df_elec, use_container_width=True)
 
 elif selected_page == t["takeoff"]:
     st.write(f"### {t['takeoff']}")
-    blueprint_dump = st.text_area("Drop Architectural Specification Output Notes Block")
-    
+
 elif selected_page == t["bid"]:
     st.write(f"### {t['bid']}")
 
 elif selected_page == t["inv"]:
     st.write(f"### {t['inv']}")
 
-# NEW INTEGRATION MODULE: CLINIC INFRASTRUCTURE & AUDIT readiness
 elif selected_page == t["clinic"]:
     st.write(f"### {t['clinic']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Clinic Deployment Control Portal</b><br>Track physical hardware assets, network drops, and regulatory readiness checklists for healthcare delivery spaces.</div>", unsafe_allow_html=True)
-    
-    # Calculate audit metrics dynamically
-    total_assets = len(st.session_state.clinic_assets)
-    verified_assets = st.session_state.clinic_assets["Audit Verified"].sum()
-    audit_readiness_score = (verified_assets / total_assets) * 100 if total_assets > 0 else 0.0
-    
-    c_m1, c_m2, c_m3 = st.columns(3)
-    with c_m1: st.metric("Total Infrastructure Nodes", f"{total_assets} Units")
-    with c_m2: st.metric("Verified Audit Checkpoints", f"{verified_assets} / {total_assets}")
-    with c_m3:
-        if audit_readiness_score >= 80:
-            st.markdown(f"<div class='unifi-stealth-green' style='padding:5px 15px;'><p style='margin:0; font-size:10px;'>AUDIT READINESS SCORE</p><h3 style='margin:0; color:#10B981;'>{audit_readiness_score:.1f}%</h3></div>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div class='unifi-stealth-blade' style='padding:5px 15px; border-left-color:#F59E0B;'><p style='margin:0; font-size:10px;'>AUDIT READINESS SCORE</p><h3 style='margin:0; color:#F59E0B;'>{audit_readiness_score:.1f}%</h3></div>", unsafe_allow_html=True)
 
-    st.write("#### 🛠️ Live Infrastructure Hardware Ledger")
-    st.caption("Review or update deployment statuses and compliance metrics below:")
+# NEW ARCHITECTURE MODULE: CHANGE ORDERS & LEGAL LIEN WAIVERS
+elif selected_page == t["co_lien"]:
+    st.write(f"### {t['co_lien']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>Contract Variance Control & Compliance Dashboard</b><br>Authorize contract adjustments, track pricing changes, and issue corresponding statutory conditional lien releases.</div>", unsafe_allow_html=True)
     
-    updated_clinic_df = st.data_editor(st.session_state.clinic_assets, use_container_width=True, num_rows="dynamic")
+    col_co_form, col_co_ledger = st.columns([1, 1.2])
     
-    if st.button("💾 Commit Infrastructure Verification to Ledger", use_container_width=True):
-        st.session_state.clinic_assets = updated_clinic_df
-        st.success("Clinic infrastructure matrix successfully updated and logged!")
-        time.sleep(0.5)
-        st.rerun()
+    with col_co_form:
+        st.write("#### 🛠️ Draft New Scope Variation")
+        with st.form("change_order_form"):
+            co_title = st.text_input("Change Order Description / Title", placeholder="e.g., Add 4 data drops in Consult Room 2")
+            co_reason = st.text_area("Scope Justification", placeholder="Owner requested relocation of secure workstation nodes.")
+            co_cost = st.number_input("Total Financial Impact ($)", min_value=0.0, value=1250.00)
+            co_days = st.number_input("Project Schedule Extension Impact (Days)", min_value=0, value=1)
+            
+            if st.form_submit_button("Stage Change Order Document", use_container_width=True):
+                if co_title and co_cost > 0:
+                    new_co = {
+                        "ID": f"PCO-{len(st.session_state.change_orders) + 1:03d}",
+                        "Title": co_title,
+                        "Reason": co_reason,
+                        "Cost Impact": co_cost,
+                        "Schedule Impact": f"+{co_days} Days",
+                        "Status": "Pending Review"
+                    }
+                    st.session_state.change_orders.append(new_co)
+                    st.success(f"Successfully staged contract modification {new_co['ID']}!")
+                    st.rerun()
+                else: st.error("A comprehensive description and cost analysis value are required.")
+
+    with col_co_ledger:
+        st.write("#### 🧾 Active Modification Ledger")
+        if not st.session_state.change_orders:
+            st.caption("No variance documents or change orders have been registered for this contract scope.")
+        else:
+            for idx, co in enumerate(st.session_state.change_orders):
+                with st.expander(f"📄 {co['ID']}: {co['Title']} — **{co['Status']}**"):
+                    st.write(f"**Justification:** {co['Reason']}")
+                    st.write(f"**Financial Adjustment:** `${co['Cost Impact']:,.2f}`")
+                    st.write(f"**Schedule Variation:** {co['Schedule Impact']}")
+                    
+                    if co["Status"] == "Pending Review":
+                        st.write("---")
+                        st.write("##### ⚖️ Accompanying Legal Document Generated:")
+                        
+                        # Legal Statutory Conditional Waiver Template Layout
+                        st.markdown(f"""
+                        <div class='legal-document-container'>
+                            <p style='text-align:center; font-weight:bold; margin-bottom:15px;'>CONDITIONAL WAIVER AND RELEASE UPON PROGRESS PAYMENT</p>
+                            <p><b>Project Name:</b> Miami Medical Hub Renovation<br>
+                            <b>Subcontractor Entity:</b> {st.session_state.company_name}<br>
+                            <b>Sum Value:</b> ${co['Cost Impact']:,.2f} USD</p>
+                            <p style='text-indent: 30px; text-align: justify;'>Upon receipt by the undersigned of a check from the Prime Contractor in the sum of <b>${co['Cost Impact']:,.2f}</b> payable to <b>{st.session_state.company_name}</b> and when the check has been properly endorsed and has cleared the bank, this document shall become effective to release any mechanic's lien, stop notice, or bond right the undersigned has on the job of the owner to the extent of this scope modification variation.</p>
+                            <p style='margin-top:20px; font-style:italic;'>Executed Digitally Secure via OmniBuild Compliance Engine System Stack.</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        if st.button(f"🖋️ Execute Signature & Approve {co['ID']}", key=f"sig_{idx}", use_container_width=True):
+                            st.session_state.change_orders[idx]["Status"] = "Approved & Signed"
+                            st.toast(f"{co['ID']} approved! Contract parameters reallocated.", icon="✅")
+                            time.sleep(0.5)
+                            st.rerun()
+
+elif selected_page == t["gc_budg"]:
+    st.write(f"### {t['gc_budg']}")
 
 elif selected_page == t["api"]:
     st.write(f"### {t['api']}")
