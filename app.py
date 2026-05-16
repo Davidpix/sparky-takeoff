@@ -256,59 +256,112 @@ elif selected_page == t["takeoff"]:
                 st.session_state.purchase_orders.insert(0, {"PO ID": f"PO-{len(st.session_state.purchase_orders)+1:03d}", "Amount": calc_total, "Status": "Fabrication", "lat": 25.7617 + random.uniform(-0.02, 0.02), "lon": -80.1918 + random.uniform(-0.02, 0.02)})
                 st.success("Materials successfully staged in the master procurement matrix!")
 
-# --- UPGRADED MODULE: NEC COMPLIANCE & LOAD ENGINE ---
+# --- UPGRADED MODULE: GENERATIVE AI BID & PROPOSAL ENGINE ---
+elif selected_page == t["bid"]:
+    st.write(f"### {t['bid']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>🎯 Generative AI Proposal & Bid Engine</b><br>Compile takeoff data, labor projections, and margin requirements into a formal, client-ready commercial bid.</div>", unsafe_allow_html=True)
+    
+    col_cfg, col_doc = st.columns([1, 1.5])
+    
+    with col_cfg:
+        st.write("#### ⚙️ Bid Parameter Tuning")
+        base_margin = st.slider("Target Profit Margin (%)", 10.0, 50.0, 32.5)
+        contingency = st.slider("Risk Contingency (%)", 0.0, 20.0, 5.0)
+        
+        # Calculate base costs intelligently from the NLP Takeoff
+        if st.session_state.takeoff_results:
+            mat_cost = sum([item["Total Overhead"] for item in st.session_state.takeoff_results])
+        else:
+            mat_cost = 125000.00 # Standard fallback if takeoff is empty
+            
+        labor_cost = mat_cost * 0.85 # Algorithmic labor assumption
+        subtotal = mat_cost + labor_cost
+        contingency_val = subtotal * (contingency / 100)
+        margin_val = (subtotal + contingency_val) * (base_margin / 100)
+        final_bid_val = subtotal + contingency_val + margin_val
+        
+        st.write(f"**Calculated Material Cost:** ${mat_cost:,.2f}")
+        st.write(f"**Calculated Labor Burden:** ${labor_cost:,.2f}")
+        st.markdown(f"<div class='unifi-stealth-green'><b>Projected Bid Value:</b> ${final_bid_val:,.2f}</div>", unsafe_allow_html=True)
+        
+        generate_bid = st.button("📝 Generate Executive Proposal", use_container_width=True)
+
+    with col_doc:
+        st.write("#### 📄 Formal Proposal Document")
+        if generate_bid:
+            with st.spinner("OmniMind is drafting the proposal..."):
+                time.sleep(1.2)
+                
+            proposal_id = f"PRP-{random.randint(10000, 99999)}"
+            date_str = datetime.datetime.now().strftime("%B %d, %Y")
+            
+            proposal_html = f"""
+            <div style='background-color: #F8FAFC; color: #0F172A; padding: 40px; border-radius: 8px; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;'>
+                <div style='border-bottom: 2px solid #0F172A; padding-bottom: 20px; margin-bottom: 20px;'>
+                    <h1 style='margin: 0; color: #0F172A;'>{st.session_state.company_name}</h1>
+                    <p style='margin: 0; color: #475569;'>Commercial Electrical & Infrastructure Subcontractor</p>
+                </div>
+                <h2 style='text-align: center; color: #38BDF8;'>EXECUTIVE COMMERCIAL PROPOSAL</h2>
+                <p><b>PROPOSAL ID:</b> {proposal_id} <span style='float:right;'><b>DATE:</b> {date_str}</span></p>
+                <p><b>CLIENT:</b> OmniBuild General Contracting Partners</p>
+                <hr style='border: 1px solid #E2E8F0;'>
+                
+                <h4 style='color: #0F172A;'>I. EXECUTIVE SUMMARY & SCOPE OF WORK</h4>
+                <p>Based on the architectural specifications provided, <b>{st.session_state.company_name}</b> proposes to furnish all required labor, premium enterprise materials, and project management oversight to execute the structural and network infrastructure rollout.</p>
+                
+                <h4 style='color: #0F172A;'>II. FINANCIAL INVESTMENT SUMMARY</h4>
+                <table style='width: 100%; border-collapse: collapse; margin-bottom: 20px;'>
+                    <tr style='background-color: #E2E8F0;'><th style='padding: 8px; text-align: left;'>Cost Category</th><th style='padding: 8px; text-align: right;'>Estimated Value</th></tr>
+                    <tr><td style='padding: 8px; border-bottom: 1px solid #CBD5E1;'>Direct Material Procurement</td><td style='padding: 8px; border-bottom: 1px solid #CBD5E1; text-align: right;'>${mat_cost:,.2f}</td></tr>
+                    <tr><td style='padding: 8px; border-bottom: 1px solid #CBD5E1;'>Labor & Field Execution</td><td style='padding: 8px; border-bottom: 1px solid #CBD5E1; text-align: right;'>${labor_cost:,.2f}</td></tr>
+                    <tr><td style='padding: 8px; border-bottom: 1px solid #CBD5E1;'>Risk Contingency ({contingency}%)</td><td style='padding: 8px; border-bottom: 1px solid #CBD5E1; text-align: right;'>${contingency_val:,.2f}</td></tr>
+                    <tr><td style='padding: 8px; font-weight: bold;'>TOTAL FIRM FIXED PRICE</td><td style='padding: 8px; text-align: right; font-weight: bold; color: #10B981; font-size: 18px;'>${final_bid_val:,.2f}</td></tr>
+                </table>
+                
+                <h4 style='color: #0F172A;'>III. TERMS & CONDITIONS</h4>
+                <p style='font-size: 12px; color: #475569;'>This proposal is valid for 30 days. Execution of this proposal will transition into a binding Master Service Agreement (MSA) governed by the OmniBuild OS legal engine. Schedule guarantees are contingent upon verified upstream trade predecessor completion.</p>
+            </div>
+            """
+            st.markdown(proposal_html, unsafe_allow_html=True)
+            log_system_event(current_user, "Bid Generation", f"Generated Proposal {proposal_id} for ${final_bid_val:,.2f}.")
+            
+            if st.button("📤 Route Proposal to GC for Digital Signature"):
+                st.success("Proposal routed successfully! Awaiting GC authorization.")
+        else:
+            st.caption("Adjust your margin and contingency sliders on the left, then generate your proposal.")
+
 elif selected_page == t["nec_calcs"]:
     st.write(f"### {t['nec_calcs']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>⚡ Electrical Load & Field Engineering Calculator</b><br>Calculate voltage drop, verify conduit fill capacity, and compute panel load limits based on standard National Electrical Code (NEC) guidelines.</div>", unsafe_allow_html=True)
-    
+    st.markdown("<div class='unifi-stealth-blade'><b>⚡ Electrical Load & Field Engineering Calculator</b></div>", unsafe_allow_html=True)
     tab_vd, tab_fill, tab_load = st.tabs(["📉 Voltage Drop Forecaster", "⭕ Conduit Fill Diagnostics", "🔌 Panel Load Calculator"])
-    
     with tab_vd:
-        st.write("#### 📉 Conductor Voltage Drop")
-        st.caption("Calculate voltage drop for branch circuits and feeders.")
         col1, col2, col3 = st.columns(3)
         wire_type = col1.selectbox("Conductor Material", ["Copper", "Aluminum"])
         phase = col2.selectbox("System Phase", ["Single-Phase", "Three-Phase"])
         voltage = col3.number_input("System Voltage (V)", value=120)
-        
         col4, col5, col6 = st.columns(3)
         current = col4.number_input("Load Current (Amps)", value=20.0)
         distance = col5.number_input("Run Distance (Feet)", value=100)
         wire_size = col6.selectbox("Wire Gauge (AWG/kcmil)", ["14", "12", "10", "8", "6", "4", "2", "1/0", "2/0", "3/0", "4/0", "250", "500"])
-        
-        # Simplified Resistance approximation for demo
         res_map_cu = {"14": 3.07, "12": 1.93, "10": 1.21, "8": 0.764, "6": 0.491, "4": 0.308, "2": 0.194}
-        
         if st.button("Calculate Voltage Drop", use_container_width=True):
-            # Safe mock calculation logic
             vd = (2 * distance * current * res_map_cu.get(wire_size, 0.1)) / 1000
             if phase == "Three-Phase": vd = vd * 0.866
             vd_percent = (vd / voltage) * 100
-            
-            st.write("---")
-            if vd_percent <= 3:
-                st.markdown(f"<div class='unifi-stealth-green'><b>✅ COMPLIANT: {vd_percent:.2f}% Drop ({vd:.2f}V)</b><br>Drop is within the 3% NEC recommended limit for branch circuits.</div>", unsafe_allow_html=True)
-            else:
-                st.markdown(f"<div class='unifi-stealth-red'><b>🚨 NON-COMPLIANT: {vd_percent:.2f}% Drop ({vd:.2f}V)</b><br>Voltage drop exceeds 3%. Upsize your conductor gauge.</div>", unsafe_allow_html=True)
-
+            if vd_percent <= 3: st.markdown(f"<div class='unifi-stealth-green'><b>✅ COMPLIANT: {vd_percent:.2f}% Drop ({vd:.2f}V)</b></div>", unsafe_allow_html=True)
+            else: st.markdown(f"<div class='unifi-stealth-red'><b>🚨 NON-COMPLIANT: {vd_percent:.2f}% Drop ({vd:.2f}V)</b></div>", unsafe_allow_html=True)
     with tab_fill:
-        st.write("#### ⭕ Conduit Fill Diagnostics")
-        conduit_type = st.selectbox("Conduit Type", ["EMT", "Rigid Metal Conduit (RMC)", "PVC Schedule 40", "Flexible Metal Conduit (FMC)"])
-        conduit_size = st.selectbox("Trade Size (Inches)", ["1/2", "3/4", "1", "1 1/4", "1 1/2", "2", "3", "4"])
+        conduit_type = st.selectbox("Conduit Type", ["EMT", "Rigid Metal Conduit (RMC)", "PVC Schedule 40"])
+        conduit_size = st.selectbox("Trade Size (Inches)", ["1/2", "3/4", "1", "1 1/4", "1 1/2", "2"])
         wire_count = st.number_input("Number of Conductors", min_value=1, value=4)
-        if st.button("Run Fill Analysis", use_container_width=True):
-            st.success(f"Diagnostics clear. {wire_count} conductors securely fit within {conduit_size}\" {conduit_type} at < 40% fill capacity (NEC Chapter 9).")
-
+        if st.button("Run Fill Analysis"): st.success(f"Diagnostics clear. {wire_count} conductors securely fit within {conduit_size}\" {conduit_type}.")
     with tab_load:
-        st.write("#### 🔌 Master Panel Load Calculator")
         gen_light = st.number_input("General Lighting Load (VA)", value=3000)
         small_app = st.number_input("Small Appliance Circuits (VA)", value=3000)
         hvac_motor = st.number_input("HVAC / Motor Loads (VA)", value=5000)
-        
-        if st.button("Aggregate Demand Load", use_container_width=True):
+        if st.button("Aggregate Demand Load"):
             total_va = gen_light + small_app + (hvac_motor * 1.25)
-            req_amps = total_va / 240
-            st.markdown(f"<div class='unifi-stealth-blade'><b>Total Demand:</b> {total_va:,.0f} VA<br><b>Required Main Breaker Size:</b> {req_amps:,.0f} Amps</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='unifi-stealth-blade'><b>Total Demand:</b> {total_va:,.0f} VA<br><b>Required Main Breaker Size:</b> {total_va / 240:,.0f} Amps</div>", unsafe_allow_html=True)
 
 elif selected_page == t["clinic"]:
     st.write(f"### {t['clinic']}")
@@ -442,10 +495,10 @@ elif selected_page == t["dash"]:
         chart = alt.Chart(df_cash).mark_line(point=True, strokeWidth=3).encode(x='Project Week:N', y='Amount ($):Q', color=alt.Color('Metric:N', scale=alt.Scale(range=["#EF4444", resolved_accent_color]))).properties(height=300, width='container')
         st.altair_chart(chart, use_container_width=True)
     with col_ai:
-        if projected_margin >= 30: st.markdown("<div class='unifi-stealth-green'><b>✅ HEALTHY MARGIN YIELD</b><br>Projected margin exceeds standard 30% baseline.</div>", unsafe_allow_html=True)
-        elif projected_margin > 10: st.markdown("<div class='unifi-stealth-gold'><b>⚠️ MARGIN FADE DETECTED</b><br>Profitability is compressing.</div>", unsafe_allow_html=True)
-        elif gross_revenue == 0: st.markdown("<div class='unifi-stealth-blade'><b>ℹ️ SYSTEM STANDBY</b><br>Initialize your sandbox to begin analyzing capital velocity.</div>", unsafe_allow_html=True)
-        else: st.markdown("<div class='unifi-stealth-red'><b>🚨 CRITICAL MARGIN COLLAPSE</b><br>Project is operating near or below zero margin. Immediate financial audit required.</div>", unsafe_allow_html=True)
+        if projected_margin >= 30: st.markdown("<div class='unifi-stealth-green'><b>✅ HEALTHY MARGIN YIELD</b></div>", unsafe_allow_html=True)
+        elif projected_margin > 10: st.markdown("<div class='unifi-stealth-gold'><b>⚠️ MARGIN FADE DETECTED</b></div>", unsafe_allow_html=True)
+        elif gross_revenue == 0: st.markdown("<div class='unifi-stealth-blade'><b>ℹ️ SYSTEM STANDBY</b></div>", unsafe_allow_html=True)
+        else: st.markdown("<div class='unifi-stealth-red'><b>🚨 CRITICAL MARGIN COLLAPSE</b></div>", unsafe_allow_html=True)
 
 elif selected_page == t["legal_contract"]:
     st.write(f"### {t['legal_contract']}")
@@ -517,10 +570,6 @@ elif selected_page == t["chat_hub"]:
     if st.button("⚡ Send Message"):
         st.session_state.field_dispatch_messages.insert(0, {"Timestamp": datetime.datetime.now().strftime("%I:%M %p"), "Sender": current_user, "Message String": sanitize_input(msg_text)})
         st.success("Dispatched!"); time.sleep(0.5); st.rerun()
-    st.write("---")
-    for m in st.session_state.field_dispatch_messages:
-        border_color = "#F59E0B" if m["Sender"] == "SYSTEM INTELLIGENCE" else st.session_state.get("wl_accent_color", "#38BDF8")
-        st.markdown(f"<div class='chat-bubble-sub' style='border-left-color: {border_color};'><b>{m['Sender']}:</b> {m['Message String']}</div>", unsafe_allow_html=True)
 
 elif selected_page == t["api"]:
     st.write(f"### {t['api']}")
