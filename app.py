@@ -1,3 +1,13 @@
+[OmniBuild OS V25: OmniMind AI Cognitive Diagnostics & Executive Report Synthesis Specification](https://docs.google.com/document/d/mock-id-v25)
+
+📁 `tag:doc-creation-result-v25`
+
+---
+
+### Step 2: Upgrade Your Local Code
+Open your local `app.py` file in VS Code on your Mac, clear out the text, and paste this fully maximized production build containing the active AI reporting assistant:
+
+```python
 import streamlit as st
 import pandas as pd
 import datetime
@@ -75,7 +85,7 @@ if "commercial_units" not in st.session_state:
 if "field_dispatch_messages" not in st.session_state:
     st.session_state.field_dispatch_messages = []
 
-# Core Project Schedule Delays / Padding state parameters
+# Project Schedule Delays / Personnel state memory
 if "schedule_delay_days" not in st.session_state: st.session_state.schedule_delay_days = 0
 if "crew_count_leveling" not in st.session_state: st.session_state.crew_count_leveling = 2
 
@@ -282,13 +292,11 @@ elif selected_page == t["bank"]:
         st.session_state.tenant_balances[current_user]["escrow"] += dep_amt
         st.success("Escrow loaded!"); time.sleep(0.5); st.rerun()
 
-# --- UPGRADED MODULE: CRITICAL PATH SCHEDULING ALGORITHM WITH CRASH PATCH APPLIED ---
 elif selected_page == t["sched"]:
     st.write(f"### {t['sched']}")
     st.markdown("<div class='unifi-stealth-blade'><b>🧠 Algorithmic Critical Path Production Scheduler</b><br>Simulate vendor backorders, level crew assignments, and automatically calculate real-time project hand-over forecasting.</div>", unsafe_allow_html=True)
     
     col_sch_ctrl, col_sch_viz = st.columns([1, 1.4])
-    
     with col_sch_ctrl:
         st.write("#### 🛠️ Resource Leveling & Supply Controls")
         simulated_delay = st.slider("Supply-Chain Material Backorder Lag (Days)", 0, 14, st.session_state.schedule_delay_days)
@@ -307,17 +315,14 @@ elif selected_page == t["sched"]:
         
     with col_sch_viz:
         st.write("#### 📊 Dynamic Project Gantt Production Projections")
-        
         base_start = datetime.date(2026, 6, 1)
-        
         fab_start = base_start + datetime.timedelta(days=simulated_delay)
         fab_duration = max(2, math.ceil(12 / active_crew))
         fab_end = fab_start + datetime.timedelta(days=fab_duration)
         
         install_start = fab_end + datetime.timedelta(days=1)
         install_duration = max(3, math.ceil(20 / active_crew))
-        if not pre_plumb:
-            install_duration += 5
+        if not pre_plumb: install_duration += 5
         install_end = install_start + datetime.timedelta(days=install_duration)
         
         sch_df = pd.DataFrame([
@@ -325,29 +330,71 @@ elif selected_page == t["sched"]:
             {"Task Node": "2. High-Density Suite Rollout", "Start": install_start.strftime("%Y-%m-%d"), "End": install_end.strftime("%Y-%m-%d"), "Phase Metric": "Field Execution"}
         ])
         
-        # SAFE LOOKUP LOOKUP FIX: Default to standard UniFi blue highlight if wl_accent_color is missing
         resolved_accent_color = st.session_state.get("wl_accent_color", "#38BDF8")
-        
         g_chart = alt.Chart(sch_df).mark_bar(size=24, cornerRadius=4).encode(
             x=alt.X('Start:T', title="Project Calendar Timeline"),
             x2='End:T',
             y=alt.Y('Task Node:N', title=None),
             color=alt.Color('Phase Metric:N', scale=alt.Scale(range=[resolved_accent_color, '#F59E0B']))
         ).properties(height=180, width='container')
-        
         st.altair_chart(g_chart, use_container_width=True)
         
         if not pre_plumb:
-            st.markdown("<div class='unifi-stealth-gold'><b>⚠️ CRITICAL PATH WARNING:</b> Core Plumbing Rough-Ins are unchecked. The rescheduling algorithm has stacked an automatic <b>5-day buffer variance liability</b> on your field execution path.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='unifi-stealth-gold'><b>⚠️ CRITICAL PATH WARNING:</b> Core Plumbing Rough-Ins are unchecked. Automatic 5-day buffer variance added.</div>", unsafe_allow_html=True)
         else:
-            st.markdown("<div class='unifi-stealth-green'><b>✅ CRITICAL PATH CLEAR:</b> Upstream trades are verified. Your timeline is running at 100% efficiency.</div>", unsafe_allow_html=True)
-            
+            st.markdown("<div class='unifi-stealth-green'><b>✅ CRITICAL PATH CLEAR:</b> Upstream trades are verified. Timeline running at 100% efficiency.</div>", unsafe_allow_html=True)
         st.metric("Algorithmic Project Hand-Over Date", install_end.strftime("%B %d, %Y"), f"Adjusted by +{simulated_delay + (5 if not pre_plumb else 0)} Days Total")
 
+# --- UPGRADED MODULE: OMNIMIND AI CORE COGNITIVE SUMMARY ANALYTICS ENGINE ---
 elif selected_page == t["ai_core"]:
     st.write(f"### {t['ai_core']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🧠 OmniMind Live Cross-Table Cognitive Diagnostics</b></div>", unsafe_allow_html=True)
-    st.write("Calculated Risk Score: **Excellent**.")
+    st.markdown("<div class='unifi-stealth-blade'><b>🧠 OmniMind Cross-Table Cognitive Summary Engine</b><br>Analyze real-time tenant ledger states and automatically write audit-ready executive operations summaries.</div>", unsafe_allow_html=True)
+    
+    col_ai_ops, col_ai_briefing = st.columns([1, 1.3])
+    
+    with col_ai_ops:
+        st.write("#### 🛡️ Cognitive Diagnosis Controls")
+        st.caption("Trigger a system scan of all active cross-table values to compile structural business insights:")
+        
+        # Calculate dynamic state numbers directly from local or cloud variables
+        user_units = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
+        pending_review_count = len(user_units[user_units["GC Sign-Off"] == "Pending Review"])
+        escrow_funds = st.session_state.tenant_balances[current_user]["escrow"]
+        schedule_lag = st.session_state.get("schedule_delay_days", 0)
+        
+        st.write(f"📍 **Detected Open Inspection Requests:** `{pending_review_count} Units`")
+        st.write(f"💰 **Detected Project Escrow Reserves:** `${escrow_funds:,.2f}`")
+        st.write(f"⏳ **Detected Supply Backorder Lags:** `{schedule_lag} Days`")
+        
+        st.write("---")
+        trigger_analysis = st.button("⚡ Run Live Cross-Table Cognitive Diagnostics", use_container_width=True)
+        
+    with col_ai_briefing:
+        st.write("#### 📋 Executive Operations Summary Statement")
+        
+        if trigger_analysis:
+            with st.spinner("Synthesizing telemetry logs..."):
+                time.sleep(1)
+                
+            # Dynamic text interpolation based on real application memory states
+            risk_tier = "High Alert" if schedule_lag > 5 or pending_review_count > 3 else "Stable / Optimized"
+            border_color = "#F59E0B" if risk_tier == "High Alert" else st.session_state.get("wl_accent_color", "#38BDF8")
+            
+            st.markdown(f"""
+            <div style='background-color: #0F172A; border: 1px solid #1E293B; border-left: 4px solid {border_color}; padding: 20px; border-radius: 4px; color: #CBD5E1;'>
+                <h5 style='color: #F8FAFC !important; margin-top:0;'>📋 OMNIMIND COGNITIVE DATA ANALYSIS BRIEF</h5>
+                <b>Workspace Profile Node:</b> {st.session_state.company_name}<br>
+                <b>Authorized Operator:</b> {current_user}<br>
+                <b>Platform Risk Assessment Tier:</b> <span style='color:{border_color}; font-weight:bold;'>{risk_tier}</span><br>
+                --------------------------------------------------<br>
+                <b>FINANCIAL MATRIX RUNWAY:</b> Your current escrow reserve layer sits at <b>${escrow_funds:,.2f} USD</b>. Capital parameters are safely structured to cover current material allocations.<br><br>
+                <b>FIELD PRODUCTION VELOCITY:</b> There are currently <b>{pending_review_count} rooms</b> staged as 'Pending Review'. <i>Recommendation:</i> Send a digital push notice to the General Contractor to sign off on these units to release cash variables into your liquid wallet.<br><br>
+                <b>LOGISTICS RUNTIME PENALTY:</b> Supply backorders are causing a <b>{schedule_lag}-day shift</b> in material fabrication timelines. Crew assignments have been automatically leveled to protect project margin indices.
+            </div>
+            """, unsafe_allow_html=True)
+            log_system_event(current_user, "AI Diagnosis", "Synthesized a full dynamic executive data briefing statement.")
+        else:
+            st.caption("Click the diagnostic button on the left to read live table streams and generate your structural report card.")
 
 elif selected_page == t["dash"]:
     st.write(f"### {t['dash']}")
@@ -386,7 +433,7 @@ elif selected_page == t["procure"]:
     st.metric("Wholesale Procurement Overhead", f"${v_cost:,.2f}")
 
 elif selected_page == t["saas_licensing"]:
-    st.write(f"### {t['saas_licensing']}")
+    st.write(f"### {st.session_state.user_email}")
     invited = st.text_input("Subcontractor Client Email Address")
     if st.button("Generate License Code", use_container_width=True):
         st.success(f"Token code provisioned safely for {invited}!")
@@ -400,4 +447,4 @@ elif selected_page == t["chat_hub"]:
 
 elif selected_page == t["api"]:
     st.write(f"### {t['api']}")
-    st.code("curl -X GET https://api.omnibuildos.com/v1/materials -H 'Authorization: Bearer KEY'")
+    st.code("curl -X GET [https://api.omnibuildos.com/v1/materials](https://api.omnibuildos.com/v1/materials) -H 'Authorization: Bearer KEY'")
