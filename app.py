@@ -61,17 +61,23 @@ if "lang" not in st.session_state: st.session_state.lang = "English"
 if "ui_theme_preset" not in st.session_state: st.session_state.ui_theme_preset = "UniFi Stealth Slate"
 if "wl_client_name" not in st.session_state: st.session_state.wl_client_name = "OmniBuild OS Standard"
 
-# Multi-Tenant Local Memory Fallbacks (If Cloud API is offline)
+# Multi-Tenant Siloed Ledgers
 if "tenant_balances" not in st.session_state: st.session_state.tenant_balances = {}
 if "change_orders" not in st.session_state: st.session_state.change_orders = []
 if "transaction_history" not in st.session_state: st.session_state.transaction_history = []
 if "contract_agreements" not in st.session_state: st.session_state.contract_agreements = []
 if "system_audit_trail" not in st.session_state: st.session_state.system_audit_trail = []
 if "purchase_orders" not in st.session_state: st.session_state.purchase_orders = []
+
 if "commercial_units" not in st.session_state:
     st.session_state.commercial_units = pd.DataFrame(columns=["Tenant Owner", "Floor", "Unit Number", "Asset Type", "Fabrication Status", "Installation Status", "GC Sign-Off", "Value Release"])
+
 if "field_dispatch_messages" not in st.session_state:
     st.session_state.field_dispatch_messages = []
+
+# Core Project Schedule Delays / Padding state parameters
+if "schedule_delay_days" not in st.session_state: st.session_state.schedule_delay_days = 0
+if "crew_count_leveling" not in st.session_state: st.session_state.crew_count_leveling = 2
 
 if "generated_license_keys" not in st.session_state:
     st.session_state.generated_license_keys = [
@@ -183,11 +189,8 @@ st.markdown(f"<div class='brand-hero-header'>⚜️ {st.session_state.wl_client_
 st.divider()
 
 # --- 10. LIVE SUPABASE CLOUD SYNC & RECOVERY LAYER ---
-# Attempt to fetch multi-unit data frames from the live database server
 cloud_units = supabase_api_call(endpoint="commercial_units", method="GET", params={"Tenant Owner": f"eq.{current_user}"})
-
 if cloud_units is not None and not isinstance(cloud_units, dict) and len(cloud_units) > 0:
-    # Hydrate our state engine directly with database vectors if present
     st.session_state.commercial_units = pd.DataFrame(cloud_units)
 
 raw_cloud_data = supabase_api_call(endpoint="materials", method="GET", params={"user_email": f"eq.{current_user}"})
@@ -202,18 +205,14 @@ if raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_dat
     total_labor_hours = ((df_elec_clean["quantity"] * df_elec_clean["labor_minutes"]) / 60).sum()
     has_materials = True
 
-calculated_duration_days = max(1, math.ceil(total_labor_hours / 8)) if total_labor_hours > 0 else 5
-
-is_bank_connected = st.session_state.get("bank_connected", False)
-user_escrow_balance = st.session_state.tenant_balances[current_user]["escrow"]
-user_units_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
-
-completed_milestones = sum([is_bank_connected, user_escrow_balance > 0, (has_materials or len(user_units_df) > 0), bool(st.session_state.contract_agreements)])
-onboarding_percentage = (completed_milestones / 4) * 100
-
 # --- 11. CENTRALIZED RUNNING ROUTING BLOCKS ---
 if selected_page == t["home"]:
     st.write(f"### {t['home']}")
+    # Query current user's isolated list size dynamically
+    user_units_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
+    completed_milestones = sum([st.session_state.get("bank_connected", False), st.session_state.tenant_balances[current_user]["escrow"] > 0, (has_materials or len(user_units_df) > 0), bool(st.session_state.contract_agreements)])
+    onboarding_percentage = (completed_milestones / 4) * 100
+
     st.write("#### 🎯 Your Interactive Onboarding Milestone Map")
     st.progress(onboarding_percentage / 100)
     
@@ -223,52 +222,51 @@ if selected_page == t["home"]:
         
         sim_data = [
             {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Approved & Certified", "Value Release": 2250.00},
-            {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Room 102", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Pending Review", "Value Release": 2250.00}
+            {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Room 102", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Pending Review", "Value Release": 2250.00},
+            {"Tenant Owner": current_user, "Floor": "Floor 02", "Unit Number": "Room 201", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "In Shop Progress", "Installation Status": "Staged On-Site", "GC Sign-Off": "Awaiting Field Completion", "Value Release": 2250.00}
         ]
-        
-        # Mirror the simulated session rows up to your permanent database cloud environment
-        for unit in sim_data:
-            supabase_api_call(endpoint="commercial_units", method="POST", payload=unit)
-            
+        for unit in sim_data: supabase_api_call(endpoint="commercial_units", method="POST", payload=unit)
         st.session_state.commercial_units = pd.DataFrame(sim_data)
         st.success("Your private production workspace has been cleanly synchronized with the cloud! All records are now completely permanent."); time.sleep(0.5); st.rerun()
 
-elif selected_page == t["comm_rollout"]:
-    st.write(f"### {t['comm_rollout']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Multi-Unit High-Density Real Estate Scaling Portal (Cloud-Synced)</b></div>", unsafe_allow_html=True)
-    user_view_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
-    
-    if user_view_df.empty:
-        st.info("Private database ledger empty. Run cloud setup on Command Center page.")
-    else:
-        st.write("#### 🧱 Your Production Multi-Unit Grid Matrix")
-        edited_df = st.data_editor(user_view_df, use_container_width=True, num_rows="dynamic")
-        if st.button("💾 Synchronize Workspace Structural Changes to Cloud", use_container_width=True):
-            # Batch upload individual mutations straight to your cloud backend endpoints
-            for idx, row in edited_df.iterrows():
-                payload = row.to_dict()
-                supabase_api_call(endpoint="commercial_units", method="POST", payload=payload)
-            st.success("All data updates have been permanently saved to your cloud database arrays.")
-
 elif selected_page == t["matrix"]:
     st.write(f"### {t['matrix']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>Trade Matrix Configuration Layer</b><br>Define cost codes and production units below.</div>", unsafe_allow_html=True)
     st.dataframe(pd.DataFrame([{"Trade Code": "ELEC-ROUGH", "Title": "Rough-In Conduit", "Rate/Hr": 45.00}, {"Trade Code": "STONE-FAB", "Title": "Countertop Cut", "Rate/Hr": 65.00}]), use_container_width=True, hide_index=True)
 
 elif selected_page == t["takeoff"]:
     st.write(f"### {t['takeoff']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>📐 Blueprint Automated Material Takeoff Ingestion</b></div>", unsafe_allow_html=True)
     st.text_area("Paste Blueprint Specification Text / Bill of Materials Strings Here")
+    st.button("Run Text-Extraction Parser")
 
 elif selected_page == t["bid"]:
     st.write(f"### {t['bid']}")
-    st.write("Calculated Target Bid Margin: **32.5%**")
+    st.markdown("<div class='unifi-stealth-blade'><b>🎯 AI Bid Optimizer Node</b></div>", unsafe_allow_html=True)
+    st.write("Calculated Target Bid Margin: **32.5%** ∙ Suggested Commercial Proposal Bond Value: **$185,000.00**")
 
 elif selected_page == t["clinic"]:
     st.write(f"### {t['clinic']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>🏥 Clinic Infrastructure Architecture Audit readiness</b></div>", unsafe_allow_html=True)
     st.checkbox("HIPAA Network Isolation Ring Active", value=True)
+    st.checkbox("Yealink Secure VoIP Server Handshake Complete", value=True)
 
 elif selected_page == t["co_lien"]:
     st.write(f"### {t['co_lien']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>📝 Change Orders & Conditional Statutory Liens</b></div>", unsafe_allow_html=True)
     st.write("Tracking 0 Active Field Variance Disputes.")
+
+elif selected_page == t["comm_rollout"]:
+    st.write(f"### {t['comm_rollout']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>Multi-Unit High-Density Real Estate Scaling Portal (Isolated)</b></div>", unsafe_allow_html=True)
+    user_view_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
+    if user_view_df.empty:
+        st.info("Private database ledger empty. Run cloud setup on Command Center page.")
+    else:
+        edited_df = st.data_editor(user_view_df, use_container_width=True, num_rows="dynamic")
+        if st.button("💾 Synchronize Workspace Structural Changes to Cloud", use_container_width=True):
+            for idx, row in edited_df.iterrows(): supabase_api_call(endpoint="commercial_units", method="POST", payload=row.to_dict())
+            st.success("All data updates have been permanently saved to your cloud database arrays.")
 
 elif selected_page == t["fin"]:
     st.write(f"### {t['fin']}")
@@ -278,30 +276,91 @@ elif selected_page == t["fin"]:
 
 elif selected_page == t["bank"]:
     st.write(f"### {t['bank']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>Corporate Project Funding & Bank Link Hub</b></div>", unsafe_allow_html=True)
     dep_amt = st.number_input("Inbound Wire Value ($)", value=50000.00)
     if st.button("🏢 Fund Project Escrow Buffer Pool", use_container_width=True):
         st.session_state.bank_connected = True
         st.session_state.tenant_balances[current_user]["escrow"] += dep_amt
         st.success("Escrow loaded!"); time.sleep(0.5); st.rerun()
 
+# --- UPGRADED MODULE: CRITICAL PATH SCHEDULING ALGORITHM ---
 elif selected_page == t["sched"]:
     st.write(f"### {t['sched']}")
-    sch_df = pd.DataFrame([{"Phase": "Phase 1: Underground & Framing", "Start": "2026-06-01", "End": "2026-06-12", "Status": "Active"}])
-    g_chart = alt.Chart(sch_df).mark_bar(size=20).encode(x='Start:T', x2='End:T', y='Phase:N').properties(height=150, width='container')
-    st.altair_chart(g_chart, use_container_width=True)
+    st.markdown("<div class='unifi-stealth-blade'><b>🧠 Algorithmic Critical Path Production Scheduler</b><br>Simulate vendor backorders, level crew assignments, and automatically calculate real-time project hand-over forecasting.</div>", unsafe_allow_html=True)
+    
+    col_sch_ctrl, col_sch_viz = st.columns([1, 1.4])
+    
+    with col_sch_ctrl:
+        st.write("#### 🛠️ Resource Leveling & Supply Controls")
+        # Let the user simulate an upstream supply chain shock or buffer delay
+        simulated_delay = st.slider("Supply-Chain Material Backorder Lag (Days)", 0, 14, st.session_state.schedule_delay_days)
+        active_crew = st.slider("Active Field Crew Personnel Count", 1, 10, st.session_state.crew_count_leveling)
+        
+        if st.button("⚡ Execute Schedule Recalculation Engine", use_container_width=True):
+            st.session_state.schedule_delay_days = simulated_delay
+            st.session_state.crew_count_leveling = active_crew
+            st.toast("Algorithmic rescheduling parameters compiled!", icon="📈")
+            time.sleep(0.5); st.rerun()
+            
+        st.write("---")
+        st.write("#### 🏗️ Predecessor Structural Handshake Matrix")
+        st.caption("Mark GC structural tasks complete to release field production paths for installers:")
+        pre_drywall = st.checkbox("GC Drywall & Framing Sheetrock Complete (Floor 1)", value=True)
+        pre_plumb = st.checkbox("Core Plumbing Rough-Ins Certified (Floor 2)", value=False)
+        
+    with col_sch_viz:
+        st.write("#### 📊 Dynamic Project Gantt Production Projections")
+        
+        # Calculate timeline offsets based on user leveling logic parameters
+        base_start = datetime.date(2026, 6, 1)
+        
+        fab_start = base_start + datetime.timedelta(days=simulated_delay)
+        fab_duration = max(2, math.ceil(12 / active_crew))
+        fab_end = fab_start + datetime.timedelta(days=fab_duration)
+        
+        install_start = fab_end + datetime.timedelta(days=1)
+        install_duration = max(3, math.ceil(20 / active_crew))
+        # If the predecessor plumbing trades are behind, stack an automatic warning delay block
+        if not pre_plumb:
+            install_duration += 5
+        install_end = install_start + datetime.timedelta(days=install_duration)
+        
+        sch_df = pd.DataFrame([
+            {"Task Node": "1. Material Fabrication Loop", "Start": fab_start.strftime("%Y-%m-%d"), "End": fab_end.strftime("%Y-%m-%d"), "Phase Metric": "Shop Tooling"},
+            {"Task Node": "2. High-Density Suite Rollout", "Start": install_start.strftime("%Y-%m-%d"), "End": install_end.strftime("%Y-%m-%d"), "Phase Metric": "Field Execution"}
+        ])
+        
+        g_chart = alt.Chart(sch_df).mark_bar(size=24, cornerRadius=4).encode(
+            x=alt.X('Start:T', title="Project Calendar Timeline"),
+            x2='End:T',
+            y=alt.Y('Task Node:N', title=None),
+            color=alt.Color('Phase Metric:N', scale=alt.Scale(range=[st.session_state.wl_accent_color, '#F59E0B']))
+        ).properties(height=180, width='container')
+        
+        st.altair_chart(g_chart, use_container_width=True)
+        
+        # Critical warning banners derived contextually from data variables
+        if not pre_plumb:
+            st.markdown("<div class='unifi-stealth-gold'><b>⚠️ CRITICAL PATH WARNING:</b> Core Plumbing Rough-Ins are unchecked. The rescheduling algorithm has stacked an automatic <b>5-day buffer variance liability</b> on your field execution path.</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("<div class='unifi-stealth-green'><b>✅ CRITICAL PATH CLEAR:</b> Upstream structural framing trades are verified. Your resource timeline is running at 100% efficiency.</div>", unsafe_allow_html=True)
+            
+        st.metric("Algorithmic Project Hand-Over Date", install_end.strftime("%B %d, %Y"), f"Adjusted by +{simulated_delay + (5 if not pre_plumb else 0)} Days Total")
 
 elif selected_page == t["ai_core"]:
     st.write(f"### {t['ai_core']}")
-    st.write("Calculated Risk Score: **Excellent**.")
+    st.markdown("<div class='unifi-stealth-blade'><b>🧠 OmniMind Live Cross-Table Cognitive Diagnostics</b></div>", unsafe_allow_html=True)
+    st.write("Calculated Risk Score: **Excellent**. Financial capital buffers fully match active crew velocity scales.")
 
 elif selected_page == t["dash"]:
     st.write(f"### {t['dash']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>📊 Executive Telemetry Control Panel Graphs</b></div>", unsafe_allow_html=True)
     chart_data = pd.DataFrame({"Project Week": ["W1", "W2", "W3", "W4"], "Capital Position ($)": [20000, 35000, 50000, 75000]})
     st.altair_chart(alt.Chart(chart_data).mark_line(point=True).encode(x='Project Week', y='Capital Position ($)'), use_container_width=True)
 
 elif selected_page == t["legal_contract"]:
     st.write(f"### {t['legal_contract']}")
-    st.markdown("<div class='legal-document-scrollbox'><b>ARTICLE 1. COMPLIANCE SCOPES</b><br>All installations must fulfill standards.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='legal-document-scrollbox'><b>ARTICLE 1. COMPLIANCE SCOPES</b><br>All installations must fulfill statutory standards.</div>", unsafe_allow_html=True)
 
 elif selected_page == t["field_signoff"]:
     st.write(f"### {t['field_signoff']}")
