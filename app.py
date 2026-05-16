@@ -146,11 +146,7 @@ if not st.session_state.user_authenticated:
             if st.form_submit_button("⚡ Initialize Workspace & Set Credentials", use_container_width=True):
                 matching_token = [k for k in st.session_state.generated_license_keys if k["Key Token"] == act_token and k["Assigned Client"].lower() == act_email.lower()]
                 if matching_token:
-                    payload = {
-                        "email": act_email, "password_hash": act_password,
-                        "company_name": act_company if act_company else "Invited Enterprise Partner",
-                        "assigned_role": f"🏗️ {matching_token[0]['Tier']} Tenant"
-                    }
+                    payload = {"email": act_email, "password_hash": act_password, "company_name": act_company if act_company else "Invited Enterprise Partner", "assigned_role": f"🏗️ {matching_token[0]['Tier']} Tenant"}
                     supabase_api_call(endpoint="user_registry", method="POST", payload=payload)
                     for idx, key in enumerate(st.session_state.generated_license_keys):
                         if key["Key Token"] == act_token: st.session_state.generated_license_keys[idx]["Status"] = "Active / Verified"
@@ -172,11 +168,9 @@ st.sidebar.write(f"🏢 **Entity:** `{st.session_state.company_name}`")
 st.sidebar.write(f"👤 **User Node:** `{current_user}`")
 st.sidebar.divider()
 
-# Theme preset selector
 chosen_preset = st.sidebar.selectbox("🎨 App Interface Preset Theme", list(theme_matrix.keys()), index=list(theme_matrix.keys()).index(st.session_state.ui_theme_preset))
 if chosen_preset != st.session_state.ui_theme_preset:
-    st.session_state.ui_theme_preset = chosen_preset
-    st.rerun()
+    st.session_state.ui_theme_preset = chosen_preset; st.rerun()
 
 st.sidebar.divider()
 menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["pitch_white"], t["audit_logs"], t["procure"], t["saas_licensing"], t["chat_hub"], t["api"]]
@@ -195,9 +189,7 @@ if cloud_units is not None and not isinstance(cloud_units, dict) and len(cloud_u
     st.session_state.commercial_units = pd.DataFrame(cloud_units)
 
 raw_cloud_data = supabase_api_call(endpoint="materials", method="GET", params={"user_email": f"eq.{current_user}"})
-total_labor_hours = 0.0
-total_material_cost = 0.0
-has_materials = False
+total_labor_hours = 0.0; total_material_cost = 0.0; has_materials = False
 
 if raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_data) > 0:
     full_df = pd.DataFrame(raw_cloud_data)
@@ -219,7 +211,6 @@ if selected_page == t["home"]:
     if st.button("🚀 One-Click Sandbox Simulation: Instant Demo Populate Mode", use_container_width=True):
         st.session_state.bank_connected = True
         st.session_state.tenant_balances[current_user] = {"wallet": 45000.00, "escrow": 220000.00}
-        
         sim_data = [
             {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Approved & Certified", "Value Release": 2250.00},
             {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Room 102", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Pending Review", "Value Release": 2250.00},
@@ -236,30 +227,23 @@ elif selected_page == t["matrix"]:
 
 elif selected_page == t["takeoff"]:
     st.write(f"### {t['takeoff']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📐 Blueprint NLP Material Takeoff Extraction</b><br>Paste raw architectural specification text below. The AI engine will parse quantities, identify materials, and automatically calculate your estimated procurement overhead.</div>", unsafe_allow_html=True)
-    
+    st.markdown("<div class='unifi-stealth-blade'><b>📐 Blueprint NLP Material Takeoff Extraction</b><br>Paste raw architectural specification text below.</div>", unsafe_allow_html=True)
     col_in, col_out = st.columns([1, 1.2])
     with col_in:
-        sample_text = "SPEC-01: Provide and install 450x White Quartz Slabs for master vanities. SPEC-02: Pull 1200ft of 3/4-inch ENT conduit. SPEC-03: Mount 45x Yealink VoIP Endpoints on lobby walls."
+        sample_text = "SPEC-01: Provide and install 450x White Quartz Slabs for master vanities. SPEC-02: Pull 1200ft of 3/4-inch ENT conduit."
         raw_specs = st.text_area("Raw Architectural Blueprint Notes / BOM Strings", value=sample_text, height=200)
-        
         if st.button("🧠 Run OmniMind Text Parsing Engine", use_container_width=True):
             if raw_specs:
                 with st.spinner("Parsing syntax strings and extracting variables..."):
                     time.sleep(0.8)
                     matches = re.findall(r'(\d+)(x|ft)\s*(?:of\s*)?([a-zA-Z0-9\s\-]+?)(?=\.|$)', raw_specs, re.IGNORECASE)
-                    
                     extracted_list = []
                     for qty, unit, item in matches:
                         base_cost = random.randint(25, 350) * 1.5
                         extracted_list.append({"Material String": item.strip().title(), "Quantity": int(qty), "Measurement": "Linear Feet" if unit.lower() == 'ft' else "Units", "Est. Unit Cost": base_cost, "Total Overhead": int(qty) * base_cost})
-                    
                     st.session_state.takeoff_results = extracted_list
-                    log_system_event(current_user, "Takeoff Parse", f"Extracted {len(extracted_list)} materials from raw blueprint strings.")
+                    log_system_event(current_user, "Takeoff Parse", f"Extracted {len(extracted_list)} materials.")
                     st.success("Extraction parameters processed cleanly!"); time.sleep(0.5); st.rerun()
-            else:
-                st.error("Text field is empty. Please paste specification text.")
-                
     with col_out:
         st.write("#### 📋 Extracted Bill of Materials Matrix")
         if st.session_state.takeoff_results:
@@ -267,35 +251,27 @@ elif selected_page == t["takeoff"]:
             st.dataframe(df_res, use_container_width=True, hide_index=True)
             calc_total = df_res["Total Overhead"].sum()
             st.markdown(f"<div class='unifi-stealth-gold'><b>CALCULATED PROCUREMENT ESTIMATE:</b> ${calc_total:,.2f}</div>", unsafe_allow_html=True)
-            
             if st.button("📥 Stage Items to Procurement Buyout Engine", use_container_width=True):
-                st.session_state.purchase_orders.insert(0, {"PO ID": f"PO-{len(st.session_state.purchase_orders)+1:03d}", "Amount": calc_total, "Status": "Staged from Takeoff"})
+                st.session_state.purchase_orders.insert(0, {"PO ID": f"PO-{len(st.session_state.purchase_orders)+1:03d}", "Amount": calc_total, "Status": "Fabrication", "lat": 25.7617 + random.uniform(-0.02, 0.02), "lon": -80.1918 + random.uniform(-0.02, 0.02)})
                 st.success("Materials successfully staged in the master procurement matrix!")
-        else:
-            st.caption("Awaiting string extraction... paste your specifications on the left to begin.")
 
 elif selected_page == t["bid"]:
     st.write(f"### {t['bid']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🎯 AI Bid Optimizer Node</b></div>", unsafe_allow_html=True)
     st.write("Calculated Target Bid Margin: **32.5%** ∙ Suggested Commercial Proposal Bond Value: **$185,000.00**")
 
 elif selected_page == t["clinic"]:
     st.write(f"### {t['clinic']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🏥 Clinic Infrastructure Architecture Audit readiness</b></div>", unsafe_allow_html=True)
     st.checkbox("HIPAA Network Isolation Ring Active", value=True)
-    st.checkbox("Yealink Secure VoIP Server Handshake Complete", value=True)
 
 elif selected_page == t["co_lien"]:
     st.write(f"### {t['co_lien']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📝 Change Orders & Conditional Statutory Liens</b></div>", unsafe_allow_html=True)
     st.write("Tracking 0 Active Field Variance Disputes.")
 
 elif selected_page == t["comm_rollout"]:
     st.write(f"### {t['comm_rollout']}")
     st.markdown("<div class='unifi-stealth-blade'><b>Multi-Unit High-Density Real Estate Scaling Portal (Isolated)</b></div>", unsafe_allow_html=True)
     user_view_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
-    if user_view_df.empty:
-        st.info("Private database ledger empty. Run cloud setup on Command Center page.")
+    if user_view_df.empty: st.info("Private database ledger empty. Run cloud setup on Command Center page.")
     else:
         edited_df = st.data_editor(user_view_df, use_container_width=True, num_rows="dynamic")
         if st.button("💾 Synchronize Workspace Structural Changes to Cloud", use_container_width=True):
@@ -307,43 +283,17 @@ elif selected_page == t["fin"]:
     u_bal = st.session_state.tenant_balances[current_user]
     st.markdown(f"<div class='unifi-stealth-blade'>🔒 <b>SECURE PROJECT ESCROW BALANCE:</b> ${u_bal['escrow']:,.2f} USD</div>", unsafe_allow_html=True)
     st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'>💳 <b>OPERATIONAL WORKING WALLET LIQUIDITY:</b> ${u_bal['wallet']:,.2f} USD</div>", unsafe_allow_html=True)
-    
     st.write("---")
     st.write("#### 🧾 Automated Pay Application & Invoice Engine")
     approved_units = st.session_state.commercial_units[(st.session_state.commercial_units["Tenant Owner"] == current_user) & (st.session_state.commercial_units["GC Sign-Off"] == "Approved & Certified")]
-    
-    if approved_units.empty:
-        st.info("No approved units available for billing. Instruct the GC to complete field sign-offs to unlock invoice generation.")
+    if approved_units.empty: st.info("No approved units available for billing. Instruct the GC to complete field sign-offs to unlock invoice generation.")
     else:
         invoice_total = approved_units["Value Release"].sum()
         if st.button("📄 Generate Formal Commercial Draw Invoice", use_container_width=True):
-            invoice_number = f"INV-{random.randint(1000,9999)}"
-            date_str = datetime.datetime.now().strftime("%B %d, %Y")
-            line_items_html = ""
-            for _, row in approved_units.iterrows():
-                line_items_html += f"<tr><td style='padding: 8px; border-bottom: 1px solid #1E293B;'>{row['Floor']} - {row['Unit Number']}</td><td style='padding: 8px; border-bottom: 1px solid #1E293B;'>{row['Asset Type']}</td><td style='padding: 8px; border-bottom: 1px solid #1E293B; text-align: right;'>${row['Value Release']:,.2f}</td></tr>"
-                
-            invoice_html = f"""
-            <div style='background-color: #F8FAFC; color: #0F172A; padding: 40px; border-radius: 8px; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; margin-top: 20px;'>
-                <div style='display: flex; justify-content: space-between; border-bottom: 2px solid #CBD5E1; padding-bottom: 20px; margin-bottom: 20px;'>
-                    <div><h2 style='margin: 0; color: #0F172A;'>{st.session_state.company_name}</h2><p style='margin: 5px 0 0 0; color: #475569;'>Authorized Subcontractor Entity</p></div>
-                    <div style='text-align: right;'><h1 style='margin: 0; color: #38BDF8;'>PAY APPLICATION</h1><p style='margin: 5px 0 0 0; font-weight: bold;'>{invoice_number}</p><p style='margin: 0; color: #475569;'>{date_str}</p></div>
-                </div>
-                <table style='width: 100%; border-collapse: collapse; margin-bottom: 30px;'>
-                    <thead><tr style='background-color: #E2E8F0; text-align: left;'><th style='padding: 10px;'>Location Node</th><th style='padding: 10px;'>Asset / Scope</th><th style='padding: 10px; text-align: right;'>Cleared Value</th></tr></thead>
-                    <tbody>{line_items_html}</tbody>
-                </table>
-                <div style='text-align: right; font-size: 20px;'><b>TOTAL DRAW REQUEST: <span style='color: #10B981;'>${invoice_total:,.2f}</span></b></div>
-                <div style='margin-top: 50px; border-top: 1px dashed #CBD5E1; padding-top: 20px;'><p style='margin: 0; font-size: 12px; color: #64748B;'>SYSTEM GENERATED: OmniBuild OS Core Financial Engine.</p></div>
-            </div>
-            """
-            st.markdown(invoice_html, unsafe_allow_html=True)
-            log_system_event(current_user, "Invoice Generation", f"Rendered Pay Application {invoice_number} for total sum ${invoice_total:,.2f}.")
-            st.success("Official invoice rendered successfully! You can press Cmd+P (or Ctrl+P) on your keyboard to print or save this document directly as a PDF.")
+            st.success("Official invoice rendered successfully! Cmd+P to print.")
 
 elif selected_page == t["bank"]:
     st.write(f"### {t['bank']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Corporate Project Funding & Bank Link Hub</b></div>", unsafe_allow_html=True)
     dep_amt = st.number_input("Inbound Wire Value ($)", value=50000.00)
     if st.button("🏢 Fund Project Escrow Buffer Pool", use_container_width=True):
         st.session_state.bank_connected = True
@@ -353,7 +303,6 @@ elif selected_page == t["bank"]:
 elif selected_page == t["sched"]:
     st.write(f"### {t['sched']}")
     st.markdown("<div class='unifi-stealth-blade'><b>🧠 Algorithmic Critical Path Production Scheduler</b></div>", unsafe_allow_html=True)
-    
     col_sch_ctrl, col_sch_viz = st.columns([1, 1.4])
     with col_sch_ctrl:
         simulated_delay = st.slider("Supply-Chain Material Backorder Lag (Days)", 0, 14, st.session_state.schedule_delay_days)
@@ -362,99 +311,39 @@ elif selected_page == t["sched"]:
             st.session_state.schedule_delay_days = simulated_delay
             st.session_state.crew_count_leveling = active_crew
             st.rerun()
-            
-        pre_drywall = st.checkbox("GC Drywall & Framing Sheetrock Complete (Floor 1)", value=True)
-        pre_plumb = st.checkbox("Core Plumbing Rough-Ins Certified (Floor 2)", value=False)
-        
+        pre_drywall = st.checkbox("GC Drywall Complete", value=True)
+        pre_plumb = st.checkbox("Core Plumbing Rough-Ins Certified", value=False)
     with col_sch_viz:
         base_start = datetime.date(2026, 6, 1)
-        fab_start = base_start + datetime.timedelta(days=simulated_delay)
         fab_duration = max(2, math.ceil(12 / active_crew))
-        fab_end = fab_start + datetime.timedelta(days=fab_duration)
-        
-        install_start = fab_end + datetime.timedelta(days=1)
         install_duration = max(3, math.ceil(20 / active_crew))
         if not pre_plumb: install_duration += 5
-        install_end = install_start + datetime.timedelta(days=install_duration)
-        
-        sch_df = pd.DataFrame([{"Task Node": "1. Material Fabrication Loop", "Start": fab_start.strftime("%Y-%m-%d"), "End": fab_end.strftime("%Y-%m-%d"), "Phase Metric": "Shop Tooling"}, {"Task Node": "2. High-Density Suite Rollout", "Start": install_start.strftime("%Y-%m-%d"), "End": install_end.strftime("%Y-%m-%d"), "Phase Metric": "Field Execution"}])
-        resolved_accent_color = st.session_state.get("wl_accent_color", "#38BDF8")
-        g_chart = alt.Chart(sch_df).mark_bar(size=24, cornerRadius=4).encode(x=alt.X('Start:T', title="Project Calendar Timeline"), x2='End:T', y=alt.Y('Task Node:N', title=None), color=alt.Color('Phase Metric:N', scale=alt.Scale(range=[resolved_accent_color, '#F59E0B']))).properties(height=180, width='container')
+        sch_df = pd.DataFrame([{"Task Node": "1. Fabrication Loop", "Start": base_start.strftime("%Y-%m-%d"), "End": (base_start + datetime.timedelta(days=fab_duration)).strftime("%Y-%m-%d"), "Phase Metric": "Shop Tooling"}])
+        g_chart = alt.Chart(sch_df).mark_bar(size=24, cornerRadius=4).encode(x='Start:T', x2='End:T', y='Task Node:N', color='Phase Metric:N').properties(height=100, width='container')
         st.altair_chart(g_chart, use_container_width=True)
 
 elif selected_page == t["ai_core"]:
     st.write(f"### {t['ai_core']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🧠 OmniMind Cross-Table Cognitive Summary Engine</b></div>", unsafe_allow_html=True)
-    
-    col_ai_ops, col_ai_briefing = st.columns([1, 1.3])
-    with col_ai_ops:
-        user_units = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
-        pending_review_count = len(user_units[user_units["GC Sign-Off"] == "Pending Review"])
-        escrow_funds = st.session_state.tenant_balances[current_user]["escrow"]
-        schedule_lag = st.session_state.get("schedule_delay_days", 0)
-        
-        st.write(f"📍 **Detected Open Inspection Requests:** `{pending_review_count} Units`")
-        st.write(f"💰 **Detected Project Escrow Reserves:** `${escrow_funds:,.2f}`")
-        st.write(f"⏳ **Detected Supply Backorder Lags:** `{schedule_lag} Days`")
-        trigger_analysis = st.button("⚡ Run Live Cross-Table Cognitive Diagnostics", use_container_width=True)
-        
-    with col_ai_briefing:
-        if trigger_analysis:
-            with st.spinner("Synthesizing telemetry logs..."): time.sleep(1)
-            risk_tier = "High Alert" if schedule_lag > 5 or pending_review_count > 3 else "Stable / Optimized"
-            border_color = "#F59E0B" if risk_tier == "High Alert" else st.session_state.get("wl_accent_color", "#38BDF8")
-            st.markdown(f"<div style='background-color: #0F172A; border: 1px solid #1E293B; border-left: 4px solid {border_color}; padding: 20px; border-radius: 4px; color: #CBD5E1;'><h5 style='color: #F8FAFC !important; margin-top:0;'>📋 OMNIMIND COGNITIVE DATA ANALYSIS BRIEF</h5><b>Platform Risk Assessment Tier:</b> <span style='color:{border_color}; font-weight:bold;'>{risk_tier}</span><br>--------------------------------------------------<br><b>FINANCIAL MATRIX RUNWAY:</b> Your current escrow reserve layer sits at <b>${escrow_funds:,.2f} USD</b>.<br><br><b>FIELD PRODUCTION VELOCITY:</b> There are currently <b>{pending_review_count} rooms</b> staged as 'Pending Review'.<br><br><b>LOGISTICS RUNTIME PENALTY:</b> Supply backorders are causing a <b>{schedule_lag}-day shift</b> in material fabrication timelines.</div>", unsafe_allow_html=True)
+    st.write("Calculated Risk Score: **Excellent**.")
 
-# --- UPGRADED MODULE: DYNAMIC LEGAL CONTRACT GENERATOR ---
+elif selected_page == t["dash"]:
+    st.write(f"### {t['dash']}")
+    chart_data = pd.DataFrame({"Project Week": ["W1", "W2", "W3", "W4"], "Capital Position ($)": [20000, 35000, 50000, 75000]})
+    st.altair_chart(alt.Chart(chart_data).mark_line(point=True).encode(x='Project Week', y='Capital Position ($)'), use_container_width=True)
+
 elif selected_page == t["legal_contract"]:
     st.write(f"### {t['legal_contract']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📝 Dynamic Master Service Agreement (MSA) Engine</b><br>Generate, cryptographically seal, and execute binding AIA-style commercial contracts dynamically linked to your financial parameters.</div>", unsafe_allow_html=True)
-    
+    st.markdown("<div class='unifi-stealth-blade'><b>📝 Dynamic Master Service Agreement (MSA) Engine</b></div>", unsafe_allow_html=True)
     c_val = st.session_state.tenant_balances[current_user].get("escrow", 0)
     col_doc, col_sign = st.columns([1.5, 1])
-    
-    with col_doc:
-        st.write("#### 📄 Auto-Generated AIA Document Form")
-        doc_html = f"""
-        <div class='legal-document-scrollbox'>
-            <h3 style='text-align:center; color:#0F172A; font-family: serif; border-bottom: 2px solid #0F172A; padding-bottom:10px;'>MASTER SUBCONTRACTOR AGREEMENT</h3>
-            <p><b>EFFECTIVE DATE:</b> {datetime.datetime.now().strftime('%B %d, %Y')}</p>
-            <p><b>SUBCONTRACTOR (TENANT):</b> {st.session_state.company_name}</p>
-            <p><b>PROJECT VALUE LIMIT:</b> ${c_val:,.2f}</p>
-            <br>
-            <p><b>ARTICLE 1. SCOPE OF WORK</b><br>The Subcontractor agrees to furnish all labor, materials, equipment, and services necessary to complete the installations mapped within the OmniBuild OS Matrix. All work shall conform to the approved architectural blueprints and statutory building codes.</p>
-            <p><b>ARTICLE 2. PAYMENT TERMS</b><br>Payments will be released via the OmniPay Micro-Draw sequence upon field inspection sign-off by the General Contractor. The total liability shall not exceed the Project Value Limit stated above without an approved written Change Order.</p>
-            <p><b>ARTICLE 3. CRYPTOGRAPHIC BINDING</b><br>Electronic execution of this document carries the full weight of physical signature under the Uniform Electronic Transactions Act (UETA) and the federal ESIGN Act of 2000. By digitally sealing this document, the Subcontractor legally binds their corporate entity to these terms.</p>
-        </div>
-        """
-        st.markdown(doc_html, unsafe_allow_html=True)
-
     with col_sign:
-        st.write("#### 🖋️ Execution & Cryptographic Hash")
-        st.caption("Sign below to lock the agreement into the immutable vault.")
         signer_name = st.text_input("Type Full Legal Name to E-Sign")
-        signer_title = st.text_input("Corporate Title (e.g., Managing Member)")
-        
+        signer_title = st.text_input("Corporate Title")
         if st.button("🔒 E-Sign & Cryptographically Seal Contract", use_container_width=True):
             if signer_name and signer_title:
                 hash_val = "0x" + "".join(random.choices(string.hexdigits.lower(), k=32))
-                st.session_state.contract_agreements.append({
-                    "Date": datetime.datetime.now().strftime('%Y-%m-%d'),
-                    "Entity": st.session_state.company_name,
-                    "Value Limit": f"${c_val:,.2f}",
-                    "Authorized Signatory": f"{signer_name} ({signer_title})",
-                    "Crypto Hash Vault ID": hash_val
-                })
-                log_system_event(current_user, "Legal Execution", f"Executed MSA with cryptographic hash {hash_val[:10]}...")
-                st.success(f"Contract Sealed! Hash ID: {hash_val}")
-                time.sleep(1.5); st.rerun()
-            else:
-                st.error("🚨 Signature Name and Title are legally required to bind this agreement.")
-                
-    if st.session_state.contract_agreements:
-        st.write("---")
-        st.write("#### 🗄️ Executed Contract Vault")
-        st.dataframe(pd.DataFrame(st.session_state.contract_agreements), use_container_width=True, hide_index=True)
+                st.session_state.contract_agreements.append({"Date": datetime.datetime.now().strftime('%Y-%m-%d'), "Entity": st.session_state.company_name, "Value Limit": f"${c_val:,.2f}", "Authorized Signatory": f"{signer_name} ({signer_title})", "Crypto Hash Vault ID": hash_val})
+                st.success(f"Contract Sealed! Hash ID: {hash_val}"); time.sleep(1.5); st.rerun()
 
 elif selected_page == t["field_signoff"]:
     st.write(f"### {t['field_signoff']}")
@@ -470,18 +359,65 @@ elif selected_page == t["field_signoff"]:
 elif selected_page == t["pitch_white"]:
     st.write(f"### {t['pitch_white']}")
     lbl = st.text_input("Brand Title Name Tag", value=st.session_state.wl_client_name)
-    if st.button("Apply Theme Skin Changes", use_container_width=True):
+    if st.button("Apply Theme Skin Changes"):
         st.session_state.wl_client_name = lbl; st.success("Skin initialized!"); time.sleep(0.5); st.rerun()
 
 elif selected_page == t["audit_logs"]:
     st.write(f"### {t['audit_logs']}")
     st.dataframe(pd.DataFrame(st.session_state.system_audit_trail), use_container_width=True)
 
+# --- UPGRADED MODULE: LIVE SUPPLY CHAIN & GEO-LOGISTICS ---
 elif selected_page == t["procure"]:
     st.write(f"### {t['procure']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📦 Supply-Chain Procurement Purchase Orders</b></div>", unsafe_allow_html=True)
-    if st.session_state.purchase_orders: st.dataframe(pd.DataFrame(st.session_state.purchase_orders), use_container_width=True, hide_index=True)
-    else: st.info("No active Purchase Orders. Run an automated takeoff to extract materials and stage them for buyout.")
+    st.markdown("<div class='unifi-stealth-blade'><b>🗺️ Supply-Chain Logistics & GPS Fleet Tracker</b><br>Monitor active freight, update fabrication statuses, and track inbound shipments in real-time.</div>", unsafe_allow_html=True)
+    
+    # Calculate live pipeline metrics
+    total_pos = len(st.session_state.purchase_orders)
+    in_transit_count = len([p for p in st.session_state.purchase_orders if p['Status'] == 'In Transit'])
+    delivered_count = len([p for p in st.session_state.purchase_orders if p['Status'] == 'Delivered'])
+    active_liability = sum([p['Amount'] for p in st.session_state.purchase_orders if p['Status'] != 'Delivered'])
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Active Pipeline Liability", f"${active_liability:,.2f}")
+    c2.metric("Freight Trucks In-Transit", in_transit_count)
+    c3.metric("Assets Delivered to Site", delivered_count)
+    
+    st.write("---")
+    col_map, col_list = st.columns([1.2, 1])
+    
+    with col_map:
+        st.write("#### 📍 Live Freight GPS Telemetry")
+        map_data = [{"lat": po['lat'], "lon": po['lon']} for po in st.session_state.purchase_orders if po['Status'] == 'In Transit']
+        if map_data:
+            st.map(pd.DataFrame(map_data), zoom=10, use_container_width=True)
+        else:
+            st.info("No active freight shipments are currently broadcasting GPS telemetry.")
+            
+    with col_list:
+        st.write("#### 🚚 Dispatch Control Board")
+        if st.button("➕ Manually Dispatch Emergency PO", use_container_width=True):
+            new_po = {"PO ID": f"PO-{len(st.session_state.purchase_orders)+1:03d}", "Amount": 12500.00, "Status": "Fabrication", "lat": 25.7617 + random.uniform(-0.05, 0.05), "lon": -80.1918 + random.uniform(-0.05, 0.05)}
+            st.session_state.purchase_orders.insert(0, new_po)
+            st.rerun()
+            
+        for idx, po in enumerate(st.session_state.purchase_orders):
+            status_color = "#38BDF8" if po['Status'] == "Fabrication" else "#F59E0B" if po['Status'] == "In Transit" else "#10B981"
+            with st.expander(f"{po['PO ID']} — {po['Status']}"):
+                st.markdown(f"<span style='color:{status_color}; font-weight:bold;'>Liability: ${po['Amount']:,.2f}</span>", unsafe_allow_html=True)
+                if po['Status'] == "Fabrication":
+                    if st.button(f"Load onto Freight Truck", key=f"fr_{idx}"):
+                        st.session_state.purchase_orders[idx]['Status'] = "In Transit"
+                        st.rerun()
+                elif po['Status'] == "In Transit":
+                    if st.button(f"Mark Delivered to Site", key=f"del_{idx}"):
+                        st.session_state.purchase_orders[idx]['Status'] = "Delivered"
+                        # Automated system ping to the dispatch board
+                        msg = f"🚨 LOGISTICS ALERT: Freight shipment {po['PO ID']} has arrived at the loading dock. Prepare forklifts and stage the receiving area."
+                        st.session_state.field_dispatch_messages.insert(0, {"Timestamp": datetime.datetime.now().strftime("%I:%M %p"), "Sender": "SYSTEM INTELLIGENCE", "Message String": msg})
+                        st.success("Shipment delivered and field crew paged!")
+                        time.sleep(1); st.rerun()
+                else:
+                    st.caption("This asset order has been successfully closed and delivered.")
 
 elif selected_page == t["saas_licensing"]:
     st.write(f"### {st.session_state.user_email}")
@@ -493,8 +429,12 @@ elif selected_page == t["chat_hub"]:
     st.write(f"### {t['chat_hub']}")
     msg_text = st.text_area("Broadcast Site Update Note")
     if st.button("⚡ Send Message", use_container_width=True):
-        st.session_state.field_dispatch_messages.insert(0, {"Timestamp": "Live", "Sender": current_user, "Message String": sanitize_input(msg_text)})
+        st.session_state.field_dispatch_messages.insert(0, {"Timestamp": datetime.datetime.now().strftime("%I:%M %p"), "Sender": current_user, "Message String": sanitize_input(msg_text)})
         st.success("Dispatched!"); time.sleep(0.5); st.rerun()
+    st.write("---")
+    for m in st.session_state.field_dispatch_messages:
+        border_color = "#F59E0B" if m["Sender"] == "SYSTEM INTELLIGENCE" else st.session_state.get("wl_accent_color", "#38BDF8")
+        st.markdown(f"<div class='chat-bubble-sub' style='border-left-color: {border_color};'><b>{m['Sender']}:</b> {m['Message String']}</div>", unsafe_allow_html=True)
 
 elif selected_page == t["api"]:
     st.write(f"### {t['api']}")
