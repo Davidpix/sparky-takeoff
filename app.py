@@ -35,7 +35,21 @@ def sanitize_input(user_input):
 lang_dict = {
     "English": {
         "home": "🏠 Command Center", "matrix": "📊 Trade Matrix", "takeoff": "📐 Automated Takeoff", "gc_budg": "🏗️ GC Budget", 
-        "fin": "💳 OmniPay & Escrow", "bank": "🏦 Bank Portal", "clinic": "🏥 Clinic Infra & Audit", "co_lien": "📝 Change Orders & Liens", "api": "☁️ Cloud API"
+        "fin": "💳 OmniPay & Escrow", "bank": "🏦 Bank Portal", "clinic": "🏥 Clinic Infra & Audit", 
+        "co_lien": "📝 Change Orders & Liens", "bid": "🎯 AI Bid Optimizer", "inv": "🧾 Progress Billings", "api": "☁️ Cloud API",
+        "budget": "Master Budget", "wallet": "OmniWallet"
+    },
+    "Español": {
+        "home": "🏠 Centro de Mando", "matrix": "📊 Matriz de Oficio", "takeoff": "📐 Despegue Automatizado", "gc_budg": "🏗️ Presupuesto GC",
+        "fin": "💳 OmniPay y Fideicomiso", "bank": "🏦 Portal Bancario", "clinic": "🏥 Infraestructura Clínica", 
+        "co_lien": "📝 Órdenes de Cambio", "bid": "🎯 Optimizador IA", "inv": "🧾 Facturación de Progreso", "api": "☁️ API en la Nube",
+        "budget": "Presupuesto Maestro", "wallet": "Billetera Omni"
+    },
+    "Українська": {
+        "home": "🏠 Головна панель", "matrix": "📊 Кошторисна матриця", "takeoff": "📐 Авто-Кошторис", "gc_budg": "🏗️ Бюджет GC",
+        "fin": "💳 Фінанси та Ескроу", "bank": "🏦 Банківський Портал", "clinic": "🏥 Клінічна Інфраструктура", 
+        "co_lien": "📝 Зміни та Відмови від Прав", "bid": "🎯 AI Оптимізатор", "inv": "🧾 Прогресивне виставлення рахунків", "api": "☁️ Хмарний API",
+        "budget": "Головний бюджет", "wallet": "Гаманець Omni"
     }
 }
 
