@@ -8,10 +8,12 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import random
 import datetime
+import math
 
 st.set_page_config(page_title="Active Worksheet", layout="wide")
 
-st.title("📊 Core Estimation Worksheet")
+st.title("📊 Core Estimation Worksheet & Materializer Engine")
+st.write("This sheet aggregates your blueprint text scans, multi-sheet vector tracings, and automatically calculates complete field material packages based on the NEC Code book.")
 
 if "company_name" not in st.session_state:
     st.error("⚠️ Please return to the main Dashboard Gateway page to initialize your session parameters.")
@@ -28,27 +30,56 @@ total_crew_members = st.session_state.qty_journeymen + st.session_state.qty_help
 raw_composite_rate = ((st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)) / total_crew_members
 fully_burdened_labor_rate = raw_composite_rate * (1 + st.session_state.labor_burden_pct)
 
-# Aggregation arrays drive by Multi-Zone components
-rows_to_compile = []
+# --- READ LIVE DISTRIBUTOR PRICING OR USE FALLBACK MATRICES ---
+if "vendor_pricing" not in st.session_state:
+    st.session_state.vendor_pricing = {
+        "Main Panel Enclosure": 450.00, "GFCI Receptacle": 18.00, 
+        "Disconnect Switch": 85.00, "Single Pole Switch": 1.50,
+        "3/4\" EMT Conduit Run (Linear Ft)": 1.25
+    }
+
+# Read live synced price modifiers from app.py, adjusting sub-components relative to base pricing indexes
+conduit_base_cost = st.session_state.vendor_pricing.get("3/4\" EMT Conduit Run (Linear Ft)", 1.25)
+price_ratio = conduit_base_cost / 1.25
+
+# --- AUTOMATED MATERIALIZER & NEC COMPLIANCE LOGIC ---
+total_raw_footage = 0.0
+active_zone_tag = "General Branch Run"
 
 if "sheet_ledger" in st.session_state:
     for sheet_id, data in st.session_state.sheet_ledger.items():
-        subtotal_footage = data["conduit_runs"] + data["vertical_drops"]
-        if subtotal_footage > 0:
-            rows_to_compile.append({
-                "Item Name": "3/4\" EMT Conduit Run (Linear Ft)",
-                "Phase": "Rough-In",
-                "Zone/Location": data["active_zone"], # Inject individual tagged zone directly into array data rows
-                "Detected Qty": int(subtotal_footage),
-                "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Conduit Run (Linear Ft)"],
-                "Mins to Install": 4
-            })
+        total_raw_footage += data["conduit_runs"] + data["vertical_drops"]
+        if data["conduit_runs"] > 0:
+            active_zone_tag = data["active_zone"]
 
-# --- PROCESS REGEX BACKUP DEFAULTS ---
-if "vendor_pricing" not in st.session_state:
-    st.session_state.vendor_pricing = {"Main Panel Enclosure": 450.00, "GFCI Receptacle": 18.00, "Disconnect Switch": 85.00, "Single Pole Switch": 1.50}
+rows_to_compile = []
 
-# --- SIDEBAR TUNING PROFILES ---
+if total_raw_footage > 0:
+    st.info(f"⚡ **NEC Takeoff Compliance Engine Active:** Exploding {total_raw_footage:.2f} Linear Feet of raw circuit tracing into code-compliant field material line items...")
+    
+    # 1. Compute 10-foot Conduit Factory Sticks
+    conduit_sticks = math.ceil(total_raw_footage / 10.0)
+    rows_to_compile.append({
+        "Item Name": "3/4\" EMT Conduit (10ft Factory Sticks)", "Phase": "Rough-In", "Zone/Location": active_zone_tag,
+        "Detected Qty": int(conduit_sticks), "Unit Cost ($)": round(6.50 * price_ratio, 2), "Mins to Install": 12
+    })
+    
+    # 2. Compute 3/4" Set-Screw Couplings
+    couplings_needed = max(conduit_sticks - 1, 0)
+    if couplings_needed > 0:
+        rows_to_compile.append({
+            "Item Name": "3/4\" EMT Set-Screw Coupling", "Phase": "Rough-In", "Zone/Location": active_zone_tag,
+            "Detected Qty": int(couplings_needed), "Unit Cost ($)": round(1.15 * price_ratio, 2), "Mins to Install": 3
+        })
+        
+    # 3. Compute NEC-Compliant Conduit Support Straps (NEC 358.30)
+    straps_needed = math.ceil(total_raw_footage / 8.0) + 2
+    rows_to_compile.append({
+        "Item Name": "3/4\" 1-Hole EMT Strap (NEC 358.30 Compliant)", "Phase": "Rough-In", "Zone/Location": active_zone_tag,
+        "Detected Qty": int(straps_needed), "Unit Cost ($)": round(0.45 * price_ratio, 2), "Mins to Install": 2
+    })
+
+# --- PROCESS BLUEPRINT REGEX DATA TEXT SCANS ---
 with st.sidebar:
     st.header("🔍 Custom Regex Profiles")
     panel_kw = st.text_input("Main Panel Keywords", value="panel, load center, mlo")
