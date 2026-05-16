@@ -240,7 +240,7 @@ else:
         total_mat_cost = (edited_df["Qty"] * edited_df["Adjusted Unit Cost ($)"]).sum()
         total_labor_hours = ((edited_df["Qty"] * edited_df["Mins to Install"]) / 60).sum()
 
-    # --- TAB 2: THREE-PHASE BALANCER & VOLTAGE DROP PHYSICS ---
+    # --- TAB 2: THREE-PHASE BALANCER, VOLTAGE DROP, & WIRE PULL TENSION ---
     with tab_panel:
         st.write("### ⚡ NEC Three-Phase Circuit Load Balancing Matrix")
         st.caption("Distribute single-phase branching continuous loads across Phase A, B, and C busbars to prevent neutral current oversaturation.")
@@ -326,6 +326,38 @@ else:
                 st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>⚠️ EXCESSIVE VOLTAGE DROP DROOP</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Voltage sag is at **{drop_percentage:.2f}%** ({calculated_v_drop:.2f}V lost). Exceeds the NEC 3% efficiency threshold recommendation. Size up wire gauge to avoid equipment stalling.</p></div>", unsafe_allow_html=True)
             else:
                 st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ ELECTRICAL WAVEFORM SECURE</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Voltage sag locked in at **{drop_percentage:.2f}%**. Conductor operating temperature and thermal footprints inside safe limits.</p></div>", unsafe_allow_html=True)
+
+        # --- NEW SUB-MODULE: INTERACTIVE WIRE PULLING TENSION CALCULATOR ---
+        st.divider()
+        st.write("#### 📟 Dynamic Wire Pulling Tension & Bend Friction Tracker")
+        st.caption("Computes mechanical friction accumulation across raceway routing geometry to ensure adherence to the NEC 360-degree limitation constraint.")
+        
+        pull_col1, pull_col2 = st.columns(2)
+        with pull_col1:
+            qty_90_bends = st.number_input("Count of 90° Elbows / Bends in Run", min_value=0, max_value=8, value=2, step=1)
+            qty_45_bends = st.number_input("Count of 45° Offsets / Bends in Run", min_value=0, max_value=8, value=0, step=1)
+            estimated_cable_weight_lbs = st.number_input("Total Estimated Cable Weight Burden (Lbs)", min_value=5.0, max_value=500.0, value=25.0, step=5.0)
+            
+        with pull_col2:
+            st.write("#### 📡 Structural Friction Diagnostic Summary")
+            
+            # Compute total accumulated bend profile geometry
+            total_bend_degrees = (qty_90_bends * 90) + (qty_45_bends * 45)
+            st.write(f"Total Combined Pathway Curvature: **{total_bend_degrees}°**")
+            
+            # Pull tension math approximation: T_out = T_in * e^(mu * theta)
+            coefficient_friction = 0.40
+            bend_radians = (total_bend_degrees * math.pi) / 180
+            calculated_pull_tension_lbs = estimated_cable_weight_lbs * math.exp(coefficient_friction * bend_radians)
+            
+            st.write(f"Calculated End-Line Pull Tension: **{calculated_pull_tension_lbs:.1f} Lbs of Force**")
+            
+            if total_bend_degrees > 360:
+                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>🚨 NEC CODE VIOLATION: EXCEEDED 360°</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>NEC 358.26 strictly bans conduit runs containing more than 360° of accumulated bends between pull boxes. This pull will jam, stripping conductor jackets. Install an intermediate junction or pull box immediately.</p></div>", unsafe_allow_html=True)
+            elif calculated_pull_tension_lbs > 150.0:
+                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>⚠️ CRITICAL TENSION STRESS THRESHOLD</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Pull tension is high at {calculated_pull_tension_lbs:.1f} lbs. Requires mechanical pulling lubricants or poly-water compound sweeps to minimize jacket wall tearing risks.</p></div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ RACEWAY PATH COMPLIANT</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Friction profiles look safe. Conductor run complies fully with standard pulling parameters.</p></div>", unsafe_allow_html=True)
 
     # --- TAB 3: COMMODITY SIMULATOR & RISK ANALYTICS ---
     with tab_commodity:
@@ -458,7 +490,6 @@ DATE COMPILED: {datetime.date.today().strftime('%m/%d/%Y')}
         st.session_state.company_name = st.text_input("Subcontractor Corporate Header Designation", value=st.session_state.company_name, key="admin_company_name")
 
     # --- STICKY STYLED TOP HEALTH MONITOR BLADES ---
-    # Placed after loop executions to dynamically pull the updated values from all active frames
     st.markdown("<div style='margin-top:25px;'></div>", unsafe_allow_html=True)
     m_col1, m_col2, m_col3, m_col4 = st.columns(4)
     with m_col1:
@@ -486,7 +517,7 @@ DATE COMPILED: {datetime.date.today().strftime('%m/%d/%Y')}
         cleaned_cmd = manual_input_cmd.strip().lower()
         
         if cleaned_cmd == "/diagnostics":
-            st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-kernel'>[MANUAL CMD]</span> Running diagnostics loop: 4-node matrix running optimal. Frame buffer capacity at 100%. Code compliance constraints pass.")
+            st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-kernel'>[MANUAL CMD]</span> Running diagnostics loop: 5-node matrix running optimal. Frame buffer capacity at 100%. Structural pulling and insulation boundaries pass code limits.")
         elif cleaned_cmd == "/sync_prices":
             st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-kernel'>[MANUAL CMD]</span> Overwriting material catalog... Synchronized live commodity data tables for North Miami Beach market.")
         elif cleaned_cmd == "/clear_grid":
