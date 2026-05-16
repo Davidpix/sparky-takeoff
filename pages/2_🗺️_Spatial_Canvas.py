@@ -14,7 +14,7 @@ st.title("🗺️ Blueprint Measurement Canvas")
 st.write("Use this page to trace circuit paths, map conduit lines, and inject vertical wall heights straight into your takeoff total.")
 
 if "uploaded_file_bytes" not in st.session_state or st.session_state.uploaded_file_bytes is None:
-    st.error("⚠️ No blueprint detected in memory. Please go back to the main page, complete Step 3 (Upload Blueprint), and return here.")
+    st.error("⚠️ No blueprint detected in memory. Please go back to the main page, complete Step 4 (Upload Blueprint), and return here.")
     st.stop()
 
 if "sheet_ledger" not in st.session_state:
@@ -32,7 +32,8 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
         if sheet_key not in st.session_state.sheet_ledger:
             st.session_state.sheet_ledger[sheet_key] = {
                 "click_history": [], "conduit_runs": 0.0, "vertical_drops": 0.0,
-                "scale_factor": None, "scale_preset_name": "Manual Calibration Mode"
+                "scale_factor": None, "scale_preset_name": "Manual Calibration Mode",
+                "active_zone": "General Lighting / Branch" # Fallback zone allocation token
             }
             
         st.write("---")
@@ -41,9 +42,18 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
             ["1. Calibrate Scale", "2. Measure Linear Run", "3. AI Symbol Scan"]
         )
         
+        # --- ADVANCED PILLAR 1: MULTI-ZONE LOCATION CHANGER ---
+        st.write("---")
+        st.write("#### 🏢 Active Takeoff Construction Zone")
+        st.caption("Assign your current measurements to a specific physical area of the layout package:")
+        selected_zone = st.selectbox(
+            "Target Operational Area / Room Room",
+            options=["General Branch Run", "Main Service Room", "Kitchen Layout", "Bathroom / Wet Areas", "Exterior / Site Work"]
+        )
+        st.session_state.sheet_ledger[sheet_key]["active_zone"] = selected_zone
+        
         st.write("---")
         st.write("#### 📐 Blueprint Scale Profile")
-        st.caption("Look at the bottom right corner of your paper blueprint. Find the scale ratio and match it here:")
         
         current_preset = st.session_state.sheet_ledger[sheet_key]["scale_preset_name"]
         preset_options = [
@@ -68,7 +78,6 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
         if mode == "2. Measure Linear Run":
             st.divider()
             st.write("#### 📐 Wall Drops & Ceiling Height Offsets")
-            st.caption("Wire goes up and down walls, not just flat! Enter any vertical pipes dropping into panels or wall switches here:")
             added_drop = st.number_input("Enter Vertical Offset Height (Feet)", min_value=0.0, value=0.0, step=1.0)
             if st.button("➕ Inject Vertical Height to Totals"):
                 st.session_state.sheet_ledger[sheet_key]["vertical_drops"] += added_drop
@@ -89,7 +98,24 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
     img = page.to_image(resolution=100)
     pil_img = img.original.convert("RGB")
     active_clicks = st.session_state.sheet_ledger[sheet_key]["click_history"]
+    sf = st.session_state.sheet_ledger[sheet_key]["scale_factor"]
     
+    # --- PILLOW VECTOR OVERLAY ENGINE ---
+    draw = ImageDraw.Draw(pil_img)
+    
+    # --- ADVANCED PILLAR 2: VISUAL SCALE REFERENCE RULER BAR ---
+    # Paints an architectural verification legend ruler bar directly into the top left canvas pixels
+    if sf is not None and sf > 0:
+        ruler_pixels_10ft = sf * 10.0 # Calculate how long a 10-foot run is in canvas pixels
+        
+        # Render dark accent framing block background for high layout text contrast
+        draw.rectangle([15, 15, 45 + ruler_pixels_10ft, 60], fill="#1E1E1E", outline="#333333")
+        # Paint the neon cyan master tracking dimension ruler body
+        draw.line([(30, 45), (30 + ruler_pixels_10ft, 45)], fill="#00FFFF", width=5)
+        # Paint horizontal framing bounding caps on both ends of the ruler line
+        draw.line([(30, 38), (30, 52)], fill="#00FFFF", width=2)
+        draw.line([(30 + ruler_pixels_10ft, 38), (30 + ruler_pixels_10ft, 52)], fill="#00FFFF", width=2)
+        
     if mode == "3. AI Symbol Scan":
         st.info("🤖 AI Auto-Symbol Counter Profile Mode Active")
         symbol_selection = st.selectbox("Target Visual Blueprint Profile", ["Duplex Receptacle Outlet [⚙️]", "Recessed Can Light [💡]"])
@@ -109,7 +135,6 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
                 st.success(f"Vision sweep complete. Locked {final_count} instances into workspace data!")
     else:
         if active_clicks:
-            draw = ImageDraw.Draw(pil_img)
             if len(active_clicks) >= 2 and mode == "2. Measure Linear Run":
                 draw.line(active_clicks, fill="#00FFFF", width=4) 
             for point in active_clicks:
@@ -137,7 +162,6 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
                     st.success(f"Scale Calibration locked at {st.session_state.sheet_ledger[sheet_key]['scale_factor']:.2f} px/ft!")
                     
         elif mode == "2. Measure Linear Run":
-            sf = st.session_state.sheet_ledger[sheet_key]["scale_factor"]
             if sf is None:
                 st.error("⚠️ Please select a Plan Scale Profile on the left before measuring paths.")
             else:
@@ -150,6 +174,7 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
                     
                     st.metric("📏 Measured Blueprint Flat Distance", f"{calc_ft:.2f} Linear Ft")
                     st.metric("🔌 Added Wall Drop Footage Profile", f"{st.session_state.sheet_ledger[sheet_key]['vertical_drops']:.2f} Vertical Ft")
+                    st.write(f"Current Target Zone: **{st.session_state.sheet_ledger[sheet_key]['active_zone']}**")
                     
                     if st.button("➕ Lock Current Lines and Send to Takeoff Sheet"):
                         st.session_state.sheet_ledger[sheet_key]["conduit_runs"] += calc_ft

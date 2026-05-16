@@ -13,41 +13,40 @@ st.set_page_config(page_title="Active Worksheet", layout="wide")
 
 st.title("📊 Core Estimation Worksheet")
 
-# --- ENSURE GLOBAL SYSTEM STRUCTURAL INTEGRITY ---
 if "company_name" not in st.session_state:
     st.error("⚠️ Please return to the main Dashboard Gateway page to initialize your session parameters.")
     st.stop()
 
-# Fallback structures
+# Fallback crew logic
 if "qty_journeymen" not in st.session_state: st.session_state.qty_journeymen = 1
 if "rate_journeyman" not in st.session_state: st.session_state.rate_journeyman = 45.0
 if "qty_helpers" not in st.session_state: st.session_state.qty_helpers = 1
 if "rate_helper" not in st.session_state: st.session_state.rate_helper = 22.0
 if "labor_burden_pct" not in st.session_state: st.session_state.labor_burden_pct = 0.30
 
-# Calculate Burdened Crew composite rates
 total_crew_members = st.session_state.qty_journeymen + st.session_state.qty_helpers
 raw_composite_rate = ((st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)) / total_crew_members
 fully_burdened_labor_rate = raw_composite_rate * (1 + st.session_state.labor_burden_pct)
 
-if "vendor_pricing" not in st.session_state:
-    st.session_state.vendor_pricing = {
-        "Main Panel Enclosure": 450.00, "GFCI Receptacle": 18.00, 
-        "Disconnect Switch": 85.00, "Single Pole Switch": 1.50,
-        "3/4\" EMT Conduit Run (Linear Ft)": 1.25
-    }
+# Aggregation arrays drive by Multi-Zone components
+rows_to_compile = []
 
-# --- PROCESS MULTI-SHEET LEDGER AGGREGATION ---
-total_compiled_conduit = 0.0
 if "sheet_ledger" in st.session_state:
     for sheet_id, data in st.session_state.sheet_ledger.items():
-        # Aggregate linear run footage + vertical drop offsets across all sandboxes
-        total_compiled_conduit += data["conduit_runs"] + data["vertical_drops"]
+        subtotal_footage = data["conduit_runs"] + data["vertical_drops"]
+        if subtotal_footage > 0:
+            rows_to_compile.append({
+                "Item Name": "3/4\" EMT Conduit Run (Linear Ft)",
+                "Phase": "Rough-In",
+                "Zone/Location": data["active_zone"], # Inject individual tagged zone directly into array data rows
+                "Detected Qty": int(subtotal_footage),
+                "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Conduit Run (Linear Ft)"],
+                "Mins to Install": 4
+            })
 
-# --- LIVE MARKET SIMULATOR LINK ---
-today_str = datetime.date.today().strftime("%Y%m%d")
-random.seed(int(today_str))
-market_multiplier = 1.0 + random.uniform(-0.05, 0.12)
+# --- PROCESS REGEX BACKUP DEFAULTS ---
+if "vendor_pricing" not in st.session_state:
+    st.session_state.vendor_pricing = {"Main Panel Enclosure": 450.00, "GFCI Receptacle": 18.00, "Disconnect Switch": 85.00, "Single Pole Switch": 1.50}
 
 # --- SIDEBAR TUNING PROFILES ---
 with st.sidebar:
@@ -56,9 +55,7 @@ with st.sidebar:
     gfci_kw = st.text_input("GFCI Keywords", value="gfci, gfi, ground fault")
     disc_kw = st.text_input("Disconnect Keywords", value="disconnect, safety switch")
     switch_kw = st.text_input("Switch Keywords", value="single pole, 1-pole switch")
-    
     st.divider()
-    st.metric("Live Commodity Index Cost Multiplier", f"{((market_multiplier - 1) * 100):.2f}%")
     st.metric("Active Burdened Billing Rate", f"${fully_burdened_labor_rate:,.2f}/hr")
 
 @st.cache_data
@@ -92,32 +89,20 @@ def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw, pric
     return scanned_results
 
 if st.session_state.uploaded_file_bytes is not None:
-    scanned_data = process_and_scan_blueprint(
-        st.session_state.uploaded_file_bytes, 
-        panel_kw, gfci_kw, disc_kw, switch_kw, st.session_state.vendor_pricing
-    )
+    base_data = process_and_scan_blueprint(st.session_state.uploaded_file_bytes, panel_kw, gfci_kw, disc_kw, switch_kw, st.session_state.vendor_pricing)
 else:
-    scanned_data = [
-        {"Item Name": "Main Panel Enclosure", "Phase": "Rough-In", "Zone/Location": "Service Room", "Detected Qty": 0, "Unit Cost ($)": st.session_state.vendor_pricing["Main Panel Enclosure"], "Mins to Install": 120},
-        {"Item Name": "Disconnect Switch", "Phase": "Rough-In", "Zone/Location": "HVAC / Equipment", "Detected Qty": 0, "Unit Cost ($)": st.session_state.vendor_pricing["Disconnect Switch"], "Mins to Install": 45},
-        {"Item Name": "GFCI Receptacle", "Phase": "Trim-Out", "Zone/Location": "Wet Areas (Kitchen/Bath)", "Detected Qty": 0, "Unit Cost ($)": st.session_state.vendor_pricing["GFCI Receptacle"], "Mins to Install": 20},
-        {"Item Name": "Single Pole Switch", "Phase": "Trim-Out", "Zone/Location": "General Lighting", "Detected Qty": 0, "Unit Cost ($)": st.session_state.vendor_pricing["Single Pole Switch"], "Mins to Install": 15}
-    ]
+    base_data = []
 
-master_df = pd.DataFrame(scanned_data)
+master_df = pd.DataFrame(base_data)
+if rows_to_compile:
+    canvas_df = pd.DataFrame(rows_to_compile)
+    master_df = pd.concat([master_df, canvas_df], ignore_index=True)
 
-# Inject Multi-Sheet Aggregated Ledger Totals cleanly into the material sheet rows
-if total_compiled_conduit > 0:
-    conduit_row = pd.DataFrame([{
-        "Item Name": "3/4\" EMT Conduit Run (Linear Ft)", "Phase": "Rough-In", "Zone/Location": "Multi-Sheet Traced Total", 
-        "Detected Qty": int(total_compiled_conduit), "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Conduit Run (Linear Ft)"], "Mins to Install": 4
-    }])
-    master_df = pd.concat([master_df, conduit_row], ignore_index=True)
-
+# Inject Vision Computer Vision rows
 for item_name, count in st.session_state.vision_counts.items():
     if count > 0:
         vision_row = pd.DataFrame([{
-            "Item Name": f"AI Scan: {item_name}", "Phase": "Trim-Out", "Zone/Location": "Vision Takeoff", 
+            "Item Name": f"AI Scan: {item_name}", "Phase": "Trim-Out", "Zone/Location": "Vision Takeoff Area", 
             "Detected Qty": count, "Unit Cost ($)": 24.50, "Mins to Install": 25
         }])
         master_df = pd.concat([master_df, vision_row], ignore_index=True)
