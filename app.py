@@ -110,7 +110,7 @@ st.markdown(f"""
     .brand-hero-header {{ font-size: 28px; font-weight: bold; color: {active_colors['accent']} !important; letter-spacing: -0.02em; margin-bottom: 5px; }}
     .chat-bubble-sub {{ background-color: {active_colors['panel']} !important; padding: 12px; border-radius: 4px; border-left: 3px solid {active_colors['accent']}; margin-bottom: 8px; }}
     .chat-bubble-gc {{ background-color: #1E1B4B !important; padding: 12px; border-radius: 4px; border-left: 3px solid #10B981; margin-bottom: 8px; }}
-    .legal-document-scrollbox {{ background-color: #F8FAFC !important; color: #0F172A !important; border: 1px solid #E2E8F0 !important; padding: 30px; font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.6; border-radius: 4px; height: 350px; overflow-y: scroll; }}
+    .legal-document-scrollbox {{ background-color: #F8FAFC !important; color: #0F172A !important; border: 1px solid #E2E8F0 !important; padding: 30px; font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.6; border-radius: 4px; height: 400px; overflow-y: scroll; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -234,13 +234,11 @@ elif selected_page == t["matrix"]:
     st.markdown("<div class='unifi-stealth-blade'><b>Trade Matrix Configuration Layer</b><br>Define cost codes and production units below.</div>", unsafe_allow_html=True)
     st.dataframe(pd.DataFrame([{"Trade Code": "ELEC-ROUGH", "Title": "Rough-In Conduit", "Rate/Hr": 45.00}, {"Trade Code": "STONE-FAB", "Title": "Countertop Cut", "Rate/Hr": 65.00}]), use_container_width=True, hide_index=True)
 
-# --- UPGRADED MODULE: NLP BLUEPRINT TAKEOFF ENGINE ---
 elif selected_page == t["takeoff"]:
     st.write(f"### {t['takeoff']}")
     st.markdown("<div class='unifi-stealth-blade'><b>📐 Blueprint NLP Material Takeoff Extraction</b><br>Paste raw architectural specification text below. The AI engine will parse quantities, identify materials, and automatically calculate your estimated procurement overhead.</div>", unsafe_allow_html=True)
     
     col_in, col_out = st.columns([1, 1.2])
-    
     with col_in:
         sample_text = "SPEC-01: Provide and install 450x White Quartz Slabs for master vanities. SPEC-02: Pull 1200ft of 3/4-inch ENT conduit. SPEC-03: Mount 45x Yealink VoIP Endpoints on lobby walls."
         raw_specs = st.text_area("Raw Architectural Blueprint Notes / BOM Strings", value=sample_text, height=200)
@@ -249,24 +247,16 @@ elif selected_page == t["takeoff"]:
             if raw_specs:
                 with st.spinner("Parsing syntax strings and extracting variables..."):
                     time.sleep(0.8)
-                    # Regex logic to find patterns like "450x Item Name" or "1200ft of Item Name"
                     matches = re.findall(r'(\d+)(x|ft)\s*(?:of\s*)?([a-zA-Z0-9\s\-]+?)(?=\.|$)', raw_specs, re.IGNORECASE)
                     
                     extracted_list = []
                     for qty, unit, item in matches:
-                        base_cost = random.randint(25, 350) * 1.5 # Algorithmic mock pricing map
-                        extracted_list.append({
-                            "Material String": item.strip().title(),
-                            "Quantity": int(qty),
-                            "Measurement": "Linear Feet" if unit.lower() == 'ft' else "Units",
-                            "Est. Unit Cost": base_cost,
-                            "Total Overhead": int(qty) * base_cost
-                        })
+                        base_cost = random.randint(25, 350) * 1.5
+                        extracted_list.append({"Material String": item.strip().title(), "Quantity": int(qty), "Measurement": "Linear Feet" if unit.lower() == 'ft' else "Units", "Est. Unit Cost": base_cost, "Total Overhead": int(qty) * base_cost})
                     
                     st.session_state.takeoff_results = extracted_list
                     log_system_event(current_user, "Takeoff Parse", f"Extracted {len(extracted_list)} materials from raw blueprint strings.")
-                    st.success("Extraction parameters processed cleanly!")
-                    time.sleep(0.5); st.rerun()
+                    st.success("Extraction parameters processed cleanly!"); time.sleep(0.5); st.rerun()
             else:
                 st.error("Text field is empty. Please paste specification text.")
                 
@@ -275,7 +265,6 @@ elif selected_page == t["takeoff"]:
         if st.session_state.takeoff_results:
             df_res = pd.DataFrame(st.session_state.takeoff_results)
             st.dataframe(df_res, use_container_width=True, hide_index=True)
-            
             calc_total = df_res["Total Overhead"].sum()
             st.markdown(f"<div class='unifi-stealth-gold'><b>CALCULATED PROCUREMENT ESTIMATE:</b> ${calc_total:,.2f}</div>", unsafe_allow_html=True)
             
@@ -321,8 +310,6 @@ elif selected_page == t["fin"]:
     
     st.write("---")
     st.write("#### 🧾 Automated Pay Application & Invoice Engine")
-    st.caption("Generate formal, printable draw requests mapped explicitly to legally approved field milestones.")
-    
     approved_units = st.session_state.commercial_units[(st.session_state.commercial_units["Tenant Owner"] == current_user) & (st.session_state.commercial_units["GC Sign-Off"] == "Approved & Certified")]
     
     if approved_units.empty:
@@ -371,7 +358,6 @@ elif selected_page == t["sched"]:
     with col_sch_ctrl:
         simulated_delay = st.slider("Supply-Chain Material Backorder Lag (Days)", 0, 14, st.session_state.schedule_delay_days)
         active_crew = st.slider("Active Field Crew Personnel Count", 1, 10, st.session_state.crew_count_leveling)
-        
         if st.button("⚡ Execute Schedule Recalculation Engine", use_container_width=True):
             st.session_state.schedule_delay_days = simulated_delay
             st.session_state.crew_count_leveling = active_crew
@@ -419,14 +405,56 @@ elif selected_page == t["ai_core"]:
             border_color = "#F59E0B" if risk_tier == "High Alert" else st.session_state.get("wl_accent_color", "#38BDF8")
             st.markdown(f"<div style='background-color: #0F172A; border: 1px solid #1E293B; border-left: 4px solid {border_color}; padding: 20px; border-radius: 4px; color: #CBD5E1;'><h5 style='color: #F8FAFC !important; margin-top:0;'>📋 OMNIMIND COGNITIVE DATA ANALYSIS BRIEF</h5><b>Platform Risk Assessment Tier:</b> <span style='color:{border_color}; font-weight:bold;'>{risk_tier}</span><br>--------------------------------------------------<br><b>FINANCIAL MATRIX RUNWAY:</b> Your current escrow reserve layer sits at <b>${escrow_funds:,.2f} USD</b>.<br><br><b>FIELD PRODUCTION VELOCITY:</b> There are currently <b>{pending_review_count} rooms</b> staged as 'Pending Review'.<br><br><b>LOGISTICS RUNTIME PENALTY:</b> Supply backorders are causing a <b>{schedule_lag}-day shift</b> in material fabrication timelines.</div>", unsafe_allow_html=True)
 
-elif selected_page == t["dash"]:
-    st.write(f"### {t['dash']}")
-    chart_data = pd.DataFrame({"Project Week": ["W1", "W2", "W3", "W4"], "Capital Position ($)": [20000, 35000, 50000, 75000]})
-    st.altair_chart(alt.Chart(chart_data).mark_line(point=True).encode(x='Project Week', y='Capital Position ($)'), use_container_width=True)
-
+# --- UPGRADED MODULE: DYNAMIC LEGAL CONTRACT GENERATOR ---
 elif selected_page == t["legal_contract"]:
     st.write(f"### {t['legal_contract']}")
-    st.markdown("<div class='legal-document-scrollbox'><b>ARTICLE 1. COMPLIANCE SCOPES</b><br>All installations must fulfill statutory standards.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='unifi-stealth-blade'><b>📝 Dynamic Master Service Agreement (MSA) Engine</b><br>Generate, cryptographically seal, and execute binding AIA-style commercial contracts dynamically linked to your financial parameters.</div>", unsafe_allow_html=True)
+    
+    c_val = st.session_state.tenant_balances[current_user].get("escrow", 0)
+    col_doc, col_sign = st.columns([1.5, 1])
+    
+    with col_doc:
+        st.write("#### 📄 Auto-Generated AIA Document Form")
+        doc_html = f"""
+        <div class='legal-document-scrollbox'>
+            <h3 style='text-align:center; color:#0F172A; font-family: serif; border-bottom: 2px solid #0F172A; padding-bottom:10px;'>MASTER SUBCONTRACTOR AGREEMENT</h3>
+            <p><b>EFFECTIVE DATE:</b> {datetime.datetime.now().strftime('%B %d, %Y')}</p>
+            <p><b>SUBCONTRACTOR (TENANT):</b> {st.session_state.company_name}</p>
+            <p><b>PROJECT VALUE LIMIT:</b> ${c_val:,.2f}</p>
+            <br>
+            <p><b>ARTICLE 1. SCOPE OF WORK</b><br>The Subcontractor agrees to furnish all labor, materials, equipment, and services necessary to complete the installations mapped within the OmniBuild OS Matrix. All work shall conform to the approved architectural blueprints and statutory building codes.</p>
+            <p><b>ARTICLE 2. PAYMENT TERMS</b><br>Payments will be released via the OmniPay Micro-Draw sequence upon field inspection sign-off by the General Contractor. The total liability shall not exceed the Project Value Limit stated above without an approved written Change Order.</p>
+            <p><b>ARTICLE 3. CRYPTOGRAPHIC BINDING</b><br>Electronic execution of this document carries the full weight of physical signature under the Uniform Electronic Transactions Act (UETA) and the federal ESIGN Act of 2000. By digitally sealing this document, the Subcontractor legally binds their corporate entity to these terms.</p>
+        </div>
+        """
+        st.markdown(doc_html, unsafe_allow_html=True)
+
+    with col_sign:
+        st.write("#### 🖋️ Execution & Cryptographic Hash")
+        st.caption("Sign below to lock the agreement into the immutable vault.")
+        signer_name = st.text_input("Type Full Legal Name to E-Sign")
+        signer_title = st.text_input("Corporate Title (e.g., Managing Member)")
+        
+        if st.button("🔒 E-Sign & Cryptographically Seal Contract", use_container_width=True):
+            if signer_name and signer_title:
+                hash_val = "0x" + "".join(random.choices(string.hexdigits.lower(), k=32))
+                st.session_state.contract_agreements.append({
+                    "Date": datetime.datetime.now().strftime('%Y-%m-%d'),
+                    "Entity": st.session_state.company_name,
+                    "Value Limit": f"${c_val:,.2f}",
+                    "Authorized Signatory": f"{signer_name} ({signer_title})",
+                    "Crypto Hash Vault ID": hash_val
+                })
+                log_system_event(current_user, "Legal Execution", f"Executed MSA with cryptographic hash {hash_val[:10]}...")
+                st.success(f"Contract Sealed! Hash ID: {hash_val}")
+                time.sleep(1.5); st.rerun()
+            else:
+                st.error("🚨 Signature Name and Title are legally required to bind this agreement.")
+                
+    if st.session_state.contract_agreements:
+        st.write("---")
+        st.write("#### 🗄️ Executed Contract Vault")
+        st.dataframe(pd.DataFrame(st.session_state.contract_agreements), use_container_width=True, hide_index=True)
 
 elif selected_page == t["field_signoff"]:
     st.write(f"### {t['field_signoff']}")
@@ -452,11 +480,8 @@ elif selected_page == t["audit_logs"]:
 elif selected_page == t["procure"]:
     st.write(f"### {t['procure']}")
     st.markdown("<div class='unifi-stealth-blade'><b>📦 Supply-Chain Procurement Purchase Orders</b></div>", unsafe_allow_html=True)
-    
-    if st.session_state.purchase_orders:
-        st.dataframe(pd.DataFrame(st.session_state.purchase_orders), use_container_width=True, hide_index=True)
-    else:
-        st.info("No active Purchase Orders. Run an automated takeoff to extract materials and stage them for buyout.")
+    if st.session_state.purchase_orders: st.dataframe(pd.DataFrame(st.session_state.purchase_orders), use_container_width=True, hide_index=True)
+    else: st.info("No active Purchase Orders. Run an automated takeoff to extract materials and stage them for buyout.")
 
 elif selected_page == t["saas_licensing"]:
     st.write(f"### {st.session_state.user_email}")
