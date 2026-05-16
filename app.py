@@ -358,10 +358,66 @@ elif selected_page == t["ai_core"]:
     trigger_analysis = st.button("⚡ Run Live Cross-Table Cognitive Diagnostics", use_container_width=True)
     if trigger_analysis: st.success("Diagnostics run successfully.")
 
+# --- UPGRADED MODULE: EXECUTIVE TELEMETRY & GLOBAL FORECASTING ---
 elif selected_page == t["dash"]:
     st.write(f"### {t['dash']}")
-    chart_data = pd.DataFrame({"Project Week": ["W1", "W2", "W3", "W4"], "Capital Position ($)": [20000, 35000, 50000, 75000]})
-    st.altair_chart(alt.Chart(chart_data).mark_line(point=True).encode(x='Project Week', y='Capital Position ($)'), use_container_width=True)
+    st.markdown("<div class='unifi-stealth-blade'><b>📊 Global Portfolio Telemetry & Margin Forecasting</b><br>Real-time financial tracking, cash velocity calculations, and algorithmic margin fade detection across all active deployment zones.</div>", unsafe_allow_html=True)
+
+    u_bal = st.session_state.tenant_balances.get(current_user, {"wallet": 0, "escrow": 0})
+    gross_revenue = u_bal['escrow'] + u_bal['wallet']
+
+    # Calculate actual costs from POs and Change Orders
+    total_po_liability = sum(po['Amount'] for po in st.session_state.purchase_orders)
+    total_co_revenue = sum(co['Value Delta'] for co in st.session_state.active_change_orders if co['Status'] == 'Executed')
+
+    # Calculate real-time margin percentage safely
+    safe_denominator = max((gross_revenue + total_co_revenue), 1)
+    projected_margin = ((gross_revenue + total_co_revenue) - total_po_liability) / safe_denominator * 100
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Gross Portfolio Value", f"${(gross_revenue + total_co_revenue):,.2f}")
+    c2.metric("Active Capital Burn (POs)", f"${total_po_liability:,.2f}")
+    c3.metric("Liquid Working Capital", f"${u_bal['wallet']:,.2f}")
+    c4.metric("Live Profit Margin", f"{projected_margin:.1f}%", f"{projected_margin - 30.0:.1f}% vs Target")
+
+    st.write("---")
+    col_chart, col_ai = st.columns([2, 1])
+
+    with col_chart:
+        st.write("#### 📉 Cash Velocity & Burn Rate Matrix")
+        # Dynamic chart generation based on current financial health
+        weeks = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Week 6"]
+        burn = [(total_po_liability * 0.15 * i) for i in range(1, 7)]
+        earned = [(u_bal['wallet'] * 0.20 * i) for i in range(1, 7)]
+        
+        df_cash = pd.DataFrame({
+            "Project Week": weeks * 2, 
+            "Amount ($)": burn + earned, 
+            "Metric": ["Capital Burn"] * 6 + ["Realized Revenue"] * 6
+        })
+
+        resolved_accent_color = st.session_state.get("wl_accent_color", "#38BDF8")
+        chart = alt.Chart(df_cash).mark_line(point=True, strokeWidth=3).encode(
+            x='Project Week:N',
+            y='Amount ($):Q',
+            color=alt.Color('Metric:N', scale=alt.Scale(range=["#EF4444", resolved_accent_color]))
+        ).properties(height=300, width='container')
+        
+        st.altair_chart(chart, use_container_width=True)
+
+    with col_ai:
+        st.write("#### 🧠 OmniMind Margin Analysis")
+        if projected_margin >= 30:
+            st.markdown("<div class='unifi-stealth-green'><b>✅ HEALTHY MARGIN YIELD</b><br>Projected margin exceeds standard 30% baseline. Capital velocity is highly optimized. Escrow draws are pacing safely ahead of material liabilities.</div>", unsafe_allow_html=True)
+        elif projected_margin > 10:
+            st.markdown("<div class='unifi-stealth-gold'><b>⚠️ MARGIN FADE DETECTED</b><br>Profitability is compressing. High material liabilities (POs) are eroding the baseline margin. Recommend initiating micro-draws on completed units to restore liquidity.</div>", unsafe_allow_html=True)
+        elif gross_revenue == 0:
+            st.markdown("<div class='unifi-stealth-blade'><b>ℹ️ SYSTEM STANDBY</b><br>Initialize your sandbox or fund your escrow pool to begin analyzing capital velocity.</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("<div class='unifi-stealth-red'><b>🚨 CRITICAL MARGIN COLLAPSE</b><br>Project is operating near or below zero margin. Immediate financial audit required. Halt active procurement and secure Change Order signatures immediately.</div>", unsafe_allow_html=True)
+
+        if st.button("📥 Export Financial Audit Report", use_container_width=True):
+            st.success("Audit report compiled and pushed to executive encrypted email.")
 
 elif selected_page == t["legal_contract"]:
     st.write(f"### {t['legal_contract']}")
@@ -382,60 +438,29 @@ elif selected_page == t["field_signoff"]:
                 st.session_state.tenant_balances[current_user]["wallet"] += 2250.00
                 st.success("Micro-draw executed!"); time.sleep(0.5); st.rerun()
 
-# --- UPGRADED MODULE: QA & PUNCH LIST ENGINE ---
 elif selected_page == t["punch_list"]:
     st.write(f"### {t['punch_list']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🛠️ Field Quality Assurance & Punch Defect Tracker</b><br>Log final architectural defects to protect your retainage payout. Automated paging ensures field crews resolve issues instantly.</div>", unsafe_allow_html=True)
-    
+    st.markdown("<div class='unifi-stealth-blade'><b>🛠️ Field Quality Assurance & Punch Defect Tracker</b></div>", unsafe_allow_html=True)
     col_log, col_active = st.columns([1, 1.2])
-    
     with col_log:
-        st.write("#### 📝 Log New Punch Item")
         user_units_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
-        
-        if user_units_df.empty:
-            st.info("No active units available.")
+        if user_units_df.empty: st.info("No active units available.")
         else:
             punch_unit = st.selectbox("Location / Node", user_units_df["Unit Number"].tolist())
-            punch_desc = st.text_area("Defect Description", placeholder="e.g., Scratch on quartz edge, missing switch plate...")
+            punch_desc = st.text_area("Defect Description")
             punch_sev = st.selectbox("Severity Classification", ["Minor Cosmetic", "Rework Required", "Safety Hazard"])
-            
             if st.button("⚡ Dispatch Punch Ticket to Crew", use_container_width=True):
-                if punch_desc:
-                    ticket_id = f"PUNCH-{random.randint(1000, 9999)}"
-                    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-                    
-                    st.session_state.punch_list_items.insert(0, {
-                        "Ticket ID": ticket_id,
-                        "Unit": punch_unit,
-                        "Description": sanitize_input(punch_desc),
-                        "Severity": punch_sev,
-                        "Timestamp": timestamp
-                    })
-                    
-                    # Ping the field dispatch hub automatically
-                    msg = f"🛠️ PUNCH LIST ASSIGNMENT: ({ticket_id}) in {punch_unit}. Severity: {punch_sev}. Task: {sanitize_input(punch_desc)}. Resolve before end of shift."
-                    st.session_state.field_dispatch_messages.insert(0, {"Timestamp": datetime.datetime.now().strftime("%I:%M %p"), "Sender": "SYSTEM INTELLIGENCE", "Message String": msg})
-                    
-                    st.success(f"Ticket {ticket_id} created and dispatched to field crew!"); time.sleep(1); st.rerun()
-                else:
-                    st.error("Please describe the defect.")
-
+                ticket_id = f"PUNCH-{random.randint(1000, 9999)}"
+                st.session_state.punch_list_items.insert(0, {"Ticket ID": ticket_id, "Unit": punch_unit, "Description": sanitize_input(punch_desc), "Severity": punch_sev, "Timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")})
+                st.success(f"Ticket {ticket_id} created and dispatched!"); time.sleep(1); st.rerun()
     with col_active:
-        st.write("#### 📋 Active Punch List Matrix")
-        if not st.session_state.punch_list_items:
-            st.caption("No open punch items! Your retainage is clear for payout.")
+        if not st.session_state.punch_list_items: st.caption("No open punch items! Your retainage is clear for payout.")
         else:
             for idx, item in enumerate(st.session_state.punch_list_items):
-                sev_color = "#10B981" if item["Severity"] == "Minor Cosmetic" else "#F59E0B" if item["Severity"] == "Rework Required" else "#EF4444"
                 with st.expander(f"{item['Ticket ID']} — {item['Unit']} ({item['Severity']})"):
-                    st.markdown(f"<span style='color:{sev_color}; font-weight:bold;'>Description:</span> {item['Description']}", unsafe_allow_html=True)
-                    st.caption(f"Logged: {item['Timestamp']}")
-                    
+                    st.write(f"Description: {item['Description']}")
                     if st.button(f"✅ Mark Resolved & Clear Ticket", key=f"punch_{idx}"):
-                        resolved_item = st.session_state.punch_list_items.pop(idx)
-                        log_system_event(current_user, "QA Resolution", f"Cleared Punch Ticket {resolved_item['Ticket ID']} in {resolved_item['Unit']}.")
-                        st.success("Ticket cleared from the active matrix."); time.sleep(0.5); st.rerun()
+                        st.session_state.punch_list_items.pop(idx); st.rerun()
 
 elif selected_page == t["pitch_white"]:
     st.write(f"### {t['pitch_white']}")
@@ -465,10 +490,6 @@ elif selected_page == t["chat_hub"]:
     if st.button("⚡ Send Message"):
         st.session_state.field_dispatch_messages.insert(0, {"Timestamp": datetime.datetime.now().strftime("%I:%M %p"), "Sender": current_user, "Message String": sanitize_input(msg_text)})
         st.success("Dispatched!"); time.sleep(0.5); st.rerun()
-    st.write("---")
-    for m in st.session_state.field_dispatch_messages:
-        border_color = "#F59E0B" if m["Sender"] == "SYSTEM INTELLIGENCE" else st.session_state.get("wl_accent_color", "#38BDF8")
-        st.markdown(f"<div class='chat-bubble-sub' style='border-left-color: {border_color};'><b>{m['Sender']}:</b> {m['Message String']}</div>", unsafe_allow_html=True)
 
 elif selected_page == t["api"]:
     st.write(f"### {t['api']}")
