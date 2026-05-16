@@ -213,30 +213,21 @@ else:
         
     df_takeoff["Adjusted Unit Cost ($)"] = df_takeoff.apply(apply_market_pricing, axis=1)
     
-    # Financial Pipeline Calculations
+    # Financial Pipeline Calculations Basic Baseline
     total_mat_cost = (df_takeoff["Qty"] * df_takeoff["Adjusted Unit Cost ($)"]).sum()
     total_crew_members = st.session_state.qty_journeymen + st.session_state.qty_helpers
     raw_composite_rate = ((st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)) / total_crew_members
     burdened_rate = raw_composite_rate * (1 + st.session_state.labor_burden_pct)
     total_labor_hours = ((df_takeoff["Qty"] * df_takeoff["Mins to Install"]) / 60).sum()
-    total_labor_cost = total_labor_hours * burdened_rate
-    target_gross_bid = (total_mat_cost + total_labor_cost) * (1 + st.session_state.overhead)
+    
+    # Pre-calculated baseline for standard tracking blocks
+    standard_labor_cost = total_labor_hours * burdened_rate
+    standard_gross_bid = (total_mat_cost + standard_labor_cost) * (1 + st.session_state.overhead)
 
-    # --- TOP LEVEL HARDWARE BLADES ---
-    m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-    with m_col1:
-        st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px; color:#64748B; text-transform:uppercase;'>System Gross Valuation</p><h3 style='margin:4px 0 0 0; color:#38BDF8; font-family:monospace;'>${target_gross_bid:,.2f}</h3></div>", unsafe_allow_html=True)
-    with m_col2:
-        st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px; color:#64748B; text-transform:uppercase;'>Material Invoice Limit</p><h3 style='margin:4px 0 0 0; color:#38BDF8; font-family:monospace;'>${total_mat_cost:,.2f}</h3></div>", unsafe_allow_html=True)
-    with m_col3:
-        st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px; color:#64748B; text-transform:uppercase;'>Production Allocation</p><h3 style='margin:4px 0 0 0; color:#38BDF8; font-family:monospace;'>{total_labor_hours:.1f} hrs</h3></div>", unsafe_allow_html=True)
-    with m_col4:
-        st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px; color:#64748B; text-transform:uppercase;'>Target Operational Margin</p><h3 style='margin:4px 0 0 0; color:#38BDF8; font-family:monospace;'>{st.session_state.overhead*100:.0f}%</h3></div>", unsafe_allow_html=True)
-
-    # --- MULTI-BLADE NAVIGATION MODULES ---
+    # --- TAB NAVIGATION MODULES ---
     tab_estimation, tab_panel, tab_commodity, tab_submittal = st.tabs([
         "📊 Data Matrix", 
-        "⚡ Three-Phase Panel Schedule", 
+        "⚡ Three-Phase Panel Schedule & Sizing", 
         "📈 Commodity Market Multiplier", 
         "📁 Executive Submittal Generator"
     ])
@@ -244,7 +235,15 @@ else:
     # --- TAB 1: MASTER ESTIMATOR SPREADSHEET ---
     with tab_estimation:
         st.write("### 🎛️ Active Multi-Sheet Data Grid Editor")
-        st.data_editor(df_takeoff, num_rows="dynamic", use_container_width=True, key="stealth_grid_master")
+        edited_df = st.data_editor(df_takeoff, num_rows="dynamic", use_container_width=True, key="stealth_grid_master")
+        
+        # Recalculate based on real-time data adjustments inside user viewport frame lines
+        edited_df["Qty"] = pd.to_numeric(edited_df["Qty"]).fillna(0)
+        edited_df["Adjusted Unit Cost ($)"] = pd.to_numeric(edited_df["Adjusted Unit Cost ($)"]).fillna(0)
+        edited_df["Mins to Install"] = pd.to_numeric(edited_df["Mins to Install"]).fillna(0)
+        
+        total_mat_cost = (edited_df["Qty"] * edited_df["Adjusted Unit Cost ($)"]).sum()
+        total_labor_hours = ((edited_df["Qty"] * edited_df["Mins to Install"]) / 60).sum()
 
     # --- TAB 2: THREE-PHASE BALANCER & VOLTAGE DROP PHYSICS ---
     with tab_panel:
@@ -333,7 +332,7 @@ else:
             else:
                 st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ ELECTRICAL WAVEFORM SECURE</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Voltage sag locked in at **{drop_percentage:.2f}%**. Conductor operating temperature and thermal footprints inside safe limits.</p></div>", unsafe_allow_html=True)
 
-    # --- TAB 3: COMMODITY VOLATILITY SIMULATOR ---
+    # --- TAB 3: SYSTEMS ANALYTICS & NECA RISK MATRIX FACTORING ---
     with tab_commodity:
         st.write("### 📈 Raw Metal Commodity Price Volatility Multiplier")
         st.caption("Simulate real-time wholesale pricing risks caused by sudden supply-chain shifts in raw copper and galvanized steel indices.")
@@ -353,56 +352,107 @@ else:
             st.write("#### 🛡️ Margin Deviation Performance Review")
             st.write(f"Active Volatility Burden: **{st.session_state.copper_multiplier*100:+.0f}% Deviation**")
             st.write(f"Updated Adjusted Material Estimate Total: **${total_mat_cost:,.2f}**")
-            st.write(f"Recalibrated Gross Target Proposal Price: **${target_gross_bid:,.2f}**")
+
+    # --- RECALCULATE ADVANCED INTEGRATED COST LOOPS INCLUDING NECA ADJUSTMENTS ---
+    # Placed globally so top health matrices update accurately based on all tabs
+    if "installation_height_sel" not in st.session_state: st.session_state.installation_height_sel = "Standard Level (0 - 10 Ft)"
+    if "jobsite_congestion_sel" not in st.session_state: st.session_state.jobsite_congestion_sel = False
+    
+    height_mult = 1.0
+    if "Elevated" in st.session_state.installation_height_sel: height_mult = 1.15
+    elif "High-Staging" in st.session_state.installation_height_sel: height_mult = 1.30
+    
+    congest_mult = 1.10 if st.session_state.jobsite_congestion_sel else 1.0
+    neca_composite_multiplier = height_mult * congest_mult
+    
+    final_risk_adjusted_hours = total_labor_hours * neca_composite_multiplier
+    final_burdened_labor_cost = final_risk_adjusted_hours * burdened_rate
+    final_gross_target_bid = (total_mat_cost + final_burdened_labor_cost) * (1 + st.session_state.overhead)
 
     # --- TAB 4: COMPLIANCE SUBMITTAL DOCUMENT ARCHIVER ---
     with tab_submittal:
-        st.write("### 📁 Automated Client Submittal & Compliance Documentation")
-        st.caption("Compile project inventories, calculated box volumes, and NEC codes into an official engineering packet document package.")
+        st.write("### 🎯 System Load, Risk Architecture, & NECA Multipliers")
+        st.caption("Apply standard industrial labor derating adjustments to account for environmental field complexities per NECA Standard 1 guidelines.")
         
-        sub_col1, sub_col2 = st.columns(2)
-        with sub_col1:
-            project_architect_label = st.text_input("Lead Project Architect / Contact", value="Maksym Engineering Group")
-            project_location_tag = st.text_input("Project Site Destination Address", value="North Miami Beach District, FL")
-            include_compliance_logs = st.checkbox("Attach System Telemetry Logs Stream?", value=True)
+        an_col1, an_col2 = st.columns(2)
+        with an_col1:
+            st.write("#### 🏗️ NECA Labor Productivity Adjustment Board")
+            st.session_state.installation_height_sel = st.selectbox("Field Working Height Profile", ["Standard Level (0 - 10 Ft)", "Elevated Scaffold Phase (11 - 20 Ft)", "High-Staging Zone (21+ Ft)"], index=0)
+            st.session_state.jobsite_congestion_sel = st.checkbox("Complex/Congested Area Workspace? (Occupied Clinic / Retrofit)", value=False)
             
-        with sub_col2:
-            st.write("#### 📥 Document Compilation Output Profile")
-            st.info("📄 **Packet Type:** Official Electrical Submittal Briefing | **Status:** Ready for Stamped Sign-off")
+            st.write("---")
+            st.write(f"Composite Labor Risk Burden Modifier: **{neca_composite_multiplier:.2f}x Scale**")
+            st.write(f"Adjusted Target Production Labor: **{final_risk_adjusted_hours:.1f} Man-Hours**")
             
-            submittal_preview_text = f"""===========================================================
+        with an_col2:
+            st.write("#### ⏳ Schedule Risk Capacity Monitoring")
+            project_days = st.number_input("Designated Contract Delivery Timeline (Working Days)", min_value=1, value=5, key="risk_days_input")
+            max_avail_man_hours = project_days * (total_crew_members * 8)
+            
+            if final_risk_adjusted_hours > max_avail_man_hours:
+                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>⚠️ TIMELINE CONSTRAINTS EXCEEDED</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Derated labor requirement ({final_risk_adjusted_hours:.1f} hrs) completely burns past your active crew availability ceiling of {max_avail_man_hours:.1f} hours. Scale up field crew counts immediately to safeguard your baseline margin.</p></div>", unsafe_allow_html=True)
+            else:
+                utilization = (final_risk_adjusted_hours / max_avail_man_hours) * 100 if max_avail_man_hours > 0 else 0
+                st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ WORKLOAD ALLOCATION OPERATIONAL</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Active field operations utilize {utilization:.1f}% of crew milestone bandwidth limits under applied NECA adjustments.</p></div>", unsafe_allow_html=True)
+
+        st.divider()
+        st.write("#### 📁 Automated Client Submittal Compilation")
+        project_architect_label = st.text_input("Lead Project Architect / Contact", value="Maksym Engineering Group")
+        project_location_tag = st.text_input("Project Site Destination Address", value="North Miami Beach District, FL")
+        
+        submittal_preview_text = f"""===========================================================
 COMMERCIAL ELECTRICAL SUBMITTAL PROPOSAL PACKET
 ISSUED BY: {st.session_state.company_name.upper()}
 TARGET ARCHITECT: {project_architect_label.upper()}
 LOCATION: {project_location_tag.upper()}
 DATE COMPILED: {datetime.date.today().strftime('%m/%d/%Y')}
 ===========================================================
-1. PROJECT FINANCIAL METRICS
-   - Total Estimated Contract Bid: ${target_gross_bid:,.2f}
+1. PROJECT FINANCIAL METRICS (NECA ADJUSTED)
+   - Total Estimated Contract Bid: ${final_gross_target_bid:,.2f}
    - Raw Material Allotment Footprint: ${total_mat_cost:,.2f}
-   - Total Production Burden Labor: {total_labor_hours:.1f} Man-Hours
+   - Total Production Burden Labor: {final_risk_adjusted_hours:.1f} Man-Hours
+   - Applied NECA Intensity Scaling Factor: {neca_composite_multiplier:.2f}x
 
 2. NATIONAL ELECTRICAL CODE (NEC) COMPLIANCE PROFILE
    - Box Sizing Parameters: Compiled per NEC Article 314.16
    - Branch Distribution Balance: Balanced per 3-Phase Busbar Guidelines
 ==========================================================="""
-            st.text_area("Submittal Brief Layout Preview Frame", value=submittal_preview_text, height=180)
-            
-            buffer_submittal = BytesIO()
-            buffer_submittal.write(submittal_preview_text.encode('utf-8'))
-            st.download_button("📥 Download Compiled Submittal Brief (.txt)", data=buffer_submittal.getvalue(), file_name="Project_Submittal_Package.txt")
+        st.text_area("Submittal Brief Layout Preview Frame", value=submittal_preview_text, height=180)
+        
+        buffer_submittal = BytesIO()
+        buffer_submittal.write(submittal_preview_text.encode('utf-8'))
+        st.download_button("📥 Download Compiled Submittal Brief (.txt)", data=buffer_submittal.getvalue(), file_name="Project_Submittal_Package.txt")
 
-    # --- THE CYBER TELEMETRY DEVELOPER TERMINAL CONSOLE ---
-    st.divider()
-    st.markdown("<p style='color:#475569; text-transform:uppercase; letter-spacing:1px; font-size:10px; margin-bottom:4px; font-weight:600;'>📟 SYSTEM CORE INTELLIGENCE ACTIVITY TERMINAL</p>", unsafe_allow_html=True)
-    
+    # --- FINANCIAL DATA MONITOR BLADES HEADER (DYNAMIC LINK) ---
+    st.sidebar.markdown("### ⚙️ Hardware Parameters")
+    st.session_state.company_name = st.sidebar.text_input("Subcontractor Workspace Label", value=st.session_state.company_name)
+    st.session_state.qty_journeymen = st.sidebar.number_input("Active Field Journeymen", min_value=1, value=st.session_state.qty_journeymen)
+    st.session_state.qty_helpers = st.sidebar.number_input("Active Helpers", min_value=0, value=st.session_state.qty_helpers)
+    st.session_state.rate_journeyman = st.sidebar.number_input("Journeyman Rate ($/hr)", min_value=15.0, value=st.session_state.rate_journeyman)
+    st.session_state.rate_helper = st.sidebar.number_input("Helper Rate ($/hr)", min_value=10.0, value=st.session_state.rate_helper)
+    st.sidebar.write("---")
+    st.sidebar.write("Use the configuration pane to alter underlying labor compositions across calculations.")
+
+    # Render top telemetry summary using fully calculated figures
+    st.markdown("<div style='margin-top:25px;'></div>", unsafe_allow_html=True)
+    m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+    with m_col1:
+        st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px; color:#64748B; text-transform:uppercase;'>System Gross Valuation</p><h3 style='margin:4px 0 0 0; color:#38BDF8; font-family:monospace;'>${final_gross_target_bid:,.2f}</h3></div>", unsafe_allow_html=True)
+    with m_col2:
+        st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px; color:#64748B; text-transform:uppercase;'>Material Invoice Limit</p><h3 style='margin:4px 0 0 0; color:#38BDF8; font-family:monospace;'>${total_mat_cost:,.2f}</h3></div>", unsafe_allow_html=True)
+    with m_col3:
+        st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px; color:#64748B; text-transform:uppercase;'>Production Allocation</p><h3 style='margin:4px 0 0 0; color:#38BDF8; font-family:monospace;'>{final_risk_adjusted_hours:.1f} hrs</h3></div>", unsafe_allow_html=True)
+    with m_col4:
+        st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px; color:#64748B; text-transform:uppercase;'>Target Operational Margin</p><h3 style='margin:4px 0 0 0; color:#38BDF8; font-family:monospace;'>{st.session_state.overhead*100:.0f}%</h3></div>", unsafe_allow_html=True)
+
+    # --- THE LOWER TELEMETRY TERMINAL CONSOLE CONTROL ---
+    st.markdown("<p style='color:#475569; text-transform:uppercase; letter-spacing:1px; font-size:10px; margin-bottom:4px; font-weight:600;'>📋 SYSTEM CORE INTELLIGENCE ACTIVITY TERMINAL</p>", unsafe_allow_html=True)
     reversed_logs_html = "".join([f"<div>{frame}</div>" for frame in st.session_state.sys_log_frames[::-1]])
     st.markdown(f"<div class='cyber-terminal-output'>{reversed_logs_html}</div>", unsafe_allow_html=True)
     
-    # INTERACTIVE COMMAND LINE FIELD
     cmd_col1, cmd_col2 = st.columns([4, 1])
     with cmd_col1:
-        manual_input_cmd = st.text_input("Root Command Line Interface Entry Pin", placeholder="Enter operator command override block (e.g., /diagnostics, /clear_grid, /sync_prices)", label_visibility="collapsed")
+        manual_input_cmd = st.text_input("Root Command Line Interface Entry Pin", placeholder="Enter operator command override block (e.g., /diagnostics, /sync_prices)", label_visibility="collapsed")
     with cmd_col2:
         execute_cmd_btn = st.button("Run Command Line")
         
