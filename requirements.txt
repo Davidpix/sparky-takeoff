@@ -5,3 +5,6 @@ openpyxl
 pdfplumber
 streamlit-image-coordinates
 scikit-image
+altair
+ezdxf
+requests
