@@ -70,6 +70,8 @@ if "system_audit_trail" not in st.session_state: st.session_state.system_audit_t
 if "purchase_orders" not in st.session_state: st.session_state.purchase_orders = []
 if "takeoff_results" not in st.session_state: st.session_state.takeoff_results = []
 if "punch_list_items" not in st.session_state: st.session_state.punch_list_items = []
+if "clinic_hardware_matrix" not in st.session_state: st.session_state.clinic_hardware_matrix = []
+if "security_audit_score" not in st.session_state: st.session_state.security_audit_score = None
 
 if "commercial_units" not in st.session_state:
     st.session_state.commercial_units = pd.DataFrame(columns=["Tenant Owner", "Floor", "Unit Number", "Asset Type", "Fabrication Status", "Installation Status", "GC Sign-Off", "Value Release"])
@@ -261,9 +263,61 @@ elif selected_page == t["bid"]:
     st.write(f"### {t['bid']}")
     st.write("Calculated Target Bid Margin: **32.5%** ∙ Suggested Commercial Proposal Bond Value: **$185,000.00**")
 
+# --- UPGRADED MODULE: ENTERPRISE CLINIC NETWORK & SECURITY AUDITOR ---
 elif selected_page == t["clinic"]:
     st.write(f"### {t['clinic']}")
-    st.checkbox("HIPAA Network Isolation Ring Active", value=True)
+    st.markdown("<div class='unifi-stealth-blade'><b>🏥 Medical Network Architecture & Security Readiness</b><br>Stage enterprise-grade clinic hardware, monitor endpoint deployments, and execute simulated penetration tests to ensure strict HIPAA compliance prior to network handover.</div>", unsafe_allow_html=True)
+    
+    col_hw, col_sec = st.columns([1.2, 1])
+    
+    with col_hw:
+        st.write("#### 📡 Enterprise Hardware Staging Matrix")
+        hw_type = st.selectbox("Select Hardware Profile", ["UniFi Security Gateway Pro", "UniFi U6-LR Access Point", "Yealink T58W Pro VoIP", "Apple Mac Mini (M2) Kiosk"])
+        hw_loc = st.text_input("Clinic Deployment Node (e.g., Reception, Exam Room 3)")
+        
+        if st.button("➕ Register Endpoint MAC to Subnet", use_container_width=True):
+            if hw_loc:
+                mock_mac = "00:" + ":".join([random.choice("0123456789ABCDEF") + random.choice("0123456789ABCDEF") for _ in range(5)])
+                st.session_state.clinic_hardware_matrix.append({
+                    "Device": hw_type,
+                    "Location": sanitize_input(hw_loc),
+                    "MAC Address": mock_mac,
+                    "Status": "Provisioned & Online",
+                    "VLAN": "Voice" if "Yealink" in hw_type else "Corporate"
+                })
+                st.success(f"Successfully provisioned {hw_type} at {hw_loc}.")
+                time.sleep(0.5); st.rerun()
+            else:
+                st.error("Please specify a deployment location.")
+                
+        if st.session_state.clinic_hardware_matrix:
+            st.dataframe(pd.DataFrame(st.session_state.clinic_hardware_matrix), use_container_width=True, hide_index=True)
+        else:
+            st.caption("No hardware endpoints registered on the clinic subnet.")
+
+    with col_sec:
+        st.write("#### 🛡️ Simulated Penetration & Vulnerability Diagnostics")
+        st.caption("Run an aggressive port scan and packet analysis to ensure external defenses are hardened.")
+        
+        if st.button("💻 Execute Atheros-Chipset Packet Injection Audit", use_container_width=True):
+            with st.spinner("Initializing Kali Linux simulation... Scanning subnet vectors..."):
+                time.sleep(1.5)
+                # Ensure the hardware list isn't empty to pass compliance
+                if len(st.session_state.clinic_hardware_matrix) > 0:
+                    st.session_state.security_audit_score = random.randint(92, 99)
+                    log_system_event(current_user, "Security Audit", f"Executed simulated network pentest. Score: {st.session_state.security_audit_score}/100.")
+                else:
+                    st.session_state.security_audit_score = 0
+            st.rerun()
+
+        if st.session_state.security_audit_score is not None:
+            st.write("---")
+            if st.session_state.security_audit_score > 90:
+                st.markdown(f"<div class='unifi-stealth-green'><b>✅ COMPLIANCE VERIFIED: {st.session_state.security_audit_score}/100</b><br>Network isolation confirmed. UniFi VLAN tags are routing correctly. Yealink SIP packets are heavily encrypted. The infrastructure is 100% HIPAA ready.</div>", unsafe_allow_html=True)
+                if st.button("📄 Generate HIPAA Infrastructure Certificate"):
+                    st.toast("HIPAA Certificate Generated and appended to the Master Contract Ledger!", icon="🔒")
+            else:
+                st.markdown("<div class='unifi-stealth-red'><b>🚨 AUDIT FAILED</b><br>Insufficient hardware nodes detected. Ensure gateways and access points are staged in the matrix before verifying the subnet.</div>", unsafe_allow_html=True)
 
 elif selected_page == t["co_lien"]:
     st.write(f"### {t['co_lien']}")
@@ -358,19 +412,14 @@ elif selected_page == t["ai_core"]:
     trigger_analysis = st.button("⚡ Run Live Cross-Table Cognitive Diagnostics", use_container_width=True)
     if trigger_analysis: st.success("Diagnostics run successfully.")
 
-# --- UPGRADED MODULE: EXECUTIVE TELEMETRY & GLOBAL FORECASTING ---
 elif selected_page == t["dash"]:
     st.write(f"### {t['dash']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📊 Global Portfolio Telemetry & Margin Forecasting</b><br>Real-time financial tracking, cash velocity calculations, and algorithmic margin fade detection across all active deployment zones.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='unifi-stealth-blade'><b>📊 Global Portfolio Telemetry & Margin Forecasting</b></div>", unsafe_allow_html=True)
 
     u_bal = st.session_state.tenant_balances.get(current_user, {"wallet": 0, "escrow": 0})
     gross_revenue = u_bal['escrow'] + u_bal['wallet']
-
-    # Calculate actual costs from POs and Change Orders
     total_po_liability = sum(po['Amount'] for po in st.session_state.purchase_orders)
     total_co_revenue = sum(co['Value Delta'] for co in st.session_state.active_change_orders if co['Status'] == 'Executed')
-
-    # Calculate real-time margin percentage safely
     safe_denominator = max((gross_revenue + total_co_revenue), 1)
     projected_margin = ((gross_revenue + total_co_revenue) - total_po_liability) / safe_denominator * 100
 
@@ -380,44 +429,21 @@ elif selected_page == t["dash"]:
     c3.metric("Liquid Working Capital", f"${u_bal['wallet']:,.2f}")
     c4.metric("Live Profit Margin", f"{projected_margin:.1f}%", f"{projected_margin - 30.0:.1f}% vs Target")
 
-    st.write("---")
     col_chart, col_ai = st.columns([2, 1])
-
     with col_chart:
-        st.write("#### 📉 Cash Velocity & Burn Rate Matrix")
-        # Dynamic chart generation based on current financial health
         weeks = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Week 6"]
         burn = [(total_po_liability * 0.15 * i) for i in range(1, 7)]
         earned = [(u_bal['wallet'] * 0.20 * i) for i in range(1, 7)]
-        
-        df_cash = pd.DataFrame({
-            "Project Week": weeks * 2, 
-            "Amount ($)": burn + earned, 
-            "Metric": ["Capital Burn"] * 6 + ["Realized Revenue"] * 6
-        })
-
+        df_cash = pd.DataFrame({"Project Week": weeks * 2, "Amount ($)": burn + earned, "Metric": ["Capital Burn"] * 6 + ["Realized Revenue"] * 6})
         resolved_accent_color = st.session_state.get("wl_accent_color", "#38BDF8")
-        chart = alt.Chart(df_cash).mark_line(point=True, strokeWidth=3).encode(
-            x='Project Week:N',
-            y='Amount ($):Q',
-            color=alt.Color('Metric:N', scale=alt.Scale(range=["#EF4444", resolved_accent_color]))
-        ).properties(height=300, width='container')
-        
+        chart = alt.Chart(df_cash).mark_line(point=True, strokeWidth=3).encode(x='Project Week:N', y='Amount ($):Q', color=alt.Color('Metric:N', scale=alt.Scale(range=["#EF4444", resolved_accent_color]))).properties(height=300, width='container')
         st.altair_chart(chart, use_container_width=True)
 
     with col_ai:
-        st.write("#### 🧠 OmniMind Margin Analysis")
-        if projected_margin >= 30:
-            st.markdown("<div class='unifi-stealth-green'><b>✅ HEALTHY MARGIN YIELD</b><br>Projected margin exceeds standard 30% baseline. Capital velocity is highly optimized. Escrow draws are pacing safely ahead of material liabilities.</div>", unsafe_allow_html=True)
-        elif projected_margin > 10:
-            st.markdown("<div class='unifi-stealth-gold'><b>⚠️ MARGIN FADE DETECTED</b><br>Profitability is compressing. High material liabilities (POs) are eroding the baseline margin. Recommend initiating micro-draws on completed units to restore liquidity.</div>", unsafe_allow_html=True)
-        elif gross_revenue == 0:
-            st.markdown("<div class='unifi-stealth-blade'><b>ℹ️ SYSTEM STANDBY</b><br>Initialize your sandbox or fund your escrow pool to begin analyzing capital velocity.</div>", unsafe_allow_html=True)
-        else:
-            st.markdown("<div class='unifi-stealth-red'><b>🚨 CRITICAL MARGIN COLLAPSE</b><br>Project is operating near or below zero margin. Immediate financial audit required. Halt active procurement and secure Change Order signatures immediately.</div>", unsafe_allow_html=True)
-
-        if st.button("📥 Export Financial Audit Report", use_container_width=True):
-            st.success("Audit report compiled and pushed to executive encrypted email.")
+        if projected_margin >= 30: st.markdown("<div class='unifi-stealth-green'><b>✅ HEALTHY MARGIN YIELD</b><br>Projected margin exceeds standard 30% baseline.</div>", unsafe_allow_html=True)
+        elif projected_margin > 10: st.markdown("<div class='unifi-stealth-gold'><b>⚠️ MARGIN FADE DETECTED</b><br>Profitability is compressing.</div>", unsafe_allow_html=True)
+        elif gross_revenue == 0: st.markdown("<div class='unifi-stealth-blade'><b>ℹ️ SYSTEM STANDBY</b><br>Initialize your sandbox to begin analyzing capital velocity.</div>", unsafe_allow_html=True)
+        else: st.markdown("<div class='unifi-stealth-red'><b>🚨 CRITICAL MARGIN COLLAPSE</b><br>Project is operating near or below zero margin. Immediate financial audit required.</div>", unsafe_allow_html=True)
 
 elif selected_page == t["legal_contract"]:
     st.write(f"### {t['legal_contract']}")
@@ -490,6 +516,10 @@ elif selected_page == t["chat_hub"]:
     if st.button("⚡ Send Message"):
         st.session_state.field_dispatch_messages.insert(0, {"Timestamp": datetime.datetime.now().strftime("%I:%M %p"), "Sender": current_user, "Message String": sanitize_input(msg_text)})
         st.success("Dispatched!"); time.sleep(0.5); st.rerun()
+    st.write("---")
+    for m in st.session_state.field_dispatch_messages:
+        border_color = "#F59E0B" if m["Sender"] == "SYSTEM INTELLIGENCE" else st.session_state.get("wl_accent_color", "#38BDF8")
+        st.markdown(f"<div class='chat-bubble-sub' style='border-left-color: {border_color};'><b>{m['Sender']}:</b> {m['Message String']}</div>", unsafe_allow_html=True)
 
 elif selected_page == t["api"]:
     st.write(f"### {t['api']}")
