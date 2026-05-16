@@ -12,14 +12,14 @@ import math
 
 st.set_page_config(page_title="Active Worksheet", layout="wide")
 
-st.title("📊 Core Estimation Worksheet & Materializer Engine")
-st.write("This sheet aggregates your blueprint text scans, multi-sheet vector tracings, and automatically calculates complete field material packages based on the NEC Code book.")
+st.title("📊 Engineering Control Worksheet & Takeoff Engine")
+st.write("This portal executes automated NEC compliance cross-examinations, structural voltage drop physics calculations, and smart assembly kitting matrices.")
 
 if "company_name" not in st.session_state:
     st.error("⚠️ Please return to the main Dashboard Gateway page to initialize your session parameters.")
     st.stop()
 
-# Fallback crew logic
+# Ensure global baseline variables are initialized safely
 if "qty_journeymen" not in st.session_state: st.session_state.qty_journeymen = 1
 if "rate_journeyman" not in st.session_state: st.session_state.rate_journeyman = 45.0
 if "qty_helpers" not in st.session_state: st.session_state.qty_helpers = 1
@@ -30,7 +30,28 @@ total_crew_members = st.session_state.qty_journeymen + st.session_state.qty_help
 raw_composite_rate = ((st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)) / total_crew_members
 fully_burdened_labor_rate = raw_composite_rate * (1 + st.session_state.labor_burden_pct)
 
-# --- READ LIVE DISTRIBUTOR PRICING OR USE FALLBACK MATRICES ---
+# --- DYNAMIC ENGINEERING SIMULATION OVERRIDES ---
+st.write("### 🎛️ Engineering & System Design Constraints")
+eng_col1, eng_col2, eng_col3 = st.columns(3)
+
+with eng_col1:
+    target_voltage = st.selectbox("Operating System Nominal Voltage", [120, 208, 240, 277, 480], index=0)
+    circuit_amperage = st.number_input("Design Continuous Circuit Load (Amperes)", min_value=1.0, max_value=400.0, value=16.0, step=1.0)
+    
+with eng_col2:
+    wire_size_selection = st.selectbox(
+        "Design Wire Gauge Size (Copper)",
+        options=["#14 AWG", "#12 AWG", "#10 AWG", "#8 AWG", "#6 AWG", "#4 AWG"],
+        index=1 # Default to #12 AWG standard commercial branch wire
+    )
+    # Define circular mil areas and properties for precise engineering calculations
+    cm_map = {"#14 AWG": 4110, "#12 AWG": 6530, "#10 AWG": 10380, "#8 AWG": 16510, "#6 AWG": 26240, "#4 AWG": 41740}
+    active_cm = cm_map[wire_size_selection]
+
+with eng_col3:
+    apply_kitting = st.checkbox("Enable Smart Assembly Kitting (Explode base counts into individual parts)", value=True)
+
+# --- READ DISTRIBUTOR MATRIX RATES ---
 if "vendor_pricing" not in st.session_state:
     st.session_state.vendor_pricing = {
         "Main Panel Enclosure": 450.00, "GFCI Receptacle": 18.00, 
@@ -38,11 +59,10 @@ if "vendor_pricing" not in st.session_state:
         "3/4\" EMT Conduit Run (Linear Ft)": 1.25
     }
 
-# Read live synced price modifiers from app.py, adjusting sub-components relative to base pricing indexes
 conduit_base_cost = st.session_state.vendor_pricing.get("3/4\" EMT Conduit Run (Linear Ft)", 1.25)
 price_ratio = conduit_base_cost / 1.25
 
-# --- AUTOMATED MATERIALIZER & NEC COMPLIANCE LOGIC ---
+# --- AGGREGATE SPATIAL HISTORY ---
 total_raw_footage = 0.0
 active_zone_tag = "General Branch Run"
 
@@ -54,17 +74,33 @@ if "sheet_ledger" in st.session_state:
 
 rows_to_compile = []
 
+# --- EXECUTE 3D VOLTAGE DROP PHYSICS CALCULATION ---
 if total_raw_footage > 0:
-    st.info(f"⚡ **NEC Takeoff Compliance Engine Active:** Exploding {total_raw_footage:.2f} Linear Feet of raw circuit tracing into code-compliant field material line items...")
+    st.divider()
+    st.write("### ⚡ Dynamic Electrical Performance Analysis")
     
-    # 1. Compute 10-foot Conduit Factory Sticks
+    # 2 * K * I * D / CM
+    k_constant = 12.9  # Copper resistivity factor
+    computed_v_drop = (2 * k_constant * circuit_amperage * total_raw_footage) / active_cm
+    v_drop_percentage = (computed_v_drop / target_voltage) * 100
+    
+    v_colA, v_colB = st.columns(2)
+    v_colA.metric("Calculated Line Voltage Drop", f"{computed_v_drop:.2f} Volts")
+    
+    if v_drop_percentage > 3.0:
+        v_colB.metric("Voltage Drop Ratio", f"{v_drop_percentage:.2f}%", delta="⚠️ EXCEEDS 3% NEC THRESHOLD", delta_color="inverse")
+        st.error(f"🚨 **Engineering Alert:** Sizing constraint violation! A drop of **{v_drop_percentage:.2f}%** on a {target_voltage}V layout over {total_raw_footage:.1f}ft creates efficiency loss. Sizing up your conductor to the next gauge size is highly recommended.")
+    else:
+        v_colB.metric("Voltage Drop Ratio", f"{v_drop_percentage:.2f}%", delta="✅ COMPLIANT DESIGN")
+        st.success("✨ **Engineering Pass:** Voltage tolerances match recommended international limits.")
+
+    # --- EXECUTE MECHANICAL CONDUIT MATERIALIZER & NEC COMPLIANCE ---
     conduit_sticks = math.ceil(total_raw_footage / 10.0)
     rows_to_compile.append({
-        "Item Name": "3/4\" EMT Conduit (10ft Factory Sticks)", "Phase": "Rough-In", "Zone/Location": active_zone_tag,
+        "Item Name": f"3/4\" EMT Conduit (10ft Sticks) - Formed for {wire_size_selection}", "Phase": "Rough-In", "Zone/Location": active_zone_tag,
         "Detected Qty": int(conduit_sticks), "Unit Cost ($)": round(6.50 * price_ratio, 2), "Mins to Install": 12
     })
     
-    # 2. Compute 3/4" Set-Screw Couplings
     couplings_needed = max(conduit_sticks - 1, 0)
     if couplings_needed > 0:
         rows_to_compile.append({
@@ -72,22 +108,19 @@ if total_raw_footage > 0:
             "Detected Qty": int(couplings_needed), "Unit Cost ($)": round(1.15 * price_ratio, 2), "Mins to Install": 3
         })
         
-    # 3. Compute NEC-Compliant Conduit Support Straps (NEC 358.30)
     straps_needed = math.ceil(total_raw_footage / 8.0) + 2
     rows_to_compile.append({
-        "Item Name": "3/4\" 1-Hole EMT Strap (NEC 358.30 Compliant)", "Phase": "Rough-In", "Zone/Location": active_zone_tag,
+        "Item Name": "3/4\" 1-Hole EMT Strap (NEC 358.30)", "Phase": "Rough-In", "Zone/Location": active_zone_tag,
         "Detected Qty": int(straps_needed), "Unit Cost ($)": round(0.45 * price_ratio, 2), "Mins to Install": 2
     })
 
-# --- PROCESS BLUEPRINT REGEX DATA TEXT SCANS ---
+# --- PROCESS REGEX TEXT DATA BLUEPRINT SCANS ---
 with st.sidebar:
     st.header("🔍 Custom Regex Profiles")
     panel_kw = st.text_input("Main Panel Keywords", value="panel, load center, mlo")
     gfci_kw = st.text_input("GFCI Keywords", value="gfci, gfi, ground fault")
     disc_kw = st.text_input("Disconnect Keywords", value="disconnect, safety switch")
     switch_kw = st.text_input("Switch Keywords", value="single pole, 1-pole switch")
-    st.divider()
-    st.metric("Active Burdened Billing Rate", f"${fully_burdened_labor_rate:,.2f}/hr")
 
 @st.cache_data
 def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw, prices_dict):
@@ -124,7 +157,31 @@ if st.session_state.uploaded_file_bytes is not None:
 else:
     base_data = []
 
-master_df = pd.DataFrame(base_data)
+# --- ADVANCED PILLAR 3: SMART ASSEMBLY KITTING EXPLODER MATRIX ---
+final_compiled_rows = []
+
+for row in base_data:
+    item = row["Item Name"]
+    qty = row["Detected Qty"]
+    
+    if qty > 0 and apply_kitting:
+        if item == "GFCI Receptacle":
+            # Explode 1 component switch count into a true 5-part installation sub-kit package
+            final_compiled_rows.append({"Item Name": "Commercial Grade 20A GFCI Device", "Phase": "Trim-Out", "Zone/Location": row["Zone/Location"], "Detected Qty": qty, "Unit Cost ($)": row["Unit Cost ($)"], "Mins to Install": 12})
+            final_compiled_rows.append({"Item Name": "4\" Square Deep Steel Box (2-1/8\")", "Phase": "Rough-In", "Zone/Location": row["Zone/Location"], "Detected Qty": qty, "Unit Cost ($)": 3.10, "Mins to Install": 6})
+            final_compiled_rows.append({"Item Name": "1-Gang Devia Plaster Mud Ring (1/2\")", "Phase": "Rough-In", "Zone/Location": row["Zone/Location"], "Detected Qty": qty, "Unit Cost ($)": 1.85, "Mins to Install": 3})
+            final_compiled_rows.append({"Item Name": "Stainless Steel Single-Gang Faceplate", "Phase": "Trim-Out", "Zone/Location": row["Zone/Location"], "Detected Qty": qty, "Unit Cost ($)": 1.45, "Mins to Install": 2})
+            final_compiled_rows.append({"Item Name": "#10-32 Green Grounding Pigtailed Clip", "Phase": "Rough-In", "Zone/Location": row["Zone/Location"], "Detected Qty": qty * 2, "Unit Cost ($)": 0.35, "Mins to Install": 1})
+        elif item == "Single Pole Switch":
+            final_compiled_rows.append({"Item Name": "Specification Grade 20A Toggle Switch", "Phase": "Trim-Out", "Zone/Location": row["Zone/Location"], "Detected Qty": qty, "Unit Cost ($)": row["Unit Cost ($)"], "Mins to Install": 10})
+            final_compiled_rows.append({"Item Name": "Handy Utility Metal Wall Box", "Phase": "Rough-In", "Zone/Location": row["Zone/Location"], "Detected Qty": qty, "Unit Cost ($)": 2.25, "Mins to Install": 5})
+            final_compiled_rows.append({"Item Name": "Industrial Toggle Switch Wall Plate", "Phase": "Trim-Out", "Zone/Location": row["Zone/Location"], "Detected Qty": qty, "Unit Cost ($)": 0.95, "Mins to Install": 2})
+        else:
+            final_compiled_rows.append(row)
+    else:
+        final_compiled_rows.append(row)
+
+master_df = pd.DataFrame(final_compiled_rows)
 if rows_to_compile:
     canvas_df = pd.DataFrame(rows_to_compile)
     master_df = pd.concat([master_df, canvas_df], ignore_index=True)
@@ -138,7 +195,8 @@ for item_name, count in st.session_state.vision_counts.items():
         }])
         master_df = pd.concat([master_df, vision_row], ignore_index=True)
 
-st.caption("Review compiled data metrics below. Double-click any quantity cell to adjust.")
+st.divider()
+st.write("### 📋 Formulated Bill of Materials & Subcontractor Proposal")
 edited_df = st.data_editor(master_df, num_rows="dynamic", use_container_width=True)
 
 edited_df["Detected Qty"] = pd.to_numeric(edited_df["Detected Qty"]).fillna(0)
@@ -149,7 +207,6 @@ total_mat = (edited_df["Detected Qty"] * edited_df["Unit Cost ($)"]).sum()
 total_labor = ((edited_df["Detected Qty"] * edited_df["Mins to Install"] / 60) * fully_burdened_labor_rate).sum()
 final_bid = (total_mat + total_labor) * (1 + st.session_state.overhead)
 
-st.divider()
 colA, colB, colC = st.columns(3)
 colA.metric("Material Cost Subtotal", f"${total_mat:,.2f}")
 colB.metric("Fully Burdened Labor Subtotal", f"${total_labor:,.2f}")

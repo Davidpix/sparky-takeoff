@@ -11,7 +11,7 @@ from PIL import ImageDraw
 st.set_page_config(page_title="Spatial Canvas", layout="wide")
 
 st.title("🗺️ Blueprint Measurement Canvas")
-st.write("Use this page to trace circuit paths, map conduit lines, and inject vertical wall heights straight into your takeoff total.")
+st.write("Use this page to trace circuit paths, map conduit lines, and execute dynamic engineering design calculations.")
 
 if "uploaded_file_bytes" not in st.session_state or st.session_state.uploaded_file_bytes is None:
     st.error("⚠️ No blueprint detected in memory. Please go back to the main page, complete Step 4 (Upload Blueprint), and return here.")
@@ -20,10 +20,6 @@ if "uploaded_file_bytes" not in st.session_state or st.session_state.uploaded_fi
 if "sheet_ledger" not in st.session_state:
     st.session_state.sheet_ledger = {}
 
-# --- OPTION 2 IMPLEMENTATION: STATIC COMPRESSED IMAGE CACHING GRID ---
-# This decorator acts as a blistering fast lightning shield. It reads the raw PDF bytes,
-# extracts the targeted sheet page, saves it into standard RAM cache memory, and never forces
-# your python server to re-parse the heavy vectors on a click refresh.
 @st.cache_resource(show_spinner=False)
 def get_high_performance_cached_sheet_layer(file_bytes, target_page_index):
     with pdfplumber.open(BytesIO(file_bytes)) as open_pdf:
@@ -53,20 +49,34 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
         
         st.write("---")
         st.write("#### 🏢 Active Takeoff Construction Zone")
-        selected_zone = st.selectbox(
-            "Target Operational Area / Room",
-            options=["General Branch Run", "Main Service Room", "Kitchen Layout", "Bathroom / Wet Areas", "Exterior / Site Work"]
-        )
+        selected_zone = st.selectbox("Target Operational Area / Room", options=["General Branch Run", "Main Service Room", "Kitchen Layout", "Bathroom / Wet Areas", "Exterior / Site Work"])
         st.session_state.sheet_ledger[sheet_key]["active_zone"] = selected_zone
         
+        # --- ADVANCED PILLAR 1 ENHANCEMENT: NEC CONDUIT FILL CAPACITY CALCULATOR ---
+        st.write("---")
+        st.write("#### 📐 NEC Conduit Fill Capacity Checker (40% Cross-Sectional Limit)")
+        
+        cond_type = st.selectbox("Conduit Size to Analyze", ["1/2\" EMT", "3/4\" EMT", "1\" EMT"], index=1)
+        conductor_count = st.number_input("Number of Current-Carrying Wires in Pipe", min_value=1, max_value=20, value=3)
+        conductor_gauge = st.selectbox("Wire Type Profile", ["#14 THHN", "#12 THHN", "#10 THHN", "#8 THHN"])
+        
+        # Exact structural millimeter cross-sectional areas (sq inches) mapping Table 5 values
+        wire_area_map = {"#14 THHN": 0.0097, "#12 THHN": 0.0133, "#10 THHN": 0.0211, "#8 THHN": 0.0366}
+        conduit_total_area_map = {"1/2\" EMT": 0.304, "3/4\" EMT": 0.533, "1\" EMT": 0.864}
+        
+        total_wire_area = conductor_count * wire_area_map[conductor_gauge]
+        available_conduit_40_area = conduit_total_area_map[cond_type] * 0.40
+        fill_utilization_ratio = (total_wire_area / available_conduit_40_area) * 100
+        
+        if fill_utilization_ratio > 100.0:
+            st.error(f"🚨 **NEC Overfill Warning:** Pipe Overloaded! Total copper area ({total_wire_area:.4f} sq.in) exceeds the legal 40% maximum allowable capacity of {cond_type} ({available_conduit_40_area:.4f} sq.in). Wire jam or overheat risks detected.")
+        else:
+            st.success(f"✅ **NEC Code Pass:** Pipe occupancy is at **{fill_utilization_ratio:.1f}%** of legal capacity. Safe configuration.")
+            
         st.write("---")
         st.write("#### 📐 Blueprint Scale Profile")
         current_preset = st.session_state.sheet_ledger[sheet_key]["scale_preset_name"]
-        preset_options = [
-            "Manual Calibration Mode", "1/4\" = 1'-0\" (Residential Standard)",
-            "1/8\" = 1'-0\" (Commercial Standard)", "1\" = 10'-0\" (Civil/Site Plan Standard)",
-            "1\" = 20'-0\" (Civil/Plot Standard)"
-        ]
+        preset_options = ["Manual Calibration Mode", "1/4\" = 1'-0\" (Residential Standard)", "1/8\" = 1'-0\" (Commercial Standard)", "1\" = 10'-0\" (Civil/Site Plan Standard)", "1\" = 20'-0\" (Civil/Plot Standard)"]
         
         preset_idx = preset_options.index(current_preset) if current_preset in preset_options else 0
         scale_preset = st.selectbox("Select Matching Blueprint Scale Ratio", options=preset_options, index=preset_idx)
@@ -77,7 +87,6 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
             elif "1/8\"" in scale_preset: st.session_state.sheet_ledger[sheet_key]["scale_factor"] = 9.0
             elif "10'-0\"" in scale_preset: st.session_state.sheet_ledger[sheet_key]["scale_factor"] = 7.2
             elif "20'-0\"" in scale_preset: st.session_state.sheet_ledger[sheet_key]["scale_factor"] = 3.6
-            st.success(f"Scale Locked: {st.session_state.sheet_ledger[sheet_key]['scale_factor']:.1f} Px/Ft")
 
         if mode == "2. Measure Linear Run":
             st.divider()
@@ -85,12 +94,10 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
             added_drop = st.number_input("Enter Vertical Offset Height (Feet)", min_value=0.0, value=0.0, step=1.0)
             if st.button("➕ Inject Vertical Height to Totals"):
                 st.session_state.sheet_ledger[sheet_key]["vertical_drops"] += added_drop
-                st.toast(f"Successfully added {added_drop}ft vertical run to this sheet!")
+                st.toast(f"Successfully added {added_drop}ft vertical run!")
 
     with col_y:
         st.write("### 🖥️ Interactive Takeoff Drawing Blueprint Canvas")
-        st.info("👉 **How to draw:** Click directly on the blueprint image below to map your paths.")
-        
         if st.button("🔄 Clear All Drawn Lines on This Page"):
             st.session_state.sheet_ledger[sheet_key]["click_history"] = []
             st.session_state.sheet_ledger[sheet_key]["conduit_runs"] = 0.0
@@ -98,12 +105,8 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
             st.success("Canvas lines wiped cleanly!")
             st.rerun()
 
-    # --- PULL THE RAW CANVAS IMAGE BACK FROM MEMORY INSTANTLY VIA HIGH-SPEED CACHE ---
     base_cached_img = get_high_performance_cached_sheet_layer(st.session_state.uploaded_file_bytes, page_number - 1)
-    
-    # Create a dynamic standalone work copy of the cached sheet layer so drawings can update fluidly
     pil_img = base_cached_img.copy()
-    
     active_clicks = st.session_state.sheet_ledger[sheet_key]["click_history"]
     sf = st.session_state.sheet_ledger[sheet_key]["scale_factor"]
     
