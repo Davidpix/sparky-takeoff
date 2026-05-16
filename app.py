@@ -208,7 +208,6 @@ if raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_dat
 # --- 11. CENTRALIZED RUNNING ROUTING BLOCKS ---
 if selected_page == t["home"]:
     st.write(f"### {t['home']}")
-    # Query current user's isolated list size dynamically
     user_units_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
     completed_milestones = sum([st.session_state.get("bank_connected", False), st.session_state.tenant_balances[current_user]["escrow"] > 0, (has_materials or len(user_units_df) > 0), bool(st.session_state.contract_agreements)])
     onboarding_percentage = (completed_milestones / 4) * 100
@@ -283,7 +282,7 @@ elif selected_page == t["bank"]:
         st.session_state.tenant_balances[current_user]["escrow"] += dep_amt
         st.success("Escrow loaded!"); time.sleep(0.5); st.rerun()
 
-# --- UPGRADED MODULE: CRITICAL PATH SCHEDULING ALGORITHM ---
+# --- UPGRADED MODULE: CRITICAL PATH SCHEDULING ALGORITHM WITH CRASH PATCH APPLIED ---
 elif selected_page == t["sched"]:
     st.write(f"### {t['sched']}")
     st.markdown("<div class='unifi-stealth-blade'><b>🧠 Algorithmic Critical Path Production Scheduler</b><br>Simulate vendor backorders, level crew assignments, and automatically calculate real-time project hand-over forecasting.</div>", unsafe_allow_html=True)
@@ -292,7 +291,6 @@ elif selected_page == t["sched"]:
     
     with col_sch_ctrl:
         st.write("#### 🛠️ Resource Leveling & Supply Controls")
-        # Let the user simulate an upstream supply chain shock or buffer delay
         simulated_delay = st.slider("Supply-Chain Material Backorder Lag (Days)", 0, 14, st.session_state.schedule_delay_days)
         active_crew = st.slider("Active Field Crew Personnel Count", 1, 10, st.session_state.crew_count_leveling)
         
@@ -304,14 +302,12 @@ elif selected_page == t["sched"]:
             
         st.write("---")
         st.write("#### 🏗️ Predecessor Structural Handshake Matrix")
-        st.caption("Mark GC structural tasks complete to release field production paths for installers:")
         pre_drywall = st.checkbox("GC Drywall & Framing Sheetrock Complete (Floor 1)", value=True)
         pre_plumb = st.checkbox("Core Plumbing Rough-Ins Certified (Floor 2)", value=False)
         
     with col_sch_viz:
         st.write("#### 📊 Dynamic Project Gantt Production Projections")
         
-        # Calculate timeline offsets based on user leveling logic parameters
         base_start = datetime.date(2026, 6, 1)
         
         fab_start = base_start + datetime.timedelta(days=simulated_delay)
@@ -320,7 +316,6 @@ elif selected_page == t["sched"]:
         
         install_start = fab_end + datetime.timedelta(days=1)
         install_duration = max(3, math.ceil(20 / active_crew))
-        # If the predecessor plumbing trades are behind, stack an automatic warning delay block
         if not pre_plumb:
             install_duration += 5
         install_end = install_start + datetime.timedelta(days=install_duration)
@@ -330,27 +325,29 @@ elif selected_page == t["sched"]:
             {"Task Node": "2. High-Density Suite Rollout", "Start": install_start.strftime("%Y-%m-%d"), "End": install_end.strftime("%Y-%m-%d"), "Phase Metric": "Field Execution"}
         ])
         
+        # SAFE LOOKUP LOOKUP FIX: Default to standard UniFi blue highlight if wl_accent_color is missing
+        resolved_accent_color = st.session_state.get("wl_accent_color", "#38BDF8")
+        
         g_chart = alt.Chart(sch_df).mark_bar(size=24, cornerRadius=4).encode(
             x=alt.X('Start:T', title="Project Calendar Timeline"),
             x2='End:T',
             y=alt.Y('Task Node:N', title=None),
-            color=alt.Color('Phase Metric:N', scale=alt.Scale(range=[st.session_state.wl_accent_color, '#F59E0B']))
+            color=alt.Color('Phase Metric:N', scale=alt.Scale(range=[resolved_accent_color, '#F59E0B']))
         ).properties(height=180, width='container')
         
         st.altair_chart(g_chart, use_container_width=True)
         
-        # Critical warning banners derived contextually from data variables
         if not pre_plumb:
             st.markdown("<div class='unifi-stealth-gold'><b>⚠️ CRITICAL PATH WARNING:</b> Core Plumbing Rough-Ins are unchecked. The rescheduling algorithm has stacked an automatic <b>5-day buffer variance liability</b> on your field execution path.</div>", unsafe_allow_html=True)
         else:
-            st.markdown("<div class='unifi-stealth-green'><b>✅ CRITICAL PATH CLEAR:</b> Upstream structural framing trades are verified. Your resource timeline is running at 100% efficiency.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='unifi-stealth-green'><b>✅ CRITICAL PATH CLEAR:</b> Upstream trades are verified. Your timeline is running at 100% efficiency.</div>", unsafe_allow_html=True)
             
         st.metric("Algorithmic Project Hand-Over Date", install_end.strftime("%B %d, %Y"), f"Adjusted by +{simulated_delay + (5 if not pre_plumb else 0)} Days Total")
 
 elif selected_page == t["ai_core"]:
     st.write(f"### {t['ai_core']}")
     st.markdown("<div class='unifi-stealth-blade'><b>🧠 OmniMind Live Cross-Table Cognitive Diagnostics</b></div>", unsafe_allow_html=True)
-    st.write("Calculated Risk Score: **Excellent**. Financial capital buffers fully match active crew velocity scales.")
+    st.write("Calculated Risk Score: **Excellent**.")
 
 elif selected_page == t["dash"]:
     st.write(f"### {t['dash']}")
