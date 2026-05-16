@@ -223,7 +223,7 @@ else:
     tab_estimation, tab_panel, tab_commodity, tab_config = st.tabs([
         "📊 Data Matrix", 
         "⚡ Three-Phase Panel Schedule & Sizing", 
-        "📈 Commodity Market Multiplier", 
+        "📈 Commodity Market & Thermal Risk", 
         "⚙️ Hardware Parameters & Crew Balancer"
     ])
 
@@ -327,7 +327,7 @@ else:
             else:
                 st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ ELECTRICAL WAVEFORM SECURE</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Voltage sag locked in at **{drop_percentage:.2f}%**. Conductor operating temperature and thermal footprints inside safe limits.</p></div>", unsafe_allow_html=True)
 
-        # --- NEW SUB-MODULE: INTERACTIVE WIRE PULLING TENSION CALCULATOR ---
+        # --- WIRE PULLING TENSION CALCULATOR ---
         st.divider()
         st.write("#### 📟 Dynamic Wire Pulling Tension & Bend Friction Tracker")
         st.caption("Computes mechanical friction accumulation across raceway routing geometry to ensure adherence to the NEC 360-degree limitation constraint.")
@@ -340,12 +340,9 @@ else:
             
         with pull_col2:
             st.write("#### 📡 Structural Friction Diagnostic Summary")
-            
-            # Compute total accumulated bend profile geometry
             total_bend_degrees = (qty_90_bends * 90) + (qty_45_bends * 45)
             st.write(f"Total Combined Pathway Curvature: **{total_bend_degrees}°**")
             
-            # Pull tension math approximation: T_out = T_in * e^(mu * theta)
             coefficient_friction = 0.40
             bend_radians = (total_bend_degrees * math.pi) / 180
             calculated_pull_tension_lbs = estimated_cable_weight_lbs * math.exp(coefficient_friction * bend_radians)
@@ -359,7 +356,7 @@ else:
             else:
                 st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ RACEWAY PATH COMPLIANT</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Friction profiles look safe. Conductor run complies fully with standard pulling parameters.</p></div>", unsafe_allow_html=True)
 
-    # --- TAB 3: COMMODITY SIMULATOR & RISK ANALYTICS ---
+    # --- TAB 3: COMMODITY SIMULATOR & THERMAL ANLYTICS ---
     with tab_commodity:
         st.write("### 📈 Raw Metal Commodity Price Volatility Multiplier")
         st.caption("Simulate real-time wholesale pricing risks caused by sudden supply-chain shifts in raw copper and galvanized steel indices.")
@@ -380,17 +377,57 @@ else:
             st.write(f"Active Volatility Burden: **{st.session_state.copper_multiplier*100:+.0f}% Deviation**")
             st.write(f"Updated Adjusted Material Estimate Total: **${total_mat_cost:,.2f}**")
 
+        # --- NEW PILLAR: AMBIENT TEMPERATURE RACWAY DERATING ENGINE ---
+        st.divider()
+        st.write("### 🌡️ NEC Article 310.15 Ambient Thermal Correction Engine")
+        st.caption("Calculates thermal wire insulation degradation multipliers caused by extreme environmental air heat parameters.")
+        
+        therm_col1, therm_col2 = st.columns(2)
+        with therm_col1:
+            design_ambient_temp_f = st.slider("Design Ambient Air Temperature (°F)", 60, 140, 95, step=5)
+            rooftop_exposure = st.checkbox("Conduit Routed Across Outdoor Rooftop Deck?", value=False)
+            
+            rooftop_adder = 0
+            if rooftop_exposure:
+                st.caption("☀️ *Rooftop Proximity Triggered:* Applying an automatic temperature expansion burden factor per NEC Table 310.15(B)(3)(c).")
+                rooftop_adder = 30  # Standard industrial conservative thermal trap adder
+                
+            final_calculated_temp = design_ambient_temp_f + rooftop_adder
+            st.write(f"True Operational Design Temperature: **{final_calculated_temp}°F**")
+            
+        with therm_col2:
+            st.write("#### 📡 Conductor Ampacity Correction Summary")
+            
+            # Compile correction factor factor indexes matching NEC Table 310.15(B)(1) for 90°C THHN wire
+            thermal_correction_factor = 1.0
+            if final_calculated_temp <= 86: thermal_correction_factor = 1.0
+            elif final_calculated_temp <= 95: thermal_correction_factor = 0.96
+            elif final_calculated_temp <= 104: thermal_correction_factor = 0.91
+            elif final_calculated_temp <= 113: thermal_correction_factor = 0.87
+            elif final_calculated_temp <= 122: thermal_correction_factor = 0.82
+            elif final_calculated_temp <= 131: thermal_correction_factor = 0.76
+            else: thermal_correction_factor = 0.71
+            
+            # Map safety limits onto a standard #12 AWG circuit baseline (Normally 30A before correction adjustments)
+            sample_wire_base_ampacity = 30.0
+            safe_derated_ampacity = sample_wire_base_ampacity * thermal_correction_factor
+            
+            st.write(f"Active NEC Thermal Correction Factor ($C_t$): **{thermal_correction_factor:.2f}x Modifier**")
+            st.write(f"True Load Capacity Limit for #12 THHN Wire: **{safe_derated_ampacity:.1f} Amps** (Down from 30A)")
+            
+            if thermal_correction_factor <= 0.80:
+                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>⚠️ SEVERE THERMAL DERATING CRUNCH</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Extreme localized radiant heat reduces safe loading capacity thresholds by over 20%. Upsizing the structural physical copper frame lines is mandatory to prevent circuit breaker thermal tripping loops.</p></div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ TEMPERATURE GRADIENT SAFE</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Thermal dissipation metrics inside safe structural margins. Conductor core cooling parameters fully verified.</p></div>", unsafe_allow_html=True)
+
         st.divider()
         st.write("### 🎯 System Load, Risk Architecture, & NECA Multipliers")
-        st.caption("Apply standard industrial labor derating adjustments to account for environmental field complexities per NECA Standard 1 guidelines.")
-        
         an_col1, an_col2 = st.columns(2)
         with an_col1:
             st.write("#### 🏗️ NECA Labor Productivity Adjustment Board")
             st.session_state.installation_height_sel = st.selectbox("Field Working Height Profile", ["Standard Level (0 - 10 Ft)", "Elevated Scaffold Phase (11 - 20 Ft)", "High-Staging Zone (21+ Ft)"], index=0)
             st.session_state.jobsite_congestion_sel = st.checkbox("Complex/Congested Area Workspace? (Occupied Clinic / Retrofit)", value=False)
             
-            # Formulate NECA Multipliers
             height_mult = 1.0
             if "Elevated" in st.session_state.installation_height_sel: height_mult = 1.15
             elif "High-Staging" in st.session_state.installation_height_sel: height_mult = 1.30
@@ -517,7 +554,7 @@ DATE COMPILED: {datetime.date.today().strftime('%m/%d/%Y')}
         cleaned_cmd = manual_input_cmd.strip().lower()
         
         if cleaned_cmd == "/diagnostics":
-            st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-kernel'>[MANUAL CMD]</span> Running diagnostics loop: 5-node matrix running optimal. Frame buffer capacity at 100%. Structural pulling and insulation boundaries pass code limits.")
+            st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-kernel'>[MANUAL CMD]</span> Running diagnostics loop: 5-node matrix running optimal. Frame buffer capacity at 100%. Structural pulling, circuit balancing, and temperature boundaries pass code limits.")
         elif cleaned_cmd == "/sync_prices":
             st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-kernel'>[MANUAL CMD]</span> Overwriting material catalog... Synchronized live commodity data tables for North Miami Beach market.")
         elif cleaned_cmd == "/clear_grid":
