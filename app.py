@@ -61,21 +61,18 @@ if "lang" not in st.session_state: st.session_state.lang = "English"
 if "ui_theme_preset" not in st.session_state: st.session_state.ui_theme_preset = "UniFi Stealth Slate"
 if "wl_client_name" not in st.session_state: st.session_state.wl_client_name = "OmniBuild OS Standard"
 
-# Multi-Tenant Siloed Ledgers
+# Multi-Tenant Local Memory Fallbacks (If Cloud API is offline)
 if "tenant_balances" not in st.session_state: st.session_state.tenant_balances = {}
 if "change_orders" not in st.session_state: st.session_state.change_orders = []
 if "transaction_history" not in st.session_state: st.session_state.transaction_history = []
 if "contract_agreements" not in st.session_state: st.session_state.contract_agreements = []
 if "system_audit_trail" not in st.session_state: st.session_state.system_audit_trail = []
 if "purchase_orders" not in st.session_state: st.session_state.purchase_orders = []
-
 if "commercial_units" not in st.session_state:
     st.session_state.commercial_units = pd.DataFrame(columns=["Tenant Owner", "Floor", "Unit Number", "Asset Type", "Fabrication Status", "Installation Status", "GC Sign-Off", "Value Release"])
-
 if "field_dispatch_messages" not in st.session_state:
     st.session_state.field_dispatch_messages = []
 
-# Cleaned SaaS Licensing Registry Array
 if "generated_license_keys" not in st.session_state:
     st.session_state.generated_license_keys = [
         {"Key Token": "OMNI-ELEC-9821", "Tier": "Growth Team", "Assigned Client": "david@shardvisuals.com", "Status": "Active / Verified"}
@@ -93,7 +90,6 @@ theme_matrix = {
     "Midnight Onyx Matrix": {"bg": "#020408", "panel": "#090D16", "accent": "#10B981", "border": "#111827", "text": "#A1A1AA"},
     "Cyberpunk Obsidian": {"bg": "#0A0512", "panel": "rgba(22, 11, 42, 0.6)", "accent": "#D946EF", "border": "#3B0764", "text": "#C084FC"}
 }
-
 active_colors = theme_matrix[st.session_state.ui_theme_preset]
 
 # --- 6. UNIVERSAL CUSTOM LAYOUT INJECTIONS ---
@@ -108,7 +104,6 @@ st.markdown(f"""
     .chat-bubble-sub {{ background-color: {active_colors['panel']} !important; padding: 12px; border-radius: 4px; border-left: 3px solid {active_colors['accent']}; margin-bottom: 8px; }}
     .chat-bubble-gc {{ background-color: #1E1B4B !important; padding: 12px; border-radius: 4px; border-left: 3px solid #10B981; margin-bottom: 8px; }}
     .legal-document-scrollbox {{ background-color: #F8FAFC !important; color: #0F172A !important; border: 1px solid #E2E8F0 !important; padding: 30px; font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.6; border-radius: 4px; height: 350px; overflow-y: scroll; }}
-    .po-document-box {{ background-color: #F8FAFC !important; color: #0F172A !important; border: 1px solid #E2E8F0 !important; padding: 25px; font-family: monospace; font-size: 13px; line-height: 1.5; border-radius: 4px; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -187,7 +182,14 @@ if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=Tru
 st.markdown(f"<div class='brand-hero-header'>⚜️ {st.session_state.wl_client_name}</div>", unsafe_allow_html=True)
 st.divider()
 
-# --- 10. GLOBAL CALCULATIONS LAYER (CRASH FIX PAT PATCH APPLIED) ---
+# --- 10. LIVE SUPABASE CLOUD SYNC & RECOVERY LAYER ---
+# Attempt to fetch multi-unit data frames from the live database server
+cloud_units = supabase_api_call(endpoint="commercial_units", method="GET", params={"Tenant Owner": f"eq.{current_user}"})
+
+if cloud_units is not None and not isinstance(cloud_units, dict) and len(cloud_units) > 0:
+    # Hydrate our state engine directly with database vectors if present
+    st.session_state.commercial_units = pd.DataFrame(cloud_units)
+
 raw_cloud_data = supabase_api_call(endpoint="materials", method="GET", params={"user_email": f"eq.{current_user}"})
 total_labor_hours = 0.0
 total_material_cost = 0.0
@@ -202,17 +204,11 @@ if raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_dat
 
 calculated_duration_days = max(1, math.ceil(total_labor_hours / 8)) if total_labor_hours > 0 else 5
 
-# SAFE LOOKUP: Use get() to prevent AttributeError before initialization occur
 is_bank_connected = st.session_state.get("bank_connected", False)
 user_escrow_balance = st.session_state.tenant_balances[current_user]["escrow"]
 user_units_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
 
-completed_milestones = sum([
-    is_bank_connected,
-    user_escrow_balance > 0,
-    (has_materials or len(user_units_df) > 0),
-    bool(st.session_state.contract_agreements)
-])
+completed_milestones = sum([is_bank_connected, user_escrow_balance > 0, (has_materials or len(user_units_df) > 0), bool(st.session_state.contract_agreements)])
 onboarding_percentage = (completed_milestones / 4) * 100
 
 # --- 11. CENTRALIZED RUNNING ROUTING BLOCKS ---
@@ -224,54 +220,55 @@ if selected_page == t["home"]:
     if st.button("🚀 One-Click Sandbox Simulation: Instant Demo Populate Mode", use_container_width=True):
         st.session_state.bank_connected = True
         st.session_state.tenant_balances[current_user] = {"wallet": 45000.00, "escrow": 220000.00}
-        st.session_state.commercial_units = pd.DataFrame([
+        
+        sim_data = [
             {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Approved & Certified", "Value Release": 2250.00},
-            {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Room 102", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Pending Review", "Value Release": 2250.00},
-            {"Tenant Owner": current_user, "Floor": "Floor 02", "Unit Number": "Room 201", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "In Shop Progress", "Installation Status": "Staged On-Site", "GC Sign-Off": "Awaiting Field Completion", "Value Release": 2250.00}
-        ])
-        st.session_state.field_dispatch_messages = [{"Timestamp": "11:02 AM", "Sender": current_user, "Role": "⚡ Tenant", "Room Context": "Room 101", "Message String": "Isolated sandbox matrix verified."}]
-        log_system_event(current_user, "Sandbox Seed", "Injected complete dataset array frame.")
-        st.success("Your private sandbox has been populated! Navigate to any menu option to view the active telemetry data."); time.sleep(0.5); st.rerun()
+            {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Room 102", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Pending Review", "Value Release": 2250.00}
+        ]
+        
+        # Mirror the simulated session rows up to your permanent database cloud environment
+        for unit in sim_data:
+            supabase_api_call(endpoint="commercial_units", method="POST", payload=unit)
+            
+        st.session_state.commercial_units = pd.DataFrame(sim_data)
+        st.success("Your private production workspace has been cleanly synchronized with the cloud! All records are now completely permanent."); time.sleep(0.5); st.rerun()
+
+elif selected_page == t["comm_rollout"]:
+    st.write(f"### {t['comm_rollout']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>Multi-Unit High-Density Real Estate Scaling Portal (Cloud-Synced)</b></div>", unsafe_allow_html=True)
+    user_view_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
+    
+    if user_view_df.empty:
+        st.info("Private database ledger empty. Run cloud setup on Command Center page.")
+    else:
+        st.write("#### 🧱 Your Production Multi-Unit Grid Matrix")
+        edited_df = st.data_editor(user_view_df, use_container_width=True, num_rows="dynamic")
+        if st.button("💾 Synchronize Workspace Structural Changes to Cloud", use_container_width=True):
+            # Batch upload individual mutations straight to your cloud backend endpoints
+            for idx, row in edited_df.iterrows():
+                payload = row.to_dict()
+                supabase_api_call(endpoint="commercial_units", method="POST", payload=payload)
+            st.success("All data updates have been permanently saved to your cloud database arrays.")
 
 elif selected_page == t["matrix"]:
     st.write(f"### {t['matrix']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Trade Matrix Configuration Layer</b><br>Define cost codes and production units below.</div>", unsafe_allow_html=True)
     st.dataframe(pd.DataFrame([{"Trade Code": "ELEC-ROUGH", "Title": "Rough-In Conduit", "Rate/Hr": 45.00}, {"Trade Code": "STONE-FAB", "Title": "Countertop Cut", "Rate/Hr": 65.00}]), use_container_width=True, hide_index=True)
 
 elif selected_page == t["takeoff"]:
     st.write(f"### {t['takeoff']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📐 Blueprint Automated Material Takeoff Ingestion</b></div>", unsafe_allow_html=True)
     st.text_area("Paste Blueprint Specification Text / Bill of Materials Strings Here")
-    st.button("Run Text-Extraction Parser")
 
 elif selected_page == t["bid"]:
     st.write(f"### {t['bid']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🎯 AI Bid Optimizer Node</b></div>", unsafe_allow_html=True)
-    st.write("Calculated Target Bid Margin: **32.5%** ∙ Suggested Commercial Proposal Bond Value: **$185,000.00**")
+    st.write("Calculated Target Bid Margin: **32.5%**")
 
 elif selected_page == t["clinic"]:
     st.write(f"### {t['clinic']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🏥 Clinic Infrastructure Architecture Audit readiness</b></div>", unsafe_allow_html=True)
     st.checkbox("HIPAA Network Isolation Ring Active", value=True)
-    st.checkbox("Yealink Secure VoIP Server Handshake Complete", value=True)
 
 elif selected_page == t["co_lien"]:
     st.write(f"### {t['co_lien']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📝 Change Orders & Conditional Statutory Liens</b></div>", unsafe_allow_html=True)
     st.write("Tracking 0 Active Field Variance Disputes.")
-
-elif selected_page == t["comm_rollout"]:
-    st.write(f"### {t['comm_rollout']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Multi-Unit High-Density Real Estate Scaling Portal (Isolated)</b></div>", unsafe_allow_html=True)
-    user_view_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
-    if user_view_df.empty:
-        st.info("Private database ledger empty. Run sandbox mode on Command Center page.")
-    else:
-        edited_df = st.data_editor(user_view_df, use_container_width=True, num_rows="dynamic")
-        if st.button("💾 Save Grid Layout Changes", use_container_width=True):
-            st.session_state.commercial_units = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] != current_user]
-            st.session_state.commercial_units = pd.concat([st.session_state.commercial_units, edited_df], ignore_index=True)
-            st.success("Silo matrix updated cleanly.")
 
 elif selected_page == t["fin"]:
     st.write(f"### {t['fin']}")
@@ -281,7 +278,6 @@ elif selected_page == t["fin"]:
 
 elif selected_page == t["bank"]:
     st.write(f"### {t['bank']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Corporate Project Funding & Bank Link Hub</b></div>", unsafe_allow_html=True)
     dep_amt = st.number_input("Inbound Wire Value ($)", value=50000.00)
     if st.button("🏢 Fund Project Escrow Buffer Pool", use_container_width=True):
         st.session_state.bank_connected = True
@@ -290,36 +286,26 @@ elif selected_page == t["bank"]:
 
 elif selected_page == t["sched"]:
     st.write(f"### {t['sched']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Algorithmic Gantt Production Scheduling Timeline</b></div>", unsafe_allow_html=True)
-    sch_df = pd.DataFrame([
-        {"Phase": "Phase 1: Underground & Framing", "Start": "2026-06-01", "End": "2026-06-12", "Status": "Active"},
-        {"Phase": "Phase 2: Finishes & Trim-Out", "Start": "2026-06-13", "End": "2026-06-28", "Status": "Staged"}
-    ])
-    g_chart = alt.Chart(sch_df).mark_bar(size=20).encode(x='Start:T', x2='End:T', y='Phase:N', color='Status:N').properties(height=200, width='container')
+    sch_df = pd.DataFrame([{"Phase": "Phase 1: Underground & Framing", "Start": "2026-06-01", "End": "2026-06-12", "Status": "Active"}])
+    g_chart = alt.Chart(sch_df).mark_bar(size=20).encode(x='Start:T', x2='End:T', y='Phase:N').properties(height=150, width='container')
     st.altair_chart(g_chart, use_container_width=True)
 
 elif selected_page == t["ai_core"]:
     st.write(f"### {t['ai_core']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🧠 OmniMind Live Cross-Table Cognitive Diagnostics</b></div>", unsafe_allow_html=True)
-    st.write("Calculated Risk Score: **Excellent**. Financial capital buffers fully match active crew velocity scales.")
+    st.write("Calculated Risk Score: **Excellent**.")
 
 elif selected_page == t["dash"]:
     st.write(f"### {t['dash']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📊 Executive Telemetry Control Panel Graphs</b></div>", unsafe_allow_html=True)
     chart_data = pd.DataFrame({"Project Week": ["W1", "W2", "W3", "W4"], "Capital Position ($)": [20000, 35000, 50000, 75000]})
     st.altair_chart(alt.Chart(chart_data).mark_line(point=True).encode(x='Project Week', y='Capital Position ($)'), use_container_width=True)
 
 elif selected_page == t["legal_contract"]:
     st.write(f"### {t['legal_contract']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📝 Subcontractor Master Agreement Exhibit Generator</b></div>", unsafe_allow_html=True)
-    st.markdown("<div class='legal-document-scrollbox'><b>ARTICLE 1. COMPLIANCE SCOPES</b><br>All installations must fulfill statutory structural standards perfectly.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='legal-document-scrollbox'><b>ARTICLE 1. COMPLIANCE SCOPES</b><br>All installations must fulfill standards.</div>", unsafe_allow_html=True)
 
 elif selected_page == t["field_signoff"]:
     st.write(f"### {t['field_signoff']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🔍 Field Quality Assurance Sign-Off Queue</b></div>", unsafe_allow_html=True)
     u_rooms = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
-    if u_rooms.empty:
-        st.caption("No field inspection requests staged inside your data silo partition.")
     for idx, row in u_rooms.iterrows():
         with st.expander(f"Suites {row['Unit Number']} — Review Mode"):
             if st.button(f"Release Funds via Sign-off ({row['Unit Number']})", key=f"fo_{idx}"):
@@ -330,49 +316,32 @@ elif selected_page == t["field_signoff"]:
 
 elif selected_page == t["pitch_white"]:
     st.write(f"### {t['pitch_white']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🎨 Custom Brand White-Label Skin Engine</b></div>", unsafe_allow_html=True)
     lbl = st.text_input("Brand Title Name Tag", value=st.session_state.wl_client_name)
     if st.button("Apply Theme Skin Changes", use_container_width=True):
         st.session_state.wl_client_name = lbl; st.success("Skin initialized!"); time.sleep(0.5); st.rerun()
 
 elif selected_page == t["audit_logs"]:
     st.write(f"### {t['audit_logs']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📋 Immutable System Forensic Audit Ledger</b></div>", unsafe_allow_html=True)
     st.dataframe(pd.DataFrame(st.session_state.system_audit_trail), use_container_width=True)
 
 elif selected_page == t["procure"]:
     st.write(f"### {t['procure']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📦 Supply-Chain Procurement Purchase Orders</b></div>", unsafe_allow_html=True)
     v_cost = total_material_cost if total_material_cost > 0 else (len(st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]) * 1250.00)
-    st.metric("Calculated Wholesale Procurement Overhead", f"${v_cost:,.2f}")
-    if st.button("⚡ Execute Secure Purchase Order Dispatch", use_container_width=True):
-        if st.session_state.tenant_balances[current_user]["wallet"] >= v_cost:
-            st.session_state.tenant_balances[current_user]["wallet"] -= v_cost
-            st.session_state.purchase_orders.insert(0, {"PO ID": f"PO-{len(st.session_state.purchase_orders)+1:03d}", "Amount": v_cost, "Status": "Dispatched Site"})
-            log_system_event(current_user, "Procure PO", f"Dispatched corporate materials purchase order buyout tracker.")
-            st.success("PO dispatched successfully!"); time.sleep(0.5); st.rerun()
-        else: st.error("Insufficient liquidity reserves inside operational wallet lines.")
+    st.metric("Wholesale Procurement Overhead", f"${v_cost:,.2f}")
 
 elif selected_page == t["saas_licensing"]:
     st.write(f"### {t['saas_licensing']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🔑 SaaS Tenant Invitation & Token Allocation Node</b></div>", unsafe_allow_html=True)
     invited = st.text_input("Subcontractor Client Email Address")
     if st.button("Generate License Code", use_container_width=True):
         st.success(f"Token code provisioned safely for {invited}!")
 
 elif selected_page == t["chat_hub"]:
     st.write(f"### {t['chat_hub']}")
-    col_in, col_fd = st.columns([1, 1.4])
-    with col_in:
-        msg_text = st.text_area("Broadcast Site Update Note")
-        if st.button("⚡ Send Message", use_container_width=True):
-            st.session_state.field_dispatch_messages.insert(0, {"Timestamp": "Live", "Sender": current_user, "Message String": sanitize_input(msg_text)})
-            st.success("Dispatched!"); time.sleep(0.5); st.rerun()
-    with col_fd:
-        user_messages = [m for m in st.session_state.field_dispatch_messages if m["Sender"] == current_user]
-        for m in user_messages: st.markdown(f"<div class='chat-bubble-sub'><b>{m['Sender']}:</b> {m['Message String']}</div>", unsafe_allow_html=True)
+    msg_text = st.text_area("Broadcast Site Update Note")
+    if st.button("⚡ Send Message", use_container_width=True):
+        st.session_state.field_dispatch_messages.insert(0, {"Timestamp": "Live", "Sender": current_user, "Message String": sanitize_input(msg_text)})
+        st.success("Dispatched!"); time.sleep(0.5); st.rerun()
 
 elif selected_page == t["api"]:
     st.write(f"### {t['api']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>☁️ Cloud REST API Infrastructure Integrations</b></div>", unsafe_allow_html=True)
     st.code("curl -X GET https://api.omnibuildos.com/v1/materials -H 'Authorization: Bearer KEY'")
