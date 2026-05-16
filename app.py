@@ -10,17 +10,22 @@ from io import BytesIO
 
 st.set_page_config(page_title="UniFi SparkyTakeoff OS", layout="wide", initial_sidebar_state="collapsed")
 
-# --- EXECUTIVE STEALTH DARK MODE CSS INJECTION ---
+# --- ADVANCED STEALTH MATTE DARK MODE CSS INJECTION ---
 st.markdown("""
 <style>
+    /* Global Anti-Glare Matte Surface */
     .stApp {
         background-color: #070B12 !important;
         color: #94A3B8 !important;
     }
+    
+    /* Softened Typography Profiles */
     h1, h2, h3, h4, h5, h6 {
         color: #CBD5E1 !important;
         font-weight: 500 !important;
     }
+    
+    /* UniFi Telemetry Metric Formatting */
     div[data-testid="stMetricValue"] {
         font-size: 24px !important;
         font-weight: 600 !important;
@@ -33,6 +38,8 @@ st.markdown("""
         letter-spacing: 1px !important;
         color: #64748B !important;
     }
+    
+    /* Matte Surface Hardware Blades */
     .unifi-stealth-blade {
         background-color: #0F172A !important;
         border: 1px solid #1E293B !important;
@@ -49,6 +56,8 @@ st.markdown("""
         border-radius: 4px;
         margin-bottom: 12px;
     }
+    
+    /* Physical Breaker Panel Layout Cards */
     .panel-breaker-even {
         background-color: #0F172A;
         border: 1px solid #1E293B;
@@ -69,6 +78,33 @@ st.markdown("""
         color: #64748B;
         font-weight: bold;
     }
+    
+    /* Muted Tab Navigation Components */
+    .stTabs [data-baseweb="tab"] {
+        color: #64748B !important;
+        font-size: 12px !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        background-color: transparent !important;
+        border: none !important;
+        padding: 8px 16px !important;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #38BDF8 !important;
+    }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        color: #38BDF8 !important;
+        border-bottom: 2px solid #38BDF8 !important;
+    }
+    
+    /* Data Editor Custom Overrides */
+    div[data-testid="stDataEditor"] {
+        background-color: #0F172A !important;
+        border: 1px solid #1E293B !important;
+        border-radius: 4px;
+    }
+    
+    /* Scrolling Cyber Developer Terminal */
     .cyber-terminal-output {
         background-color: #030712 !important;
         border: 1px solid #1E293B !important;
@@ -95,7 +131,7 @@ SAVED_PROJECTS_DIR = "saved_estimates_vault"
 if not os.path.exists(SAVED_PROJECTS_DIR):
     os.makedirs(SAVED_PROJECTS_DIR)
 
-# --- APPLICATION STATE SYSTEM ---
+# --- APPLICATION STATE MANAGEMENT ---
 if "user_authenticated" not in st.session_state: st.session_state.user_authenticated = False
 if "user_email" not in st.session_state: st.session_state.user_email = ""
 if "active_project_id" not in st.session_state: st.session_state.active_project_id = "SYS_UNASSIGNED_NODE"
@@ -110,17 +146,20 @@ if "copper_multiplier" not in st.session_state: st.session_state.copper_multipli
 
 if "sys_log_frames" not in st.session_state:
     st.session_state.sys_log_frames = [
-        f"<span class='terminal-timestamp'>[{datetime.datetime.now().strftime('%H:%M:%S')}]</span> <span class='terminal-kernel'>[SYS CORE]</span> Stealth multi-module matrix online.",
+        f"<span class='terminal-timestamp'>[{datetime.datetime.now().strftime('%H:%M:%S')}]</span> <span class='terminal-kernel'>[SYS CORE]</span> Stealth multi-module matrix engine online.",
         f"<span class='terminal-timestamp'>[{datetime.datetime.now().strftime('%H:%M:%S')}]</span> <span class='terminal-kernel'>[NET KERNEL]</span> Connected to global commodity index streams."
     ]
 
 if "vendor_pricing" not in st.session_state:
     st.session_state.vendor_pricing = {
-        "3/4\" EMT Conduit (10ft Factory Sticks)": 6.50, "3/4\" EMT Set-Screw Coupling": 1.15,
-        "3/4\" 1-Hole EMT Strap": 0.45, "Commercial Grade 20A GFCI Device": 18.00, "Specification Grade 20A Toggle Switch": 1.50
+        "3/4\" EMT Conduit (10ft Factory Sticks)": 6.50, 
+        "3/4\" EMT Set-Screw Coupling": 1.15,
+        "3/4\" 1-Hole EMT Strap": 0.45, 
+        "Commercial Grade 20A GFCI Device": 18.00, 
+        "Specification Grade 20A Toggle Switch": 1.50
     }
 
-# --- PORTAL LOGIN ROUTER ---
+# --- GATEWAY USER DISPATCH PORTAL ---
 if not st.session_state.user_authenticated:
     st.title("⚡ SparkyTakeoff OS")
     st.caption("Matte Interface Security Authentication Console")
@@ -144,7 +183,7 @@ if not st.session_state.user_authenticated:
         st.caption("🔒 Guest Testing Access Credentials:\n* Email: `admin@sharded.io` | Key: `1234`")
 
 else:
-    # --- AUTHENTICATED COMMAND BLADES ---
+    # --- AUTHENTICATED CONTROL MATRIX ---
     col_header, col_status = st.columns([3, 1])
     with col_header:
         st.markdown("<h3 style='margin-bottom:0px; letter-spacing:-0.5px;'>⚡ Control Center Matrix</h3>", unsafe_allow_html=True)
@@ -156,7 +195,7 @@ else:
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- BASE DATASET SETUP ---
+    # --- BASE DATASET STRUCTURING ---
     baseline_mock_manifest = [
         {"Item Name": "3/4\" EMT Conduit (10ft Factory Sticks)", "Phase": "Rough-In", "Target Zone": "General Branch Run", "Qty": 150, "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Conduit (10ft Factory Sticks)"], "Mins to Install": 12, "Is Metal Commodity": True},
         {"Item Name": "3/4\" EMT Set-Screw Coupling", "Phase": "Rough-In", "Target Zone": "General Branch Run", "Qty": 140, "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Set-Screw Coupling"], "Mins to Install": 3, "Is Metal Commodity": True},
@@ -166,7 +205,7 @@ else:
     ]
     df_takeoff = pd.DataFrame(baseline_mock_manifest)
     
-    # Apply Commodity Multiplier Adjustments
+    # Execute Real-Time Volatility Calculations
     def apply_market_pricing(row):
         if row["Is Metal Commodity"]:
             return round(row["Unit Cost ($)"] * (1 + st.session_state.copper_multiplier), 2)
@@ -174,7 +213,7 @@ else:
         
     df_takeoff["Adjusted Unit Cost ($)"] = df_takeoff.apply(apply_market_pricing, axis=1)
     
-    # Financial Aggregations
+    # Financial Pipeline Calculations
     total_mat_cost = (df_takeoff["Qty"] * df_takeoff["Adjusted Unit Cost ($)"]).sum()
     total_crew_members = st.session_state.qty_journeymen + st.session_state.qty_helpers
     raw_composite_rate = ((st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)) / total_crew_members
@@ -183,7 +222,7 @@ else:
     total_labor_cost = total_labor_hours * burdened_rate
     target_gross_bid = (total_mat_cost + total_labor_cost) * (1 + st.session_state.overhead)
 
-    # --- TOP TELEMETRY METRIC BLADES ---
+    # --- TOP LEVEL HARDWARE BLADES ---
     m_col1, m_col2, m_col3, m_col4 = st.columns(4)
     with m_col1:
         st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px; color:#64748B; text-transform:uppercase;'>System Gross Valuation</p><h3 style='margin:4px 0 0 0; color:#38BDF8; font-family:monospace;'>${target_gross_bid:,.2f}</h3></div>", unsafe_allow_html=True)
@@ -194,7 +233,7 @@ else:
     with m_col4:
         st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px; color:#64748B; text-transform:uppercase;'>Target Operational Margin</p><h3 style='margin:4px 0 0 0; color:#38BDF8; font-family:monospace;'>{st.session_state.overhead*100:.0f}%</h3></div>", unsafe_allow_html=True)
 
-    # --- THE COMPREHENSIVE TAB LAYOUT ---
+    # --- MULTI-BLADE NAVIGATION MODULES ---
     tab_estimation, tab_panel, tab_commodity, tab_submittal = st.tabs([
         "📊 Data Matrix", 
         "⚡ Three-Phase Panel Schedule", 
@@ -202,17 +241,16 @@ else:
         "📁 Executive Submittal Generator"
     ])
 
-    # --- TAB 1: CORE GRIDS ---
+    # --- TAB 1: MASTER ESTIMATOR SPREADSHEET ---
     with tab_estimation:
         st.write("### 🎛️ Active Multi-Sheet Data Grid Editor")
         st.data_editor(df_takeoff, num_rows="dynamic", use_container_width=True, key="stealth_grid_master")
 
-    # --- NEW PILLAR 1: THREE-PHASE PANEL SCHEDULE BALANCER ---
+    # --- TAB 2: THREE-PHASE BALANCER & VOLTAGE DROP PHYSICS ---
     with tab_panel:
         st.write("### ⚡ NEC Three-Phase Circuit Load Balancing Matrix")
-        st.caption("Distribute single-phase branching continuous loads across Phase A, B, and C busbars to prevent current oversaturation.")
+        st.caption("Distribute single-phase branching continuous loads across Phase A, B, and C busbars to prevent neutral current oversaturation.")
         
-        # Simulated distribution architecture
         p_col1, p_col2 = st.columns([1, 2])
         with p_col1:
             st.write("#### ➕ Add Load Entry to Phase Rail")
@@ -227,8 +265,6 @@ else:
                 
         with p_col2:
             st.write("#### 🗊 120/208V 3-Phase 4-Wire Panelboard Layout")
-            
-            # Interactive visualization of alternating circuits mimicking real hardware panels
             b_row1, b_bus, b_row2 = st.columns([4, 1, 4])
             with b_row1:
                 st.markdown("<div class='panel-breaker-even'><b>CKT 1 (A)</b><br>Kitchen Receptacles<br><span style='color:#38BDF8;'>1,800 VA</span></div>", unsafe_allow_html=True)
@@ -244,7 +280,6 @@ else:
                 st.markdown("<div class='panel-breaker-even'><b>CKT 4 (A)</b><br>Water Outlet Heater<br><span style='color:#38BDF8;'>3,100 VA</span></div>", unsafe_allow_html=True)
                 
             st.divider()
-            # Calculate panel equilibrium matrix readings
             load_a, load_b, load_load_c = 4900, 2400, 1200
             total_panel_va = load_a + load_b + load_load_c
             
@@ -253,7 +288,6 @@ else:
             tot_c2.metric("Phase B Connected Load", f"{load_b:,.0f} VA")
             tot_c3.metric("Phase C Connected Load", f"{load_load_c:,.0f} VA")
             
-            # Phase unbalance equation logic checking
             avg_phase = total_panel_va / 3
             max_deviation = max(abs(load_a - avg_phase), abs(load_b - avg_phase), abs(load_load_c - avg_phase))
             unbalance_pct = (max_deviation / avg_phase) * 100
@@ -263,7 +297,43 @@ else:
             else:
                 st.success(f"✅ **Panel Balance Safe:** Unbalance is at **{unbalance_pct:.1f}%**.")
 
-    # --- NEW PILLAR 2: COPPER GLOBAL MARKET COMMODITY SIMULATOR ---
+        # --- DYNAMIC VOLTAGE DROP DIAGNOSTIC MODULE ---
+        st.divider()
+        st.write("#### 📐 Intelligent Conductor Sizing & Voltage Drop Diagnostic")
+        st.caption("Executes automated cross-examinations of copper wire cross-sections and computes voltage sag parameters over physical distances.")
+        
+        diag_col1, diag_col2 = st.columns(2)
+        with diag_col1:
+            nominal_system_voltage = st.selectbox("Circuit Voltage Base", [120, 208, 240, 277, 480], index=0)
+            target_run_amperage = st.number_input("Design Continuous Load (Amps)", min_value=1.0, max_value=200.0, value=16.0, step=1.0)
+            one_way_distance_ft = st.number_input("One-Way Circuit Length (Feet)", min_value=5.0, max_value=1000.0, value=120.0, step=5.0)
+            wire_gauge_choice = st.selectbox("Conductor Gauge Choice (Copper THHN)", ["#14 AWG", "#12 AWG", "#10 AWG", "#8 AWG", "#6 AWG", "#4 AWG"])
+            
+        with diag_col2:
+            st.write("#### 📡 Live Diagnostic Evaluation")
+            cm_specs = {"#14 AWG": 4110, "#12 AWG": 6530, "#10 AWG": 10380, "#8 AWG": 16510, "#6 AWG": 26240, "#4 AWG": 41740}
+            ampacity_specs = {"#14 AWG": 15, "#12 AWG": 20, "#10 AWG": 30, "#8 AWG": 50, "#6 AWG": 65, "#4 AWG": 85}
+            
+            active_cm = cm_specs[wire_gauge_choice]
+            max_allowed_amps = ampacity_specs[wire_gauge_choice]
+            
+            # Voltage Drop Math: V_drop = (2 * K * I * D) / CM
+            constant_k = 12.9
+            calculated_v_drop = (2 * constant_k * target_run_amperage * one_way_distance_ft) / active_cm
+            drop_percentage = (calculated_v_drop / nominal_system_voltage) * 100
+            terminal_voltage = nominal_system_voltage - calculated_v_drop
+            
+            st.write(f"Conductor Cross-Section: **{active_cm:,} Circular Mils**")
+            st.write(f"Terminal Output Voltage: **{terminal_voltage:.1f} V**")
+            
+            if target_run_amperage > max_allowed_amps:
+                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>🚨 AMPACITY OVERLOAD PROFILE</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>{wire_gauge_choice} is hard-capped at {max_allowed_amps}A per NEC Table 310.16. Your {target_run_amperage}A load will cause insulation thermal degradation.</p></div>", unsafe_allow_html=True)
+            elif drop_percentage > 3.0:
+                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>⚠️ EXCESSIVE VOLTAGE DROP DROOP</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Voltage sag is at **{drop_percentage:.2f}%** ({calculated_v_drop:.2f}V lost). Exceeds the NEC 3% efficiency threshold recommendation. Size up wire gauge to avoid equipment stalling.</p></div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ ELECTRICAL WAVEFORM SECURE</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Voltage sag locked in at **{drop_percentage:.2f}%**. Conductor operating temperature and thermal footprints inside safe limits.</p></div>", unsafe_allow_html=True)
+
+    # --- TAB 3: COMMODITY VOLATILITY SIMULATOR ---
     with tab_commodity:
         st.write("### 📈 Raw Metal Commodity Price Volatility Multiplier")
         st.caption("Simulate real-time wholesale pricing risks caused by sudden supply-chain shifts in raw copper and galvanized steel indices.")
@@ -285,7 +355,7 @@ else:
             st.write(f"Updated Adjusted Material Estimate Total: **${total_mat_cost:,.2f}**")
             st.write(f"Recalibrated Gross Target Proposal Price: **${target_gross_bid:,.2f}**")
 
-    # --- NEW PILLAR 3: EXECUTIVE CLIENT-FACING SUBMITTAL GENERATOR ---
+    # --- TAB 4: COMPLIANCE SUBMITTAL DOCUMENT ARCHIVER ---
     with tab_submittal:
         st.write("### 📁 Automated Client Submittal & Compliance Documentation")
         st.caption("Compile project inventories, calculated box volumes, and NEC codes into an official engineering packet document package.")
@@ -300,40 +370,36 @@ else:
             st.write("#### 📥 Document Compilation Output Profile")
             st.info("📄 **Packet Type:** Official Electrical Submittal Briefing | **Status:** Ready for Stamped Sign-off")
             
-            # High-fidelity text simulation preview panel layout
-            submittal_preview_text = f"""
-            ===========================================================
-            COMMERCIAL ELECTRICAL SUBMITTAL PROPOSAL PACKET
-            ISSUED BY: {st.session_state.company_name.upper()}
-            TARGET ARCHITECT: {project_architect_label.upper()}
-            LOCATION: {project_location_tag.upper()}
-            DATE COMPILED: {datetime.date.today().strftime('%m/%d/%Y')}
-            ===========================================================
-            1. PROJECT FINANCIAL METRICS
-               - Total Estimated Contract Bid: ${target_gross_bid:,.2f}
-               - Raw Material Allotment Footprint: ${total_mat_cost:,.2f}
-               - Total Production Burden Labor: {total_labor_hours:.1f} Man-Hours
-            
-            2. NATIONAL ELECTRICAL CODE (NEC) COMPLIANCE PROFILE
-               - Box Sizing Parameters: Compiled per NEC Article 314.16
-               - Branch Distribution Balance: Balanced per 3-Phase Busbar Guidelines
-            ===========================================================
-            """
+            submittal_preview_text = f"""===========================================================
+COMMERCIAL ELECTRICAL SUBMITTAL PROPOSAL PACKET
+ISSUED BY: {st.session_state.company_name.upper()}
+TARGET ARCHITECT: {project_architect_label.upper()}
+LOCATION: {project_location_tag.upper()}
+DATE COMPILED: {datetime.date.today().strftime('%m/%d/%Y')}
+===========================================================
+1. PROJECT FINANCIAL METRICS
+   - Total Estimated Contract Bid: ${target_gross_bid:,.2f}
+   - Raw Material Allotment Footprint: ${total_mat_cost:,.2f}
+   - Total Production Burden Labor: {total_labor_hours:.1f} Man-Hours
+
+2. NATIONAL ELECTRICAL CODE (NEC) COMPLIANCE PROFILE
+   - Box Sizing Parameters: Compiled per NEC Article 314.16
+   - Branch Distribution Balance: Balanced per 3-Phase Busbar Guidelines
+==========================================================="""
             st.text_area("Submittal Brief Layout Preview Frame", value=submittal_preview_text, height=180)
             
-            # Complete raw file conversion export hook download wrapper button
             buffer_submittal = BytesIO()
             buffer_submittal.write(submittal_preview_text.encode('utf-8'))
             st.download_button("📥 Download Compiled Submittal Brief (.txt)", data=buffer_submittal.getvalue(), file_name="Project_Submittal_Package.txt")
 
-    # --- THE LOWER TELEMETRY ACTIVITIES STREAM LOG ---
+    # --- THE CYBER TELEMETRY DEVELOPER TERMINAL CONSOLE ---
     st.divider()
     st.markdown("<p style='color:#475569; text-transform:uppercase; letter-spacing:1px; font-size:10px; margin-bottom:4px; font-weight:600;'>📟 SYSTEM CORE INTELLIGENCE ACTIVITY TERMINAL</p>", unsafe_allow_html=True)
     
     reversed_logs_html = "".join([f"<div>{frame}</div>" for frame in st.session_state.sys_log_frames[::-1]])
     st.markdown(f"<div class='cyber-terminal-output'>{reversed_logs_html}</div>", unsafe_allow_html=True)
     
-    # INTERACTIVE COMMAND LINE OVERLAY FIELD
+    # INTERACTIVE COMMAND LINE FIELD
     cmd_col1, cmd_col2 = st.columns([4, 1])
     with cmd_col1:
         manual_input_cmd = st.text_input("Root Command Line Interface Entry Pin", placeholder="Enter operator command override block (e.g., /diagnostics, /clear_grid, /sync_prices)", label_visibility="collapsed")
