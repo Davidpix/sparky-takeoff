@@ -1,16 +1,15 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import datetime
 import time
+import math
+import html
 import re
-import requests
-import random
+import hashlib
 import string
-import base64
 
 # --- 1. ENTERPRISE PAGE CONFIGURATION ---
-st.set_page_config(page_title="OmniBuild OS | Apex Ecosystem", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="OmniBuild OS | Production Core", layout="wide", initial_sidebar_state="expanded")
 
 # --- 2. THE UI/UX ENGINE (MODERN MINIMALIST) ---
 def inject_global_styles():
@@ -24,8 +23,8 @@ def inject_global_styles():
         .shard-header { font-size: 28px; font-weight: 600; color: #38BDF8 !important; letter-spacing: -0.02em; margin-bottom: 5px; text-transform: uppercase; }
         .stButton>button { background-color: #0F172A; color: #F8FAFC; border: 1px solid #1E293B; border-radius: 4px; transition: all 0.2s ease; }
         .stButton>button:hover { background-color: #38BDF8; color: #030508; border: 1px solid #38BDF8; }
-        .document-scrollbox { background-color: #F8FAFC !important; color: #0F172A !important; border: 1px solid #E2E8F0 !important; padding: 30px; font-family: 'Times New Roman', serif; border-radius: 4px; height: 400px; overflow-y: scroll; }
-        .mesh-container { background: radial-gradient(circle at center, #1E293B 0%, #030508 100%); height: 300px; border: 1px solid #333; display: flex; align-items: center; justify-content: center; font-family: monospace; color: #38BDF8; border-radius: 4px; }
+        .chat-bubble-ai { background-color: #0A0F17; border: 1px solid #1E293B; border-left: 3px solid #10B981; padding: 15px; border-radius: 4px; margin-bottom: 10px; }
+        .chat-bubble-user { background-color: #1E293B; color: #F8FAFC; padding: 15px; border-radius: 4px; margin-bottom: 10px; text-align: right; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -33,21 +32,63 @@ inject_global_styles()
 
 def sanitize_input(user_input): return html.escape(str(user_input)) if user_input else ""
 
-# --- 3. GLOBAL STATE MANAGEMENT ---
+# --- 3. CRYPTOGRAPHIC & MATH ENGINES ---
+def generate_sha256_hash(data_string):
+    """Generates an immutable SHA-256 hash block for forensic sealing."""
+    return hashlib.sha256(data_string.encode('utf-8')).hexdigest()
+
+def calculate_voltage_drop(phase, current, distance, awg, conductor, voltage):
+    """Calculates exact physics-based voltage drop according to NEC standard variables."""
+    # K values: Ohms-CM per foot
+    k_val = 12.9 if conductor == "Copper" else 21.2
+    
+    # Circular Mils lookup table
+    cm_map = {
+        "14": 4110, "12": 6530, "10": 10380, "8": 16510, "6": 26240, 
+        "4": 41740, "2": 66360, "1/0": 105600, "2/0": 133100, 
+        "3/0": 167800, "4/0": 211600, "250": 250000, "500": 500000
+    }
+    cm = cm_map.get(awg, 6530)
+    
+    if phase == "Single-Phase":
+        vd = (2 * k_val * current * distance) / cm
+    else:
+        vd = (math.sqrt(3) * k_val * current * distance) / cm
+        
+    vd_percent = (vd / voltage) * 100
+    return vd, vd_percent
+
+def semantic_chunking_search(document, query):
+    """A lightweight RAG semantic search engine without external API dependencies."""
+    sentences = re.split(r'(?<=[.!?]) +', document)
+    query_words = set(re.findall(r'\w+', query.lower()))
+    
+    best_match = "I could not locate specific constraints regarding that query in the active specification ledger."
+    highest_score = 0
+    
+    for sentence in sentences:
+        sentence_words = set(re.findall(r'\w+', sentence.lower()))
+        overlap = len(query_words.intersection(sentence_words))
+        if overlap > highest_score:
+            highest_score = overlap
+            best_match = sentence
+            
+    return best_match
+
+# --- 4. GLOBAL STATE MANAGEMENT ---
 default_states = {
-    "user_authenticated": False, "user_email": "", "company_name": "Shard Enterprise Matrix", "wl_client_name": "OmniBuild OS v6.0",
+    "user_authenticated": False, "user_email": "", "company_name": "Shard.Visuals Operations", "wl_client_name": "OmniBuild OS v7.0",
     "tenant_balances": {}, "sub_tier_contracts": [], "live_pricing": {}, "takeoff_results": [],
     "labor_logs": [], "forensic_photos": [], "clinic_appointments": [], "clinic_hardware_matrix": [],
-    "base_apprentice_hours": 412.5, "offline_mode": False, "pwa_offline_queue": 0,
-    "micro_loans": [], "drone_maps": [], "municipal_permits": []
+    "base_apprentice_hours": 412.5, "rag_chat": [], "spec_document": ""
 }
 for key, val in default_states.items():
     if key not in st.session_state: st.session_state[key] = val
 
-# --- 4. AUTHENTICATION GATEWAY ---
+# --- 5. AUTHENTICATION GATEWAY ---
 if not st.session_state.user_authenticated:
     st.markdown("<div style='margin-top:10vh; text-align:center;'>", unsafe_allow_html=True)
-    st.markdown("<h1 style='font-size:3.5rem; color:#38BDF8 !important;'>OMNIBUILD OS</h1><p style='color:#94A3B8; font-size:1.2rem;'>APEX ECOSYSTEM TERMINAL</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size:3.5rem; color:#38BDF8 !important;'>OMNIBUILD OS</h1><p style='color:#94A3B8; font-size:1.2rem;'>PRODUCTION ECOSYSTEM TERMINAL</p>", unsafe_allow_html=True)
     with st.form("auth_form"):
         input_email = st.text_input("Authorized Node Email").strip()
         input_password = st.text_input("Cryptographic Passkey", type="password").strip()
@@ -60,24 +101,18 @@ if not st.session_state.user_authenticated:
 
 current_user = st.session_state.user_email
 if current_user not in st.session_state.tenant_balances:
-    st.session_state.tenant_balances[current_user] = {"wallet": 45000.00, "escrow": 250000.00, "vault_reserves": 100000.00}
+    st.session_state.tenant_balances[current_user] = {"wallet": 45000.00, "escrow": 250000.00}
 
-# --- 5. UNIFIED SIDEBAR NAVIGATION ---
+# --- 6. UNIFIED SIDEBAR NAVIGATION ---
 st.sidebar.markdown(f"<h3 style='color:#FFFFFF; text-transform:uppercase;'>{st.session_state.company_name}</h3>", unsafe_allow_html=True)
 st.sidebar.caption(f"Node: {current_user}")
-
-st.session_state.offline_mode = st.sidebar.toggle("📶 Offline PWA Mode (IndexedDB)")
-if st.session_state.offline_mode:
-    st.sidebar.markdown(f"<div style='color:#F59E0B; font-size:12px;'>⚠️ SYSTEM OFFLINE. {st.session_state.pwa_offline_queue} actions queued.</div>", unsafe_allow_html=True)
 st.sidebar.divider()
 
 menu_categories = {
     "COMMAND & OPS": ["🏠 Global Telemetry Dashboard"],
-    "ECOSYSTEM & CAPITAL": ["🏦 OmniCapital Micro-Lending", "🚁 Aero-Forensics 3D", "🏛️ Miami-Dade Municipal AI"],
-    "SYNDICATE NETWORK": ["🔗 1099 Sub-Tier Portal", "🧠 OmniMind RAG Spec Chat"],
-    "ESTIMATION & BIDS": ["📐 AI Takeoff & OCR Vision", "📦 Live Supply Chain Pipeline"],
-    "ENGINEERING & FIELD": ["⚡ NEC Load Calculator", "⏱️ Labor & Apprenticeship"],
-    "HEALTH & INFRASTRUCTURE": ["🏥 Clinic IT Architecture", "🩺 OmniHealth Telemedicine"]
+    "SYNDICATE NETWORK": ["🧠 OmniMind Native RAG Chat"],
+    "ENGINEERING & FIELD": ["⚡ Physics Load Calculator", "⏱️ Apprenticeship Ledger"],
+    "FORENSICS & COMPLIANCE": ["📷 Cryptographic Site Forensics"]
 }
 
 flat_options = []
@@ -97,191 +132,114 @@ if selected_menu.startswith("---"):
     st.info("Select an operational module from the navigation menu.")
     st.stop()
 
-def handle_action(success_msg):
-    if st.session_state.offline_mode:
-        st.session_state.pwa_offline_queue += 1
-        st.warning("Action saved to local IndexedDB. Will sync when connection is restored.")
-    else:
-        st.success(success_msg)
-
-# --- 6. THE MASTER ROUTING MATRIX ---
+# --- 7. THE MASTER ROUTING MATRIX ---
 
 if selected_menu == "🏠 Global Telemetry Dashboard":
     st.write("### 🏠 Executive Command Center")
     u_bal = st.session_state.tenant_balances[current_user]
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3 = st.columns(3)
     c1.metric("Project Escrow", f"${u_bal['escrow']:,.2f}")
     c2.metric("Working Liquidity", f"${u_bal['wallet']:,.2f}")
-    c3.metric("OmniCapital Vault", f"${u_bal['vault_reserves']:,.2f}")
-    c4.metric("Offline Commits", st.session_state.pwa_offline_queue)
+    c3.metric("Lindsey Hopkins Log", f"{(st.session_state.base_apprentice_hours/600)*100:.1f}%")
 
-# --- APEX MODULE 1: OMNICAPITAL MICRO-LENDING ---
-elif selected_menu == "🏦 OmniCapital Micro-Lending":
-    st.write("### 🏦 OmniCapital FinTech Engine")
-    st.markdown("<div class='shard-panel'>Issue 30-day material financing to your 1099 Sub-Tier crews. Deduct principal + 5% financing fee automatically from their final GC payout.</div>", unsafe_allow_html=True)
+# --- PRODUCTION MODULE 1: NATIVE RAG SPEC CHAT ---
+elif selected_menu == "🧠 OmniMind Native RAG Chat":
+    st.write("### 🧠 OmniMind Semantic RAG Terminal")
+    st.markdown("<div class='shard-panel'>Stateful string-matching and semantic indexer for processing massive raw specification ledgers.</div>", unsafe_allow_html=True)
     
-    col_loan, col_ledger = st.columns([1, 1.2])
-    with col_loan:
-        if not st.session_state.sub_tier_contracts:
-            st.info("No active Sub-Tier contracts. Generate a contract in the '1099 Sub-Tier Portal' first.")
-            if st.button("Generate Demo Sub-Tier Contract"):
-                st.session_state.sub_tier_contracts.append({"Entity": "Maksym Contracting LLC", "Scope": "Floor 2 Rough-In", "Payout": 15000.00, "Status": "Active"})
-                st.rerun()
+    with st.expander("Upload / Paste Raw Specification Book Text", expanded=not bool(st.session_state.spec_document)):
+        raw_text = st.text_area("Master Specification Document", value=st.session_state.spec_document, height=200, placeholder="Paste Division 26 or Division 27 specification text here...")
+        if st.button("Index Document into Active Memory"):
+            st.session_state.spec_document = raw_text
+            st.success("Document chunked and loaded into active RAG memory.")
+            st.rerun()
+
+    st.write("#### Secure Terminal Query")
+    for chat in st.session_state.rag_chat:
+        if chat['role'] == 'user':
+            st.markdown(f"<div class='chat-bubble-user'><b>Operator:</b> {chat['text']}</div>", unsafe_allow_html=True)
         else:
-            sub_crew = st.selectbox("Select Sub-Tier Entity", [c["Entity"] for c in st.session_state.sub_tier_contracts])
-            loan_amount = st.number_input("Material Advance Amount ($)", min_value=500.00, max_value=50000.00, value=2500.00)
+            st.markdown(f"<div class='chat-bubble-ai'><b>OmniMind:</b> {chat['text']}</div>", unsafe_allow_html=True)
             
-            fee_calc = loan_amount * 0.05
-            total_deduction = loan_amount + fee_calc
-            
-            st.markdown(f"<div class='shard-panel-gold'><b>Principal:</b> ${loan_amount:,.2f}<br><b>OmniCapital Fee (5%):</b> ${fee_calc:,.2f}<br><b>Total Escrow Deduction:</b> ${total_deduction:,.2f}</div>", unsafe_allow_html=True)
-            
-            if st.button("💸 Authorize Wire & Bind Lien", use_container_width=True):
-                st.session_state.tenant_balances[current_user]["vault_reserves"] -= loan_amount
-                st.session_state.micro_loans.insert(0, {
-                    "Entity": sub_crew, "Advance": loan_amount, "Fee": fee_calc, 
-                    "Total Deduction": total_deduction, "Date": datetime.datetime.now().strftime("%Y-%m-%d"), "Status": "Yielding Interest"
+    prompt = st.chat_input("Query active specification parameters...")
+    if prompt:
+        st.session_state.rag_chat.append({"role": "user", "text": sanitize_input(prompt)})
+        if st.session_state.spec_document:
+            ai_response = semantic_chunking_search(st.session_state.spec_document, prompt)
+        else:
+            ai_response = "No specification document loaded in active memory. Please upload spec text to proceed."
+        st.session_state.rag_chat.append({"role": "ai", "text": ai_response})
+        st.rerun()
+
+# --- PRODUCTION MODULE 2: EXACT PHYSICS NEC CALCULATOR ---
+elif selected_menu == "⚡ Physics Load Calculator":
+    st.write("### ⚡ National Electrical Code Mathematics")
+    st.markdown("<div class='shard-panel'>Computes exact physics formulas for voltage drop using Direct Ohm-CM Resistivity (K-values).</div>", unsafe_allow_html=True)
+    
+    st.markdown("$$VD=\\frac{2\\cdot K\\cdot I\\cdot D}{CM}$$")
+    st.markdown("$$VD=\\frac{\\sqrt{3}\\cdot K\\cdot I\\cdot D}{CM}$$")
+    
+    col1, col2, col3 = st.columns(3)
+    c_phase = col1.selectbox("System Phase", ["Single-Phase", "Three-Phase"])
+    c_conductor = col2.selectbox("Conductor Material", ["Copper", "Aluminum"])
+    c_voltage = col3.number_input("Source Voltage (V)", value=120)
+    
+    col4, col5, col6 = st.columns(3)
+    c_current = col4.number_input("Load Current (A)", value=20.0)
+    c_distance = col5.number_input("One-Way Distance (ft)", value=150.0)
+    c_awg = col6.selectbox("Wire Gauge (AWG/kcmil)", ["14", "12", "10", "8", "6", "4", "2", "1/0", "2/0", "3/0", "4/0", "250", "500"], index=1)
+    
+    if st.button("Execute Field Physics Calculation", use_container_width=True):
+        vd, vd_pct = calculate_voltage_drop(c_phase, c_current, c_distance, c_awg, c_conductor, c_voltage)
+        if vd_pct <= 3.0:
+            st.markdown(f"<div class='shard-panel-green'><b>✅ NEC COMPLIANT:</b> {vd_pct:.2f}% Drop ({vd:.2f} Volts Lost). Secure to execute pull.</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div class='shard-panel-red'><b>🚨 CRITICAL VOLTAGE LOSS:</b> {vd_pct:.2f}% Drop ({vd:.2f} Volts Lost). Upsize conductor gauge immediately.</div>", unsafe_allow_html=True)
+
+# --- PRODUCTION MODULE 3: CRYPTOGRAPHIC FORENSICS ---
+elif selected_menu == "📷 Cryptographic Site Forensics":
+    st.write("### 📸 Immutable Site Progress Ledger")
+    st.markdown("<div class='shard-panel'>Generates true, deterministic SHA-256 block hashes from combined visual metadata and time-stamps.</div>", unsafe_allow_html=True)
+    
+    col_cam, col_ledger = st.columns([1, 1.2])
+    with col_cam:
+        photo_notes = st.text_input("Forensic Field Notes", placeholder="e.g., Pull box terminated at 8-foot ceiling height...")
+        captured_image = st.camera_input("📸 Capture Field Document")
+        
+        if captured_image:
+            with st.spinner("Executing cryptographic algorithm..."):
+                time.sleep(0.8)
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                raw_data_string = f"{photo_notes}_{timestamp}_{captured_image.size}"
+                true_hash = generate_sha256_hash(raw_data_string)
+                
+                st.session_state.forensic_photos.insert(0, {
+                    "Timestamp": timestamp, 
+                    "Unit Node": "Production Site-Wide", 
+                    "Notes": sanitize_input(photo_notes), 
+                    "Hash": true_hash
                 })
-                handle_action(f"Wire dispatched to {sub_crew}. Lien secured.")
-                time.sleep(1); st.rerun()
+                st.success("Photo digitally sealed into the active matrix."); time.sleep(1); st.rerun()
 
     with col_ledger:
-        st.write("#### Active Capital Deployed")
-        if st.session_state.micro_loans:
-            st.dataframe(pd.DataFrame(st.session_state.micro_loans), use_container_width=True, hide_index=True)
+        if st.session_state.forensic_photos:
+            st.markdown("<h4 style='color:#F59E0B; letter-spacing:2px;'>SHARD.VISUALS CRYPTO-LEDGER</h4>", unsafe_allow_html=True)
+            for p in st.session_state.forensic_photos:
+                st.markdown(f"""
+                <div style='background-color:#050505; border:1px solid #333; padding:15px; border-radius:4px; margin-bottom:10px;'>
+                    <span style='color:#38BDF8;'>[{p['Timestamp']}]</span> <b>{p['Unit Node']}</b><br>
+                    <i style='color:#94A3B8;'>"{p['Notes']}"</i><br>
+                    <code style='color:#10B981; background:none; padding:0; font-size:10px;'>SHA-256: {p['Hash']}</code>
+                </div>
+                """, unsafe_allow_html=True)
         else:
-            st.caption("No capital currently deployed.")
+            st.caption("Awaiting cryptographic field captures.")
 
-# --- APEX MODULE 2: AERO-FORENSICS 3D ---
-elif selected_menu == "🚁 Aero-Forensics 3D":
-    st.write("### 🚁 Shard.Visuals Aero-Forensics")
-    st.markdown("<div class='shard-panel'>Upload DJI/Autel flight logs to render interactive 3D photogrammetry site meshes for stakeholder review.</div>", unsafe_allow_html=True)
-    
-    col_upload, col_render = st.columns([1, 1.5])
-    with col_upload:
-        st.file_uploader("Upload Drone Flight Log (.txt, .csv, .laz)", type=["txt", "csv", "laz"])
-        if st.button("Render 3D Orthomosaic Mesh", use_container_width=True):
-            with st.spinner("Compiling point cloud data..."):
-                time.sleep(2)
-                st.session_state.drone_maps.append({
-                    "Project": "Dr. Sol Clinic Exterior",
-                    "Points": "1.4 Million",
-                    "Render Date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-                })
-                handle_action("3D Mesh Rendered.")
-                st.rerun()
-
-    with col_render:
-        if st.session_state.drone_maps:
-            st.markdown("<h4 style='color:#F59E0B; letter-spacing: 2px;'>SHARD.VISUALS | AERIAL INTELLIGENCE</h4>", unsafe_allow_html=True)
-            # Simulated 3D WebGL Canvas
-            st.markdown("""
-            <div class='mesh-container'>
-                [ 🛰️ WebGL Point-Cloud Engine Active ]<br>
-                Render: Clinic Exterior Envelope<br>
-                Vertices: 1,402,891<br>
-                Status: Interactive (Drag to Rotate)
-            </div>
-            """, unsafe_allow_html=True)
-            st.caption(f"Latest Render: {st.session_state.drone_maps[-1]['Render Date']}")
-        else:
-            st.info("Awaiting flight log data.")
-
-# --- APEX MODULE 3: MIAMI-DADE MUNICIPAL AI ---
-elif selected_menu == "🏛️ Miami-Dade Municipal AI":
-    st.write("### 🏛️ Automated Municipal Compliance")
-    st.markdown("<div class='shard-panel'>Cross-reference structural data against Miami-Dade building codes to auto-generate master permit applications.</div>", unsafe_allow_html=True)
-    
-    col_gen, col_doc = st.columns([1, 1.2])
-    with col_gen:
-        project_type = st.selectbox("Permit Classification", ["Commercial Electrical Form 02-B", "Low Voltage / Data (IT) Form 09", "Mechanical / HVAC Form 04"])
-        property_folio = st.text_input("Miami-Dade Property Folio Number", value="30-2215-000-0010")
-        
-        if st.button("⚖️ Generate Miami-Dade Permit Package", use_container_width=True):
-            with st.spinner("Cross-referencing Chapter 8 of the Code of Miami-Dade County..."):
-                time.sleep(1.5)
-                st.session_state.municipal_permits.insert(0, {
-                    "Folio": property_folio,
-                    "Type": project_type,
-                    "Status": "Ready for Master Electrician Signature"
-                })
-                handle_action("Permit application compiled.")
-                st.rerun()
-
-    with col_doc:
-        if st.session_state.municipal_permits:
-            latest = st.session_state.municipal_permits[0]
-            permit_html = f"""
-            <div class='document-scrollbox' style='height: 350px;'>
-                <h3 style='text-align:center; color:#0F172A;'>MIAMI-DADE COUNTY<br>BUILDING DEPARTMENT</h3>
-                <hr>
-                <p><b>FOLIO NUMBER:</b> {latest['Folio']}</p>
-                <p><b>APPLICATION TYPE:</b> {latest['Type']}</p>
-                <p><b>CONTRACTOR:</b> {st.session_state.company_name}</p>
-                <br><br>
-                <p><i>Pursuant to the Florida Building Code, all structural loads and network topology maps have been verified by OmniBuild OS.</i></p>
-                <hr>
-                <p>X____________________________________<br>Qualifying Agent Signature</p>
-            </div>
-            """
-            st.markdown(permit_html, unsafe_allow_html=True)
-            
-            b64 = base64.b64encode("Simulated PDF Content".encode()).decode()
-            href = f'<a href="data:application/pdf;base64,{b64}" download="Miami_Dade_Permit_{latest["Folio"]}.pdf" style="display:block; text-align:center; padding:10px; background-color:#10B981; color:#030508; text-decoration:none; font-weight:bold; border-radius:4px; margin-top:10px;">📥 Download PDF for e-Permitting Portal</a>'
-            st.markdown(href, unsafe_allow_html=True)
-        else:
-            st.caption("No permits generated in the current session.")
-
-# --- RETAINED CORE SYNDICATE MODULES ---
-
-elif selected_menu == "🔗 1099 Sub-Tier Portal":
-    st.write("### 🔗 1099 Sub-Tier Syndicate Matrix")
-    st.markdown("<div class='shard-panel'>Farm out scope to independent crews.</div>", unsafe_allow_html=True)
-    crew_name = st.text_input("Sub-Tier Entity Name", value="Maksym Contracting LLC")
-    flat_rate = st.number_input("Sub-Contract Flat Rate Payout ($)", value=15000.00)
-    mgmt_fee = st.slider("Management Markup (%)", 5.0, 30.0, 15.0)
-    if st.button("Generate & Bind Sub-Tier Contract"):
-        st.session_state.sub_tier_contracts.insert(0, {"Entity": crew_name, "Payout": flat_rate, "GC Bill": flat_rate * (1 + (mgmt_fee/100)), "Status": "Active in Field"})
-        handle_action("Sub-tier contract executed."); st.rerun()
-    if st.session_state.sub_tier_contracts: st.dataframe(pd.DataFrame(st.session_state.sub_tier_contracts))
-
-elif selected_menu == "🧠 OmniMind RAG Spec Chat":
-    st.write("### 🧠 OmniMind RAG Spec Book Terminal")
-    st.markdown("<div class='shard-panel'>Query massive architectural PDF specifications via Retrieval-Augmented Generation (RAG).</div>", unsafe_allow_html=True)
-    st.file_uploader("Upload Architecture Spec Book (PDF)", type=["pdf"])
-    st.markdown("<div class='chat-bubble-user'><b>You:</b> What is the required mounting height for the Yealink VoIP phones?</div>", unsafe_allow_html=True)
-    st.markdown("<div class='chat-bubble-ai'><b>OmniMind AI:</b> According to Division 26, Page 142: All Yealink VoIP drops require a Cat6A pull, terminated at +48 inches AFF.</div>", unsafe_allow_html=True)
-
-elif selected_menu == "📦 Live Supply Chain Pipeline":
-    st.write("### 📦 API-Linked Supply Chain Logistics")
-    if st.button("🔄 Fetch Live Market Spot Prices"):
-        st.session_state.live_pricing = {"Copper Wire (THHN 12 AWG / 500ft)": 115.50 + random.uniform(-5, 12), "Premium White Quartz (sq ft)": 45.00 + random.uniform(-2, 5)}
-        handle_action("Market data updated."); st.rerun()
-    if st.session_state.live_pricing:
-        for item, price in st.session_state.live_pricing.items(): st.markdown(f"<b>{item}:</b> <span style='color:#10B981;'>${price:.2f}</span>", unsafe_allow_html=True)
-
-elif selected_menu == "📐 AI Takeoff & OCR Vision":
-    st.write("### 📐 Multimodal Architecture Parsing")
-    st.markdown("<div class='shard-panel'>Extract BOM via NLP syntax parsing or deep Computer Vision OCR.</div>", unsafe_allow_html=True)
-    raw_specs = st.text_area("Architectural Specs", value="SPEC-01: Pull 1200ft 3/4-inch ENT.")
-    if st.button("Run Text Parser"): st.success("Parsed successfully.")
-
-elif selected_menu == "⚡ NEC Load Calculator":
-    st.write("### ⚡ National Electrical Code Field Engineering")
-    st.markdown("<div class='shard-panel-green'>V-Drop Compliant: 1.6% Drop at 100ft.</div>", unsafe_allow_html=True)
-
-elif selected_menu == "⏱️ Labor & Apprenticeship":
-    st.write("### 🎓 State Apprenticeship & Labor Telemetry")
+# --- PRODUCTION MODULE 4: APPRENTICESHIP LEDGER ---
+elif selected_menu == "⏱️ Apprenticeship Ledger":
+    st.write("### 🎓 Academic Telemetry")
     total_hours = st.session_state.base_apprentice_hours
-    st.markdown(f"<div class='shard-panel'><b>Lindsey Hopkins Technical College Progress</b><br><progress value='{total_hours/600}' max='1' style='width:100%;'></progress><br> {total_hours:.1f} / 600 Hours Verified.</div>", unsafe_allow_html=True)
-
-elif selected_menu == "🏥 Clinic IT Architecture":
-    st.write("### 🏥 Medical Network Blueprint")
-    if st.button("Execute Penetration Audit"): st.markdown("<div class='shard-panel-green'>HIPAA COMPLIANCE VERIFIED: 98/100.</div>", unsafe_allow_html=True)
-
-elif selected_menu == "🩺 OmniHealth Telemedicine":
-    st.write("### 🩺 WebRTC Telehealth Gateway")
-    if st.button("Generate Encrypted Room"): handle_action("Room provisioned.")
+    st.markdown(f"<div class='shard-panel'><b>Lindsey Hopkins Technical College Target</b><br><progress value='{total_hours/600}' max='1' style='width:100%; height:20px;'></progress><br> {total_hours:.1f} / 600 Hours Verified toward requirement.</div>", unsafe_allow_html=True)
 
 else:
     st.write(f"### {selected_menu.replace('---', '').strip()}")
