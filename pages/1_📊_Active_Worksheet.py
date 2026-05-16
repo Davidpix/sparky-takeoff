@@ -18,27 +18,31 @@ if "company_name" not in st.session_state:
     st.error("⚠️ Please return to the main Dashboard Gateway page to initialize your session parameters.")
     st.stop()
 
-# Fallback structures for safety
+# Fallback structures
 if "qty_journeymen" not in st.session_state: st.session_state.qty_journeymen = 1
 if "rate_journeyman" not in st.session_state: st.session_state.rate_journeyman = 45.0
 if "qty_helpers" not in st.session_state: st.session_state.qty_helpers = 1
 if "rate_helper" not in st.session_state: st.session_state.rate_helper = 22.0
 if "labor_burden_pct" not in st.session_state: st.session_state.labor_burden_pct = 0.30
 
-# --- MATH ENGINE: CALCULATE BLENDED LABOUR RATES ON THE FLY ---
+# Calculate Burdened Crew composite rates
 total_crew_members = st.session_state.qty_journeymen + st.session_state.qty_helpers
 raw_composite_rate = ((st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)) / total_crew_members
 fully_burdened_labor_rate = raw_composite_rate * (1 + st.session_state.labor_burden_pct)
 
-# Initialize price DB safety keys if a user goes straight to page 1
 if "vendor_pricing" not in st.session_state:
     st.session_state.vendor_pricing = {
-        "Main Panel Enclosure": 450.00, 
-        "GFCI Receptacle": 18.00, 
-        "Disconnect Switch": 85.00, 
-        "Single Pole Switch": 1.50,
+        "Main Panel Enclosure": 450.00, "GFCI Receptacle": 18.00, 
+        "Disconnect Switch": 85.00, "Single Pole Switch": 1.50,
         "3/4\" EMT Conduit Run (Linear Ft)": 1.25
     }
+
+# --- PROCESS MULTI-SHEET LEDGER AGGREGATION ---
+total_compiled_conduit = 0.0
+if "sheet_ledger" in st.session_state:
+    for sheet_id, data in st.session_state.sheet_ledger.items():
+        # Aggregate linear run footage + vertical drop offsets across all sandboxes
+        total_compiled_conduit += data["conduit_runs"] + data["vertical_drops"]
 
 # --- LIVE MARKET SIMULATOR LINK ---
 today_str = datetime.date.today().strftime("%Y%m%d")
@@ -57,7 +61,6 @@ with st.sidebar:
     st.metric("Live Commodity Index Cost Multiplier", f"{((market_multiplier - 1) * 100):.2f}%")
     st.metric("Active Burdened Billing Rate", f"${fully_burdened_labor_rate:,.2f}/hr")
 
-# --- CORE TEXT SCANNING ENGINE ---
 @st.cache_data
 def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw, prices_dict):
     pdf_file = BytesIO(uploaded_file_bytes)
@@ -65,8 +68,7 @@ def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw, pric
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
-            if text:
-                full_text += text + "\n"
+            if text: full_text += text + "\n"
             
     def clean_pattern(raw_input):
         parts = [p.strip() for p in raw_input.split(",")]
@@ -83,19 +85,16 @@ def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw, pric
     for item, info in electrical_manifest.items():
         matches = re.findall(info["pattern"], full_text, re.IGNORECASE)
         total_qty = sum(int(match) for match in matches if match.isdigit())
-        
         scanned_results.append({
             "Item Name": item, "Phase": info["phase"], "Zone/Location": info["zone"],
             "Detected Qty": total_qty, "Unit Cost ($)": info["cost"], "Mins to Install": info["mins"]
         })
     return scanned_results
 
-# --- EXECUTE ACTIVE SCAN DATASTREAM ---
 if st.session_state.uploaded_file_bytes is not None:
     scanned_data = process_and_scan_blueprint(
         st.session_state.uploaded_file_bytes, 
-        panel_kw, gfci_kw, disc_kw, switch_kw, 
-        st.session_state.vendor_pricing
+        panel_kw, gfci_kw, disc_kw, switch_kw, st.session_state.vendor_pricing
     )
 else:
     scanned_data = [
@@ -107,15 +106,14 @@ else:
 
 master_df = pd.DataFrame(scanned_data)
 
-# Inject Measured Canvas Conduit Footage
-if st.session_state.conduit_runs > 0:
+# Inject Multi-Sheet Aggregated Ledger Totals cleanly into the material sheet rows
+if total_compiled_conduit > 0:
     conduit_row = pd.DataFrame([{
-        "Item Name": "3/4\" EMT Conduit Run (Linear Ft)", "Phase": "Rough-In", "Zone/Location": "Branch Run Takeoff", 
-        "Detected Qty": int(st.session_state.conduit_runs), "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Conduit Run (Linear Ft)"], "Mins to Install": 4
+        "Item Name": "3/4\" EMT Conduit Run (Linear Ft)", "Phase": "Rough-In", "Zone/Location": "Multi-Sheet Traced Total", 
+        "Detected Qty": int(total_compiled_conduit), "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Conduit Run (Linear Ft)"], "Mins to Install": 4
     }])
     master_df = pd.concat([master_df, conduit_row], ignore_index=True)
 
-# Inject Vision Computer Vision Count row
 for item_name, count in st.session_state.vision_counts.items():
     if count > 0:
         vision_row = pd.DataFrame([{
@@ -124,7 +122,6 @@ for item_name, count in st.session_state.vision_counts.items():
         }])
         master_df = pd.concat([master_df, vision_row], ignore_index=True)
 
-# --- WORKSPACE GRID DISPLAY INTERFACE ---
 st.caption("Review compiled data metrics below. Double-click any quantity cell to adjust.")
 edited_df = st.data_editor(master_df, num_rows="dynamic", use_container_width=True)
 
@@ -132,12 +129,10 @@ edited_df["Detected Qty"] = pd.to_numeric(edited_df["Detected Qty"]).fillna(0)
 edited_df["Unit Cost ($)"] = pd.to_numeric(edited_df["Unit Cost ($)"]).fillna(0)
 edited_df["Mins to Install"] = pd.to_numeric(edited_df["Mins to Install"]).fillna(0)
 
-# Aggregation calculations driven by the fully burdened composite crew rate
 total_mat = (edited_df["Detected Qty"] * edited_df["Unit Cost ($)"]).sum()
 total_labor = ((edited_df["Detected Qty"] * edited_df["Mins to Install"] / 60) * fully_burdened_labor_rate).sum()
 final_bid = (total_mat + total_labor) * (1 + st.session_state.overhead)
 
-# --- LIVE METRIC DASHBOARD STRIPS ---
 st.divider()
 colA, colB, colC = st.columns(3)
 colA.metric("Material Cost Subtotal", f"${total_mat:,.2f}")
