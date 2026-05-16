@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import datetime
 import time
@@ -16,6 +17,7 @@ st.set_page_config(page_title="OmniBuild OS | Enterprise Platform", layout="wide
 # --- 2. SECURE CLOUD INITIALIZATION & API HELPERS ---
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "ENV_VAR_MISSING")
 SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "ENV_VAR_MISSING")
+DAILY_API_KEY = st.secrets.get("DAILY_API_KEY", "ENV_VAR_MISSING")
 
 def supabase_api_call(endpoint="materials", method="GET", payload=None, params=None):
     if SUPABASE_URL == "ENV_VAR_MISSING" or SUPABASE_KEY == "ENV_VAR_MISSING":
@@ -34,6 +36,31 @@ def supabase_api_call(endpoint="materials", method="GET", payload=None, params=N
     except Exception as e:
         return None
 
+def create_secure_video_room():
+    if DAILY_API_KEY == "ENV_VAR_MISSING":
+        return "https://your-domain.daily.co/demo-room" # Fallback if no API key
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {DAILY_API_KEY}"
+    }
+    payload = {
+        "properties": {
+            "enable_chat": True,
+            "enable_screenshare": True,
+            "start_video_off": False,
+            "start_audio_off": False,
+            "exp": int(time.time()) + 86400 # Room expires in 24 hours for HIPAA security
+        }
+    }
+    try:
+        response = requests.post("https://api.daily.co/v1/rooms", headers=headers, json=payload)
+        if response.status_code == 200:
+            return response.json().get("url")
+        return None
+    except Exception as e:
+        return None
+
 def sanitize_input(user_input):
     return html.escape(str(user_input)) if user_input else ""
 
@@ -46,8 +73,8 @@ lang_dict = {
         "ai_core": "🧠 OmniMind AI Core", "dash": "📊 Telemetry Dashboard", "comm_rollout": "🏢 Commercial Rollout", 
         "legal_contract": "📝 Master Contracts", "field_signoff": "🔍 Field Sign-Off", "punch_list": "🛠️ QA & Punch List", 
         "nec_calcs": "⚡ NEC Load Engine", "labor": "⏱️ Field Labor & DFR", "forensics": "📷 Site Forensics", 
-        "tools": "🧰 IoT Tool Fleet", "warranty": "🔄 SLAs & Digital Twin", "pitch_white": "🎨 Brand White-Label", 
-        "audit_logs": "📋 Audit Trail & Reports", "procure": "📦 Procurement & POs", 
+        "tools": "🧰 IoT Tool Fleet", "warranty": "🔄 SLAs & Digital Twin", "telehealth": "🩺 OmniHealth Telemedicine",
+        "pitch_white": "🎨 Brand White-Label", "audit_logs": "📋 Audit Trail & Reports", "procure": "📦 Procurement & POs", 
         "saas_licensing": "🔑 SaaS Tenant Licensing", "chat_hub": "💬 Field Dispatch Hub", "api": "☁️ Cloud API"
     }
 }
@@ -77,6 +104,9 @@ if "security_audit_score" not in st.session_state: st.session_state.security_aud
 if "labor_logs" not in st.session_state: st.session_state.labor_logs = []
 if "forensic_photos" not in st.session_state: st.session_state.forensic_photos = []
 if "sla_contracts" not in st.session_state: st.session_state.sla_contracts = []
+if "clinic_appointments" not in st.session_state: st.session_state.clinic_appointments = []
+if "active_video_room" not in st.session_state: st.session_state.active_video_room = None
+
 if "tool_fleet" not in st.session_state: 
     st.session_state.tool_fleet = [
         {"Asset Tag": "MKE-001", "Tool Type": "M18 Fuel Hammer Drill", "Status": "Company Vault", "Assigned To": "Unassigned", "Value": 299.00},
@@ -184,7 +214,7 @@ if chosen_preset != st.session_state.ui_theme_preset:
     st.session_state.ui_theme_preset = chosen_preset; st.rerun()
 
 st.sidebar.divider()
-menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["nec_calcs"], t["co_lien"], t["labor"], t["tools"], t["forensics"], t["warranty"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["punch_list"], t["pitch_white"], t["audit_logs"], t["procure"], t["saas_licensing"], t["chat_hub"], t["api"]]
+menu_options = [t["home"], t["takeoff"], t["bid"], t["telehealth"], t["clinic"], t["warranty"], t["labor"], t["tools"], t["forensics"], t["nec_calcs"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["punch_list"], t["matrix"], t["ai_core"], t["pitch_white"], t["audit_logs"], t["procure"], t["saas_licensing"], t["chat_hub"], t["api"]]
 selected_page = st.sidebar.radio("Navigation Menu", menu_options)
 st.sidebar.divider()
 if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=True):
@@ -193,6 +223,14 @@ if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=Tru
 # --- 9. GLOBAL TELEMETRY BAR HEADER ---
 st.markdown(f"<div class='brand-hero-header'>⚜️ {st.session_state.wl_client_name}</div>", unsafe_allow_html=True)
 st.divider()
+
+cloud_units = supabase_api_call(endpoint="commercial_units", method="GET", params={"Tenant Owner": f"eq.{current_user}"})
+if cloud_units is not None and not isinstance(cloud_units, dict) and len(cloud_units) > 0:
+    st.session_state.commercial_units = pd.DataFrame(cloud_units)
+
+raw_cloud_data = supabase_api_call(endpoint="materials", method="GET", params={"user_email": f"eq.{current_user}"})
+has_materials = False
+if raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_data) > 0: has_materials = True
 
 # --- 11. CENTRALIZED RUNNING ROUTING BLOCKS ---
 if selected_page == t["home"]:
@@ -208,10 +246,78 @@ if selected_page == t["home"]:
         st.session_state.commercial_units = pd.DataFrame(sim_data)
         st.success("Private production workspace natively populated."); time.sleep(0.5); st.rerun()
 
-elif selected_page == t["matrix"]:
-    st.write(f"### {t['matrix']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Trade Matrix Configuration Layer</b></div>", unsafe_allow_html=True)
-    st.dataframe(pd.DataFrame([{"Trade Code": "ELEC-ROUGH", "Title": "Rough-In Conduit", "Rate/Hr": 45.00}, {"Trade Code": "STONE-FAB", "Title": "Countertop Cut", "Rate/Hr": 65.00}]), use_container_width=True, hide_index=True)
+# --- NEW APEX MODULE: OMNIHEALTH TELEMEDICINE GATEWAY ---
+elif selected_page == t["telehealth"]:
+    st.write(f"### {t['telehealth']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>🩺 Secure Telehealth & Patient Scheduling Hub</b><br>Manage HIPAA-compliant video consultations, schedule virtual appointments, and dynamically generate WebRTC peer-to-peer meeting rooms via Daily.co API integration.</div>", unsafe_allow_html=True)
+    
+    col_sched, col_video = st.columns([1, 1.5])
+
+    with col_sched:
+        st.write("#### 📅 Book Virtual Consultation")
+        pt_name = st.text_input("Patient Identifier (Encrypted)")
+        consult_type = st.selectbox("Consultation Type", ["Routine Follow-up", "Initial Diagnostic", "Prescription Renewal", "Post-Op Review"])
+        pt_date = st.date_input("Appointment Date")
+        pt_time = st.time_input("Appointment Time")
+        
+        if st.button("Secure Appointment & Generate Link", use_container_width=True):
+            if pt_name:
+                with st.spinner("Generating encrypted video room via Daily API..."):
+                    room_url = create_secure_video_room()
+                    
+                    if room_url:
+                        room_id = room_url.split("/")[-1]
+                        st.session_state.clinic_appointments.insert(0, {
+                            "Patient": sanitize_input(pt_name),
+                            "Type": consult_type,
+                            "Date": pt_date.strftime("%Y-%m-%d"),
+                            "Time": pt_time.strftime("%I:%M %p"),
+                            "Room ID": room_id,
+                            "Room URL": room_url,
+                            "Status": "Scheduled"
+                        })
+                        log_system_event(current_user, "HIPAA Telehealth", f"Provisioned secure room {room_id} for {consult_type}.")
+                        st.success("Appointment secured. Encrypted WebRTC link generated."); time.sleep(1); st.rerun()
+                    else:
+                        st.error("Failed to authenticate with Daily.co API. Check your Secret Key in the Cloud configuration.")
+            else:
+                st.error("Patient identifier required.")
+
+    with col_video:
+        st.write("#### 📹 Active Telehealth Terminals")
+        
+        # If a video room is active, render the Daily.co pre-built WebRTC iframe
+        if st.session_state.active_video_room:
+            st.markdown(f"<div class='unifi-stealth-green'><b>LIVE SESSION:</b> Connecting to {st.session_state.active_video_room}</div>", unsafe_allow_html=True)
+            # Embedding the Daily.co Call Object iframe. allow properties are critical for camera/mic access in Streamlit.
+            components.iframe(st.session_state.active_video_room, width=800, height=500, allow="camera; microphone; fullscreen; display-capture")
+            
+            if st.button("🔴 Terminate Session & Purge Clinical Logs", use_container_width=True):
+                st.session_state.active_video_room = None
+                st.success("Session cryptographically wiped."); time.sleep(1); st.rerun()
+        else:
+            if not st.session_state.clinic_appointments:
+                st.info("No virtual consultations scheduled for today.")
+            else:
+                for idx, appt in enumerate(st.session_state.clinic_appointments):
+                    if appt["Status"] == "Scheduled":
+                        st.markdown(f"""
+                        <div style='background-color: #0F172A; border: 1px solid #1E293B; border-left: 4px solid #10B981; padding: 15px; border-radius: 4px; margin-bottom: 10px;'>
+                            <h4 style='color: #F8FAFC; margin-top: 0;'>{appt['Time']} — {appt['Type']}</h4>
+                            <p style='margin: 0; color: #94A3B8;'><b>Patient ID:</b> {appt['Patient']}</p>
+                            <code style='color: #38BDF8; background: none; padding: 0;'>ROOM: {appt['Room ID']}</code>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        col_join, col_end = st.columns(2)
+                        with col_join:
+                            if st.button(f"🟢 Initialize Secure Video", key=f"join_{idx}", use_container_width=True):
+                                st.session_state.active_video_room = appt["Room URL"]
+                                st.rerun()
+                        with col_end:
+                            if st.button(f"Cancel / Archive", key=f"end_{idx}", use_container_width=True):
+                                st.session_state.clinic_appointments[idx]["Status"] = "Completed"
+                                st.rerun()
 
 elif selected_page == t["takeoff"]:
     st.write(f"### {t['takeoff']}")
@@ -234,10 +340,7 @@ elif selected_page == t["takeoff"]:
             if st.button("👁️ Initiate Deep Vision OCR Scan", use_container_width=True):
                 with st.spinner("Scanning for architectural symbology..."):
                     time.sleep(2.5)
-                    cv_extractions = [
-                        {"Material String": "20A Duplex Receptacle", "Quantity": random.randint(40, 150), "Measurement": "Units", "Est. Unit Cost": 14.50, "Total Overhead": 0},
-                        {"Material String": "2x4 LED Troffer Fixture", "Quantity": random.randint(20, 80), "Measurement": "Units", "Est. Unit Cost": 145.00, "Total Overhead": 0}
-                    ]
+                    cv_extractions = [{"Material String": "20A Duplex Receptacle", "Quantity": random.randint(40, 150), "Measurement": "Units", "Est. Unit Cost": 14.50, "Total Overhead": 0}, {"Material String": "2x4 LED Troffer Fixture", "Quantity": random.randint(20, 80), "Measurement": "Units", "Est. Unit Cost": 145.00, "Total Overhead": 0}]
                     for item in cv_extractions: item["Total Overhead"] = item["Quantity"] * item["Est. Unit Cost"]
                     st.session_state.takeoff_results.extend(cv_extractions)
                     st.success(f"Vision successful! OmniMind isolated hardware nodes from the drawing."); time.sleep(1); st.rerun()
@@ -291,6 +394,28 @@ elif selected_page == t["clinic"]:
             st.rerun()
         if st.session_state.security_audit_score is not None:
             if st.session_state.security_audit_score > 90: st.markdown(f"<div class='unifi-stealth-green'><b>✅ COMPLIANCE VERIFIED: {st.session_state.security_audit_score}/100</b></div>", unsafe_allow_html=True)
+
+elif selected_page == t["warranty"]:
+    st.write(f"### {t['warranty']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>🔄 Digital Twin & Recurring SLA Engine</b><br>Transition finished infrastructure into Monthly Recurring Revenue (MRR).</div>", unsafe_allow_html=True)
+    tab_twin, tab_sla = st.tabs(["🏗️ Asset Digital Twin Handoff", "💳 Recurring SLA Contracts"])
+    with tab_twin:
+        st.write("#### 📡 Installed Asset Handoff Matrix")
+        if not st.session_state.clinic_hardware_matrix: st.info("No clinic IT hardware registered.")
+        else:
+            for hw in st.session_state.clinic_hardware_matrix:
+                with st.expander(f"{hw['Location']} — {hw['Device']}"):
+                    st.code(f"QR_DATA_BLOB:\n[OMNIBUILD_ASSET_ID: {hw['MAC Address'].replace(':', '')}]\n>>> SCAN TO OPEN REPAIR TICKET <<<", language="text")
+    with tab_sla:
+        col_mrr_form, col_mrr_dash = st.columns([1, 1.2])
+        with col_mrr_form:
+            sla_client = st.text_input("Client/Facility Name", value="Dr. Sol Medical Clinic")
+            sla_tier = st.selectbox("SLA Support Tier", ["Silver ($299/mo) - Standard Response", "Gold ($599/mo) - 24hr Response", "Platinum Enterprise ($1,299/mo)"])
+            if st.button("📝 Generate & Dispatch SLA Contract", use_container_width=True):
+                st.session_state.sla_contracts.append({"Client": sla_client, "Tier": sla_tier, "Status": "Awaiting Signature", "Date Issued": datetime.datetime.now().strftime("%Y-%m-%d")})
+                st.success(f"SLA Contract routed to {sla_client}."); time.sleep(1); st.rerun()
+        with col_mrr_dash:
+            if st.session_state.sla_contracts: st.dataframe(pd.DataFrame(st.session_state.sla_contracts), use_container_width=True, hide_index=True)
 
 elif selected_page == t["nec_calcs"]:
     st.write(f"### {t['nec_calcs']}")
@@ -371,50 +496,6 @@ elif selected_page == t["forensics"]:
             for f_log in st.session_state.forensic_photos:
                 st.markdown(f"<div style='background-color: #0F172A; border: 1px solid #1E293B; border-left: 3px solid #10B981; padding: 12px; margin-bottom: 8px; border-radius: 4px;'><b style='color:#F8FAFC;'>{f_log['Unit Node']}</b> - <span style='color:#94A3B8; font-size:12px;'>{f_log['Timestamp']}</span><br><i>{f_log['Notes']}</i><br><code style='color:#38BDF8; background:none; padding:0;'>LOC: {f_log['GPS Checksum']}</code><br><code style='color:#EF4444; background:none; padding:0;'>HASH: {f_log['Immutable Hash']}</code></div>", unsafe_allow_html=True)
 
-# --- NEW MODULE: WARRANTY SLAs & DIGITAL TWIN ---
-elif selected_page == t["warranty"]:
-    st.write(f"### {t['warranty']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🔄 Digital Twin & Recurring SLA Engine</b><br>Don't just hand over the keys. Convert completed installations into long-term, high-margin Service Level Agreements (SLAs).</div>", unsafe_allow_html=True)
-    
-    tab_twin, tab_sla = st.tabs(["🏗️ Asset Digital Twin Handoff", "💳 Recurring SLA Contracts"])
-    
-    with tab_twin:
-        st.write("#### 📡 Installed Asset Handoff Matrix")
-        st.caption("Generate scannable QR tags for installed hardware. Clinic managers can scan these to instantly trigger field maintenance logs.")
-        if not st.session_state.clinic_hardware_matrix:
-            st.info("No clinic IT hardware registered. Provision assets in the 'Clinic Infra' tab first.")
-        else:
-            for idx, hw in enumerate(st.session_state.clinic_hardware_matrix):
-                with st.expander(f"{hw['Location']} — {hw['Device']}"):
-                    st.write(f"**MAC Address:** `{hw['MAC Address']}`")
-                    st.write(f"**Network VLAN:** `{hw['VLAN']}`")
-                    st.write("**Maintenance QR Code Tag:**")
-                    st.code(f"QR_DATA_BLOB:\n[OMNIBUILD_ASSET_ID: {hw['MAC Address'].replace(':', '')}]\n>>> SCAN TO OPEN REPAIR TICKET <<<", language="text")
-
-    with tab_sla:
-        st.write("#### 🔄 Transition to Monthly Recurring Revenue (MRR)")
-        col_mrr_form, col_mrr_dash = st.columns([1, 1.2])
-        
-        with col_mrr_form:
-            sla_client = st.text_input("Client/Facility Name", value="Dr. Sol Medical Clinic")
-            sla_tier = st.selectbox("SLA Support Tier", ["Silver ($299/mo) - Standard Response", "Gold ($599/mo) - 24hr Response + Network Patching", "Platinum Enterprise ($1,299/mo) - 2hr Urgent + Replacement"])
-            if st.button("📝 Generate & Dispatch SLA Contract", use_container_width=True):
-                st.session_state.sla_contracts.append({
-                    "Client": sla_client,
-                    "Tier": sla_tier,
-                    "Status": "Awaiting Signature",
-                    "Date Issued": datetime.datetime.now().strftime("%Y-%m-%d")
-                })
-                st.success(f"SLA Contract routed to {sla_client}. Securing your MRR pipeline!")
-                time.sleep(1); st.rerun()
-
-        with col_mrr_dash:
-            st.write("#### 📈 Active Subscription Ledger")
-            if st.session_state.sla_contracts:
-                st.dataframe(pd.DataFrame(st.session_state.sla_contracts), use_container_width=True, hide_index=True)
-            else:
-                st.caption("No recurring service contracts generated.")
-
 elif selected_page == t["comm_rollout"]:
     st.write(f"### {t['comm_rollout']}")
     user_view_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
@@ -467,6 +548,11 @@ elif selected_page == t["punch_list"]:
     st.write(f"### {t['punch_list']}")
     punch_unit = st.text_input("Location / Node")
     if st.button("⚡ Dispatch Punch Ticket to Crew"): st.success("Ticket dispatched!")
+
+elif selected_page == t["matrix"]:
+    st.write(f"### {t['matrix']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>Trade Matrix Configuration Layer</b></div>", unsafe_allow_html=True)
+    st.dataframe(pd.DataFrame([{"Trade Code": "ELEC-ROUGH", "Title": "Rough-In Conduit", "Rate/Hr": 45.00}, {"Trade Code": "STONE-FAB", "Title": "Countertop Cut", "Rate/Hr": 65.00}]), use_container_width=True, hide_index=True)
 
 elif selected_page == t["pitch_white"]:
     st.write(f"### {t['pitch_white']}")
