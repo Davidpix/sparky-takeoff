@@ -6,6 +6,7 @@ import datetime
 import json
 import os
 import math
+import altair as alt
 from io import BytesIO
 
 st.set_page_config(page_title="SparkyTakeoff OS", layout="wide", initial_sidebar_state="expanded")
@@ -15,7 +16,6 @@ if "accessibility_mode" not in st.session_state: st.session_state.accessibility_
 
 # --- DYNAMIC CSS INJECTION (PRO VS ACCESSIBLE) ---
 if not st.session_state.accessibility_mode:
-    # HARDCORE STEALTH ENGINEERING THEME
     st.markdown("""
     <style>
         .stApp { background-color: #070B12 !important; color: #94A3B8 !important; }
@@ -33,7 +33,6 @@ if not st.session_state.accessibility_mode:
     </style>
     """, unsafe_allow_html=True)
 else:
-    # CLEAN, HIGH-CONTRAST ACCESSIBILITY THEME
     st.markdown("""
     <style>
         .stApp { background-color: #F8FAFC !important; color: #1E293B !important; font-size: 18px !important; }
@@ -50,8 +49,6 @@ else:
 
 # --- DIRECTORY & STATE CONFIG ---
 if "user_authenticated" not in st.session_state: st.session_state.user_authenticated = False
-if "user_email" not in st.session_state: st.session_state.user_email = ""
-if "active_project_id" not in st.session_state: st.session_state.active_project_id = "SYS_UNASSIGNED_NODE"
 if "company_name" not in st.session_state: st.session_state.company_name = "Shard Visuals & Electrical"
 if "qty_journeymen" not in st.session_state: st.session_state.qty_journeymen = 2
 if "rate_journeyman" not in st.session_state: st.session_state.rate_journeyman = 45.0
@@ -63,8 +60,7 @@ if "copper_multiplier" not in st.session_state: st.session_state.copper_multipli
 if "installation_height_sel" not in st.session_state: st.session_state.installation_height_sel = "Standard Level (0 - 10 Ft)"
 if "jobsite_congestion_sel" not in st.session_state: st.session_state.jobsite_congestion_sel = False
 if "change_order_vault" not in st.session_state: st.session_state.change_order_vault = []
-if "sys_log_frames" not in st.session_state:
-    st.session_state.sys_log_frames = [f"<span class='terminal-timestamp'>[{datetime.datetime.now().strftime('%H:%M:%S')}]</span> <span class='terminal-kernel'>[SYS CORE]</span> System initialized."]
+if "sys_log_frames" not in st.session_state: st.session_state.sys_log_frames = [f"<span class='terminal-timestamp'>[{datetime.datetime.now().strftime('%H:%M:%S')}]</span> <span class='terminal-kernel'>[SYS CORE]</span> System initialized."]
 if "vendor_pricing" not in st.session_state:
     st.session_state.vendor_pricing = {"3/4\" EMT Conduit": 6.50, "3/4\" EMT Coupling": 1.15, "3/4\" 1-Hole Strap": 0.45, "20A GFCI Device": 18.00, "20A Toggle Switch": 1.50}
 
@@ -76,14 +72,16 @@ if not st.session_state.user_authenticated:
         password = st.text_input("Password", type="password", placeholder="1234")
         if st.form_submit_button("Login"):
             if user_email and len(password) >= 4:
-                st.session_state.user_authenticated = True; st.session_state.user_email = user_email; st.rerun()
+                st.session_state.user_authenticated = True; st.rerun()
 
 else:
     # --- DYNAMIC DATA & MATH ENGINE ---
     df_takeoff = pd.DataFrame([
-        {"Item": "3/4\" EMT Conduit", "Qty": 150, "Cost": 6.50, "Mins": 12, "Metal": True},
-        {"Item": "3/4\" EMT Coupling", "Qty": 140, "Cost": 1.15, "Mins": 3, "Metal": True},
-        {"Item": "20A GFCI Device", "Qty": 25, "Cost": 18.00, "Mins": 15, "Metal": False}
+        {"Item": "3/4\" EMT Conduit", "Phase": "Rough-In", "Qty": 150, "Cost": 6.50, "Mins": 12, "Metal": True},
+        {"Item": "3/4\" EMT Coupling", "Phase": "Rough-In", "Qty": 140, "Cost": 1.15, "Mins": 3, "Metal": True},
+        {"Item": "3/4\" 1-Hole Strap", "Phase": "Rough-In", "Qty": 200, "Cost": 0.45, "Mins": 2, "Metal": True},
+        {"Item": "20A GFCI Device", "Phase": "Trim", "Qty": 25, "Cost": 18.00, "Mins": 15, "Metal": False},
+        {"Item": "20A Toggle Switch", "Phase": "Trim", "Qty": 40, "Cost": 1.50, "Mins": 10, "Metal": False}
     ])
     df_takeoff["Cost"] = df_takeoff.apply(lambda r: round(r["Cost"] * (1 + st.session_state.copper_multiplier), 2) if r["Metal"] else r["Cost"], axis=1)
     
@@ -106,19 +104,20 @@ else:
     st.session_state.accessibility_mode = st.sidebar.toggle("🟢 Plain-English / Easy Mode", value=st.session_state.accessibility_mode)
     st.sidebar.divider()
     
-    # Adapt Menu Names based on mode
     if st.session_state.accessibility_mode:
         menu_options = [
-            "1. Project Material List", 
-            "2. Safety & Power Checks", 
-            "3. Market Risk & Weather", 
-            "4. Payment Schedule",
-            "5. Extra Work Tracking",
-            "6. Executive Summary",
-            "7. Crew Cost Settings"
+            "🏠 1. Home Dashboard",
+            "📋 2. Project Material List", 
+            "🛡️ 3. Safety & Power Checks", 
+            "🌡️ 4. Market Risk & Weather", 
+            "🗓️ 5. Payment Schedule",
+            "🛑 6. Extra Work Tracking",
+            "💼 7. Executive Summary",
+            "⚙️ 8. Crew Cost Settings"
         ]
     else:
         menu_options = [
+            "🏠 Command Dashboard",
             "📊 Takeoff Data Matrix", 
             "⚡ Panel Balancing & AIC Physics", 
             "📈 Commodities & Thermal Limits", 
@@ -134,7 +133,7 @@ else:
     if st.sidebar.button("🚪 Logout"):
         st.session_state.user_authenticated = False; st.rerun()
 
-    # --- GLOBAL HEADER METRICS (Adapts to Plain English) ---
+    # --- GLOBAL HEADER METRICS ---
     title_gross = "Total Project Price" if st.session_state.accessibility_mode else "System Gross Valuation"
     title_mat = "Material Costs" if st.session_state.accessibility_mode else "Material Invoice Limit"
     title_lab = "Total Labor Hours" if st.session_state.accessibility_mode else "Production Allocation"
@@ -149,7 +148,57 @@ else:
     st.divider()
 
     # --- ROUTING ENGINE ---
-    if "Matrix" in selected_page or "Material" in selected_page:
+    if "Home" in selected_page or "Command" in selected_page:
+        st.write("### 🏠 Project Command Center" if st.session_state.accessibility_mode else "### 🏠 Master Command Dashboard")
+        
+        home_col1, home_col2 = st.columns([1.5, 1])
+        with home_col1:
+            st.write("#### 📅 Automated Construction Gantt Schedule")
+            if st.session_state.accessibility_mode: st.caption("Based on your materials and crew size, here is how many days the project will take.")
+            
+            # Dynamic Phase Duration Math
+            rough_in_hours = ((df_takeoff[df_takeoff['Phase'] == 'Rough-In']["Qty"] * df_takeoff[df_takeoff['Phase'] == 'Rough-In']["Mins"]) / 60).sum() * neca_multiplier
+            trim_hours = ((df_takeoff[df_takeoff['Phase'] == 'Trim']["Qty"] * df_takeoff[df_takeoff['Phase'] == 'Trim']["Mins"]) / 60).sum() * neca_multiplier
+            
+            crew_daily_capacity = total_field_crew * 8
+            rough_in_days = math.ceil(rough_in_hours / crew_daily_capacity) if crew_daily_capacity > 0 else 1
+            trim_days = math.ceil(trim_hours / crew_daily_capacity) if crew_daily_capacity > 0 else 1
+            
+            start_date = datetime.date.today() + datetime.timedelta(days=7) # Starts next week
+            rough_in_end = start_date + datetime.timedelta(days=rough_in_days)
+            trim_start = rough_in_end + datetime.timedelta(days=2) # 2 days buffer
+            trim_end = trim_start + datetime.timedelta(days=trim_days)
+            
+            gantt_data = pd.DataFrame([
+                {"Task": "Phase 1: Rough-In (Pipes/Wires)", "Start": start_date, "End": rough_in_end, "Duration": rough_in_days},
+                {"Task": "Phase 2: Trim-Out (Devices)", "Start": trim_start, "End": trim_end, "Duration": trim_days}
+            ])
+            
+            # Altair Gantt Chart
+            chart = alt.Chart(gantt_data).mark_bar(cornerRadius=4, height=30).encode(
+                x=alt.X('Start:T', title='Timeline', axis=alt.Axis(format='%b %d', grid=True, gridColor="#1E293B" if not st.session_state.accessibility_mode else "#E2E8F0")),
+                x2='End:T',
+                y=alt.Y('Task:N', title='', sort=None, axis=alt.Axis(labelColor="#94A3B8" if not st.session_state.accessibility_mode else "#1E293B", labelFontSize=12)),
+                color=alt.Color('Task:N', legend=None, scale=alt.Scale(range=["#38BDF8", "#10B981"])),
+                tooltip=[alt.Tooltip('Task:N'), alt.Tooltip('Start:T', format='%b %d'), alt.Tooltip('End:T', format='%b %d'), alt.Tooltip('Duration:Q', title='Work Days')]
+            ).properties(height=180).configure_view(strokeWidth=0).configure_axis(domain=False)
+            
+            st.altair_chart(chart, use_container_width=True)
+            
+        with home_col2:
+            st.write("#### 🚨 Central Alert Scanner")
+            if final_risk_adjusted_hours > (10 * crew_daily_capacity): # Arbitrary 10-day limit check
+                st.markdown("<div class='unifi-stealth-alert' style='padding:10px; margin-bottom:8px;'><b>⚠️ Schedule Warning:</b> High labor hours. Consider expanding crew.</div>", unsafe_allow_html=True)
+            if st.session_state.copper_multiplier > 0:
+                st.markdown(f"<div class='unifi-stealth-alert' style='padding:10px; margin-bottom:8px;'><b>📈 Market Alert:</b> Copper materials marked up by {st.session_state.copper_multiplier*100:.0f}%.</div>", unsafe_allow_html=True)
+            if len(st.session_state.change_order_vault) > 0:
+                st.markdown(f"<div class='unifi-stealth-blade' style='padding:10px; border-left-color:#10B981; margin-bottom:8px;'><b>✅ Active Adjustments:</b> {len(st.session_state.change_order_vault)} Change Orders billed.</div>", unsafe_allow_html=True)
+            
+            # Default "All Clear" if few alerts
+            if final_risk_adjusted_hours <= (10 * crew_daily_capacity) and st.session_state.copper_multiplier == 0:
+                st.markdown("<div class='unifi-stealth-blade' style='padding:10px; border-left-color:#10B981;'><b>✅ System Optimal:</b> All physics and financial parameters are within safe bounds.</div>", unsafe_allow_html=True)
+
+    elif "Matrix" in selected_page or "Material" in selected_page:
         st.write("### 🎛️ Material Database & Quantities")
         if st.session_state.accessibility_mode: st.info("Review and edit the exact materials needed for this job. Costs automatically update based on your changes.")
         st.data_editor(df_takeoff, num_rows="dynamic", use_container_width=True)
@@ -164,7 +213,6 @@ else:
         st.write("#### 1. Power Panel Balance Check")
         p_col1, p_col2 = st.columns([1, 2])
         with p_col1:
-            if st.session_state.accessibility_mode: st.caption("If too much power is on one side of a breaker box, wires can overheat. This tool balances the power.")
             circuit_label = st.text_input("Appliance Name", value="Kitchen Outlets")
             volt_amps_load = st.number_input("Power Required (Watts/VA)", value=1800, step=100)
             st.selectbox("Assign to Phase", ["Phase A", "Phase B", "Phase C"])
@@ -173,7 +221,6 @@ else:
 
         st.divider()
         st.write("#### 2. Wire Safety & Fire Prevention" if st.session_state.accessibility_mode else "#### 2. Conductor Ampacity & Voltage Drop")
-        if st.session_state.accessibility_mode: st.caption("If a wire is too long or too thin, it loses power and gets hot. We calculate the exact wire thickness you need.")
         diag_col1, diag_col2 = st.columns(2)
         with diag_col1:
             target_run_amperage = st.number_input("Expected Power Load (Amps)", min_value=1.0, value=16.0)
@@ -187,7 +234,6 @@ else:
 
         st.divider()
         st.write("#### 3. Main Breaker Explosion Check" if st.session_state.accessibility_mode else "#### 3. NEC 110.9 Fault Current (AIC)")
-        if st.session_state.accessibility_mode: st.caption("If a major power surge hits from the city utility line, standard breakers can explode. This checks if we need heavy-duty commercial breakers.")
         aic_col1, aic_col2 = st.columns(2)
         with aic_col1:
             transformer_kva = st.selectbox("City Transformer Size", [25, 50, 100, 150], index=2)
@@ -200,8 +246,6 @@ else:
 
     elif "Market" in selected_page or "Commods" in selected_page:
         st.write("### 📈 Market Risk & Weather Constraints" if st.session_state.accessibility_mode else "### 📈 Commodity & Thermal Constraints")
-        if st.session_state.accessibility_mode: st.info("Copper prices change daily, and extreme heat affects how much power wires can hold. Adjust parameters here to protect your budget.")
-        
         st.write("#### 1. Copper Price Fluctuation")
         volatility_selection = st.slider("Simulate Copper Price Jump (%)", -20, 50, 0, step=5)
         if st.button("Apply New Price to Estimate"):
@@ -215,7 +259,6 @@ else:
 
     elif "Draws" in selected_page or "Payment" in selected_page:
         st.write("### 🗓️ Payment Schedule & Cash Flow" if st.session_state.accessibility_mode else "### 🗓️ AIA Progress Billing Draw Schedule")
-        if st.session_state.accessibility_mode: st.info("Construction takes time. This schedule breaks down exactly when you will get paid by the client to ensure you can cover weekly payroll.")
         pct_mobilization = st.slider("Upfront Deposit (%)", 5, 20, 10, step=5)
         pct_roughin = st.slider("Payment after placing pipes (%)", 20, 50, 40, step=5)
         pct_wirepull = st.slider("Payment after pulling wires (%)", 10, 40, 30, step=5)
@@ -229,7 +272,6 @@ else:
 
     elif "Leakage" in selected_page or "Extra" in selected_page:
         st.write("### 🛑 Extra Work Tracking (Change Orders)")
-        if st.session_state.accessibility_mode: st.info("Clients often ask for extra work not in the original plan. Log those requests here to ensure you get paid for the extra labor and materials.")
         co_title = st.text_input("What extra work was requested?", value="Add 4 extra outlets in hallway")
         co_mat_outlay = st.number_input("Cost of extra materials ($)", value=120.0)
         co_hours_required = st.number_input("Extra labor hours needed", value=4.0)
@@ -241,12 +283,10 @@ else:
 
     elif "C-Suite" in selected_page or "Executive" in selected_page:
         st.write("### 💼 Executive Summary")
-        if st.session_state.accessibility_mode: st.info("A high-level view for business owners to see if this project is losing money, and how much future work is in the pipeline.")
         evm_col1, evm_col2 = st.columns(2)
         with evm_col1:
             st.write("#### Project Health Tracker")
             actual_cost_to_date = st.number_input("Money spent so far ($)", value=float(final_gross_target_bid * 0.40))
-            planned_pct = st.slider("Where we SHOULD be (%)", 0, 100, 50)
             actual_pct = st.slider("Where we ACTUALLY are (%)", 0, 100, 45)
         with evm_col2:
             st.write("#### Financial Warning System")
@@ -259,7 +299,6 @@ else:
 
     elif "Crew" in selected_page:
         st.write("### ⚙️ Crew Cost Settings")
-        if st.session_state.accessibility_mode: st.info("Calculate exactly how much an hour of labor costs your company, including taxes, insurance, and base pay.")
         cf_col1, cf_col2 = st.columns(2)
         with cf_col1:
             st.session_state.qty_journeymen = st.number_input("Number of Expert Workers", value=st.session_state.qty_journeymen)
@@ -269,7 +308,7 @@ else:
             st.session_state.labor_burden_pct = st.slider("Taxes & Insurance Burden (%)", 10, 60, int(st.session_state.labor_burden_pct*100)) / 100
         with cf_col2:
             st.write("#### True Company Cost")
-            st.markdown(f"<div class='unifi-stealth-blade'><h5 style='color:#10B981;'>💸 TRUE COST PER HOUR</h5><p style='font-size:24px;'>${burdened_rate:.2f} / hr</p><p>This is what you must charge just to break even on labor.</p></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='unifi-stealth-blade'><h5 style='color:#10B981;'>💸 TRUE COST PER HOUR</h5><p style='font-size:24px;'>${burdened_rate:.2f} / hr</p></div>", unsafe_allow_html=True)
 
     # --- FOOTER TERMINAL (HIDDEN IN ACCESSIBLE MODE) ---
     if not st.session_state.accessibility_mode:
