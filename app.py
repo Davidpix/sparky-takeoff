@@ -8,13 +8,13 @@ import re
 import requests
 
 # --- 1. SET PAGE CONFIG ---
-st.set_page_config(page_title="OmniBuild OS | Master Build", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="OmniBuild OS | Enterprise Platform", layout="wide", initial_sidebar_state="expanded")
 
-# --- 2. SECURE CLOUD INITIALIZATION & API HELPER ---
+# --- 2. SECURE CLOUD INITIALIZATION & API HELPERS ---
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "ENV_VAR_MISSING")
 SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "ENV_VAR_MISSING")
 
-def supabase_api_call(method="GET", payload=None, params=None):
+def supabase_api_call(endpoint="materials", method="GET", payload=None, params=None):
     if SUPABASE_URL == "ENV_VAR_MISSING" or SUPABASE_KEY == "ENV_VAR_MISSING":
         return None
     headers = {
@@ -23,7 +23,7 @@ def supabase_api_call(method="GET", payload=None, params=None):
         "Content-Type": "application/json",
         "Prefer": "return=representation" if method in ["POST", "PATCH"] else ""
     }
-    url = f"{SUPABASE_URL}/rest/v1/materials"
+    url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
     try:
         if method == "GET":
             response = requests.get(url, headers=headers, params=params)
@@ -59,27 +59,86 @@ lang_dict = {
     }
 }
 
-# --- 4. STATE MANAGEMENT & DYNAMIC FETCH ---
+# --- 4. STATE MANAGEMENT ---
 if "user_authenticated" not in st.session_state: st.session_state.user_authenticated = False
+if "user_email" not in st.session_state: st.session_state.user_email = ""
+if "user_role" not in st.session_state: st.session_state.user_role = "⚡ Electrical Sub"
+if "company_name" not in st.session_state: st.session_state.company_name = "Independent Operator"
 if "lang" not in st.session_state: st.session_state.lang = "English"
 if "wallet_balance" not in st.session_state: st.session_state.wallet_balance = 12500.00
-if "escrow_balance" not in st.session_state: st.session_state.escrow_balance = 0.00
 if "overhead" not in st.session_state: st.session_state.overhead = 0.20
 if "labor_rate" not in st.session_state: st.session_state.labor_rate = 60.00 
 
-raw_cloud_data = supabase_api_call("GET")
+# --- 5. STYLING INJECTION ---
+st.markdown("""
+<style>
+    .stApp { background-color: #070B12 !important; color: #94A3B8 !important; }
+    h1, h2, h3, h4, h5, h6 { color: #CBD5E1 !important; font-weight: 500 !important; }
+    .unifi-stealth-blade { background-color: #0F172A !important; border: 1px solid #1E293B !important; border-left: 3px solid #38BDF8 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
+</style>
+""", unsafe_allow_html=True)
 
-if raw_cloud_data and not isinstance(raw_cloud_data, dict):
+# --- 6. MULTI-USER SECURE GATEWAY ---
+if not st.session_state.user_authenticated:
+    st.markdown("<div style='text-align:center; padding:40px;'><h1>🔐 OmniBuild OS</h1><p>Enterprise Multi-User Authentication Gateway</p></div>", unsafe_allow_html=True)
+    
+    tab_login, tab_register = st.tabs(["🔒 Secure Login", "📝 Beta Account Registration"])
+    
+    with tab_login:
+        with st.form("auth_form"):
+            input_email = st.text_input("Account Email / Username").strip()
+            input_password = st.text_input("Secure Password", type="password").strip()
+            
+            if st.form_submit_button("Verify Credentials", use_container_width=True):
+                # Query the live database user_registry table for matching email/password
+                user_query = supabase_api_call(endpoint="user_registry", method="GET", params={"email": f"eq.{input_email}", "password_hash": f"eq.{input_password}"})
+                
+                if user_query and len(user_query) > 0:
+                    profile = user_query[0]
+                    st.session_state.user_authenticated = True
+                    st.session_state.user_email = profile["email"]
+                    st.session_state.user_role = profile["assigned_role"]
+                    st.session_state.company_name = profile["company_name"]
+                    st.success("Authentication successful! Loading environment...")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Invalid corporate credentials. Verify email or registration status.")
+                    
+    with tab_register:
+        with st.form("reg_form"):
+            reg_email = st.text_input("Preferred Login Email")
+            reg_password = st.text_input("Secure Password Set", type="password")
+            reg_company = st.text_input("Company / Subcontractor Entity Name")
+            reg_role = st.selectbox("Operational Profile Type", ["⚡ Electrical Sub", "💧 Plumbing Sub", "❄️ HVAC Sub", "🏗️ General Contractor"])
+            
+            if st.form_submit_button("Provision Account Workspace", use_container_width=True):
+                if reg_email and reg_password:
+                    payload = {"email": reg_email, "password_hash": reg_password, "company_name": reg_company, "assigned_role": reg_role}
+                    res = supabase_api_call(endpoint="user_registry", method="POST", payload=payload)
+                    if res:
+                        st.success("Workspace provisioned successfully! Switch to the Login tab to access your environment.")
+                else:
+                    st.error("Email and password fields are strictly required for workspace provisioning.")
+    st.stop()
+
+# --- 7. DYNAMIC ISOLATED DATA RECOVERY ---
+# Notice how we now filter rows by the exact logged-in user email!
+raw_cloud_data = supabase_api_call(endpoint="materials", method="GET", params={"user_email": f"eq.{st.session_state.user_email}"})
+
+if raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_data) > 0:
     full_df = pd.DataFrame(raw_cloud_data)
     st.session_state.df_elec = full_df[full_df["trade_type"] == "Electrical"][["id", "item_name", "quantity", "cost_per_unit", "labor_minutes"]].rename(columns={"item_name": "Item", "quantity": "Qty", "cost_per_unit": "Cost", "labor_minutes": "Mins"})
     st.session_state.df_plumb = full_df[full_df["trade_type"] == "Plumbing"][["id", "item_name", "quantity", "cost_per_unit", "labor_minutes"]].rename(columns={"item_name": "Item", "quantity": "Qty", "cost_per_unit": "Cost", "labor_minutes": "Mins"})
     st.session_state.df_hvac = full_df[full_df["trade_type"] == "HVAC"][["id", "item_name", "quantity", "cost_per_unit", "labor_minutes"]].rename(columns={"item_name": "Item", "quantity": "Qty", "cost_per_unit": "Cost", "labor_minutes": "Mins"})
 else:
-    if "df_elec" not in st.session_state: st.session_state.df_elec = pd.DataFrame([{"id": 1, "Item": "3/4\" EMT Conduit", "Qty": 2450, "Cost": 6.50, "Mins": 12}])
-    if "df_plumb" not in st.session_state: st.session_state.df_plumb = pd.DataFrame([{"id": 4, "Item": "2\" PVC Pipe", "Qty": 400, "Cost": 12.50, "Mins": 15}])
-    if "df_hvac" not in st.session_state: st.session_state.df_hvac = pd.DataFrame([{"id": 6, "Item": "Carrier 3-Ton Unit", "Qty": 1, "Cost": 2100.00, "Mins": 180}])
+    # Set blank slate for fresh accounts
+    st.session_state.df_elec = pd.DataFrame(columns=["id", "Item", "Qty", "Cost", "Mins"])
+    st.session_state.df_plumb = pd.DataFrame(columns=["id", "Item", "Qty", "Cost", "Mins"])
+    st.session_state.df_hvac = pd.DataFrame(columns=["id", "Item", "Qty", "Cost", "Mins"])
 
 def calc_trade(df):
+    if df.empty: return 0.0, 0.0
     mat = (df["Qty"] * df["Cost"]).sum()
     lab = ((df["Qty"] * df["Mins"]) / 60).sum() * st.session_state.labor_rate
     return (mat + lab) * (1 + st.session_state.overhead), mat + lab
@@ -89,107 +148,70 @@ plumb_total, _ = calc_trade(st.session_state.df_plumb)
 hvac_total, _ = calc_trade(st.session_state.df_hvac)
 master_build_cost = elec_total + plumb_total + hvac_total + 35000.0
 
-# --- 5. STYLING INJECTION ---
-st.markdown("""
-<style>
-    .stApp { background-color: #070B12 !important; color: #94A3B8 !important; }
-    h1, h2, h3, h4, h5, h6 { color: #CBD5E1 !important; font-weight: 500 !important; }
-    div[data-testid="stMetricValue"] { font-size: 24px !important; font-weight: 600 !important; color: #38BDF8 !important; font-family: 'Courier New', monospace; }
-    .unifi-stealth-blade { background-color: #0F172A !important; border: 1px solid #1E293B !important; border-left: 3px solid #38BDF8 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
-</style>
-""", unsafe_allow_html=True)
-
-# --- 6. SECURE GATEWAY (LOGIN) ---
-if not st.session_state.user_authenticated:
-    st.markdown("<div style='text-align:center; padding:50px;'><h1>🔐 OmniBuild OS</h1><p>Enterprise Authentication Gateway</p></div>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        with st.form("auth_form"):
-            user_email = st.text_input("Corporate Email")
-            user_password = st.text_input("Password", type="password")
-            if st.form_submit_button("Authenticate", use_container_width=True):
-                if user_email == "admin" and user_password == "admin":
-                    st.session_state.user_authenticated = True; st.rerun()
-                else: st.error("Invalid credentials.")
-    st.stop()
-
-# --- 7. SIDEBAR & ROUTING ---
+# --- 8. SIDEBAR CONTROL PANEL ---
 st.sidebar.title("🌍 OmniBuild OS")
 selected_lang = st.sidebar.selectbox("🌐 Language", ["English", "Español", "Українська"], index=0)
 t = lang_dict[selected_lang]
 
 st.sidebar.divider()
-user_role = st.sidebar.selectbox("Workspace Profile", ["🏗️ General Contractor", "⚡ Electrical Sub", "💧 Plumbing Sub", "❄️ HVAC Sub"], index=1)
+st.sidebar.write(f"👤 **User:** `{st.session_state.user_email}`")
+st.sidebar.write(f"🏢 **Entity:** `{st.session_state.company_name}`")
+st.sidebar.write(f"💼 **Profile:** `{st.session_state.user_role}`")
 st.sidebar.divider()
 
-if "General Contractor" in user_role: menu_options = [t["home"], t["gc_budg"], t["sched"], t["inv"], t["fin"], t["re"], t["api"]]
-elif "Electrical" in user_role: menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["fin"], t["api"]]
-else: menu_options = [t["home"], t["matrix"], t["fin"]]
+user_role = st.session_state.user_role
 
-selected_page = st.sidebar.radio("Navigation:", menu_options)
-st.divider()
+if "General Contractor" in user_role: menu_options = [t["home"], t["gc_budg"], t["api"]]
+elif "Electrical" in user_role: menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["api"]]
+else: menu_options = [t["home"], t["matrix"]]
 
-# --- 8. TOP TELEMETRY ---
-h_col1, h_col2, h_col3 = st.columns(3)
-with h_col1: st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color: #F59E0B;'><p style='margin:0; font-size:10px;'>{t['budget']}</p><h3 style='margin:0; color: #F59E0B;'>${master_build_cost:,.2f}</h3></div>", unsafe_allow_html=True)
-with h_col2: st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px;'>⚡ Active Trade Sub</p><h3 style='margin:0;'>${elec_total:,.2f}</h3></div>", unsafe_allow_html=True)
-with h_col3: st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color: #10B981;'><p style='margin:0; font-size:10px;'>☁️ Engine Synced</p><h3 style='margin:0; color:#10B981;'>100%</h3></div>", unsafe_allow_html=True)
+selected_page = st.sidebar.radio("Navigation Menu", menu_options)
+st.sidebar.divider()
+if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=True):
+    st.session_state.user_authenticated = False
+    st.rerun()
 
-# --- 9. MODULE ROUTING ---
+# --- 9. VIEWPORTS CONTAINER ---
 if selected_page == t["home"]:
     st.write(f"### {t['home']}")
-    client = sanitize_input(st.text_input("Active Project Name", "Miami Medical Hub"))
-    st.markdown(f"<div class='unifi-stealth-blade'>Operating Context: <b>{client}</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='unifi-stealth-blade'>Authorized Account Node: <b>{st.session_state.company_name}</b> ({st.session_state.user_role})</div>", unsafe_allow_html=True)
 
 elif selected_page == t["matrix"]:
     st.write(f"### {t['matrix']}")
-    if "Electrical" in user_role: st.data_editor(st.session_state.df_elec, use_container_width=True, disabled=["id"])
+    if st.session_state.df_elec.empty:
+        st.warning("Your isolated catalog contains no database objects. Navigate to Automated Takeoff to populate data models.")
+    else:
+        st.data_editor(st.session_state.df_elec, use_container_width=True, disabled=["id"])
 
 elif selected_page == t["takeoff"]:
     st.write(f"### {t['takeoff']}")
-    blueprint_dump = st.text_area("Blueprint Specification Dump Panel", height=180)
+    blueprint_dump = st.text_area("Drop Architectural Specification Output Notes Block", height=180)
+    
     if st.button("🚀 Process & Parse Blueprint"):
-        st.info("Parsing logic active.")
+        conduit_match = re.search(r'(\d+)\s*Qty\s*of\s*3/4"\s*EMT\s*Conduit', blueprint_dump, re.IGNORECASE)
+        gfci_match = re.search(r'(\d+)\s*Qty\s*of\s*20A\s*GFCI\s*Device', blueprint_dump, re.IGNORECASE)
+        
+        parsed_items = []
+        if conduit_match: parsed_items.append({"Item": "3/4\" EMT Conduit", "Qty": int(conduit_match.group(1)), "Cost": 6.50, "Mins": 12, "Trade": "Electrical"})
+        if gfci_match: parsed_items.append({"Item": "20A GFCI Device", "Qty": int(gfci_match.group(1)), "Cost": 18.00, "Mins": 15, "Trade": "Electrical"})
+        
+        if parsed_items:
+            for item in parsed_items:
+                payload = {
+                    "item_name": item["Item"], "quantity": item["Qty"], "cost_per_unit": item["Cost"],
+                    "labor_minutes": item["Mins"], "trade_type": item["Trade"], "user_email": st.session_state.user_email
+                }
+                supabase_api_call(endpoint="materials", method="POST", payload=payload)
+            st.success("✅ Takeoff parsed and securely isolated to your user email identifier!")
+            time.sleep(1)
+            st.rerun()
 
-# DYNAMIC UPGRADE: PRODUCING PREDICATIVE BID ALGORITHMS
 elif selected_page == t["bid"]:
     st.write(f"### {t['bid']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Predictive Analysis Engine:</b> Pulling live base costs from the database to calculate optimization thresholds.</div>", unsafe_allow_html=True)
-    
-    col_inputs, col_outputs = st.columns([1, 1.5])
-    
-    with col_inputs:
-        st.write("#### 🛠️ Margin Adjustments")
-        target_margin = st.slider("Target Gross Margin (%)", 5, 50, int(st.session_state.overhead * 100))
-        competitor_aggression = st.select_slider("Competitor Market Aggression", options=["Low Market Pressure", "Standard Market", "Highly Aggressive"])
-        
-    # Math Modeling: Calculate decayed probability curves relative to field costs
-    decay_factors = {"Low Market Pressure": 0.03, "Standard Market": 0.05, "Highly Aggressive": 0.08}
-    k = decay_factors[competitor_aggression]
-    
-    win_probability = max(1.0, 100.0 * math.exp(-k * (target_margin - 5)))
+    target_margin = st.slider("Target Gross Margin (%)", 5, 50, 20)
     calculated_bid_price = elec_raw * (1 + (target_margin / 100))
-    projected_net_profit = calculated_bid_price - elec_raw
-    expected_value = projected_net_profit * (win_probability / 100)
-    
-    with col_outputs:
-        st.write("#### 📊 Algorithmic Output Telemetry")
-        c1, c2 = st.columns(2)
-        c1.metric("Raw Field Cost Baseline", f"${elec_raw:,.2f}")
-        c2.metric("Calculated Final Bid Price", f"${calculated_bid_price:,.2f}")
-        
-        c3, c4 = st.columns(2)
-        c3.metric("Projected Win Probability", f"{win_probability:.1f}%")
-        c4.metric("Mathematical Expected Value", f"${expected_value:,.2f}")
-        
-    if win_probability > 75:
-        st.success("🎯 High Win Optimization Point. Margin represents a highly competitive bidding stance.")
-    elif win_probability > 40:
-        st.warning("⚖️ Balanced Strategic Equilibrium. Maximum yield vs standard competitor risk metrics.")
-    else:
-        st.error("🚨 Critical Vulnerability. Margin is highly susceptible to aggressive market undercutting.")
+    st.metric("Custom Isolated Final Bid Price Output", f"${calculated_bid_price:,.2f}")
 
-elif selected_page == t["gc_budg"]:
-    st.write(f"### {t['gc_budg']}")
-    chart_data = pd.DataFrame({"Trade": ["Electrical", "Plumbing", "HVAC", "Framing/Finishes"], "Value ($)": [elec_total, plumb_total, hvac_total, 35000.0]})
-    st.altair_chart(alt.Chart(chart_data).mark_arc(innerRadius=50).encode(theta='Value ($):Q', color='Trade:N'), use_container_width=True)
+elif selected_page == t["api"]:
+    st.write(f"### {t['api']}")
+    st.success(f"Cluster Online. Authenticated Node Client: {st.session_state.user_email}")
