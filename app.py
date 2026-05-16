@@ -10,7 +10,7 @@ from io import BytesIO
 
 st.set_page_config(page_title="UniFi SparkyTakeoff OS", layout="wide", initial_sidebar_state="collapsed")
 
-# --- ADVANCED STEALTH MATTE DARK MODE CSS INJECTION ---
+# --- EXECUTIVE STEALTH MATTE DARK MODE CSS INJECTION ---
 st.markdown("""
 <style>
     /* Global Anti-Glare Matte Surface */
@@ -52,6 +52,14 @@ st.markdown("""
         background-color: #0F172A !important;
         border: 1px solid #1E293B !important;
         border-left: 3px solid #F59E0B !important;
+        padding: 16px;
+        border-radius: 4px;
+        margin-bottom: 12px;
+    }
+    .unifi-stealth-danger {
+        background-color: #1E1014 !important;
+        border: 1px solid #3B1E22 !important;
+        border-left: 3px solid #EF4444 !important;
         padding: 16px;
         border-radius: 4px;
         margin-bottom: 12px;
@@ -123,6 +131,7 @@ st.markdown("""
     .terminal-kernel { color: #38BDF8; }
     .terminal-success { color: #10B981; }
     .terminal-warning { color: #F59E0B; }
+    .terminal-danger { color: #EF4444; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -149,6 +158,9 @@ if "copper_multiplier" not in st.session_state: st.session_state.copper_multipli
 
 if "installation_height_sel" not in st.session_state: st.session_state.installation_height_sel = "Standard Level (0 - 10 Ft)"
 if "jobsite_congestion_sel" not in st.session_state: st.session_state.jobsite_congestion_sel = False
+
+# Persistent Change Order Vault List
+if "change_order_vault" not in st.session_state: st.session_state.change_order_vault = []
 
 if "sys_log_frames" not in st.session_state:
     st.session_state.sys_log_frames = [
@@ -211,7 +223,6 @@ else:
     ]
     df_takeoff = pd.DataFrame(baseline_mock_manifest)
     
-    # Execute Real-Time Volatility Calculations
     def apply_market_pricing(row):
         if row["Is Metal Commodity"]:
             return round(row["Unit Cost ($)"] * (1 + st.session_state.copper_multiplier), 2)
@@ -219,20 +230,34 @@ else:
         
     df_takeoff["Adjusted Unit Cost ($)"] = df_takeoff.apply(apply_market_pricing, axis=1)
 
-    # --- TAB NAVIGATION MODULES ---
-    tab_estimation, tab_panel, tab_commodity, tab_config = st.tabs([
+    # --- EXTRACT CREW PARAMETERS AND HOURLY BURDEN CALCULATIONS EARLY ---
+    total_field_crew = st.session_state.qty_journeymen + st.session_state.qty_helpers
+    raw_labor_sum = (st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)
+    blended_raw_hourly_rate = raw_labor_sum / total_field_crew if total_field_crew > 0 else 0
+    burdened_rate = blended_raw_hourly_rate * (1 + st.session_state.labor_burden_pct)
+
+    # Apply NECA Modifiers
+    height_mult = 1.0
+    if "Elevated" in st.session_state.installation_height_sel: height_mult = 1.15
+    elif "High-Staging" in st.session_state.installation_height_sel: height_mult = 1.30
+    congest_mult = 1.10 if st.session_state.jobsite_congestion_sel else 1.0
+    neca_composite_multiplier = height_mult * congest_mult
+
+    # --- MASTER NAVIGATION SYSTEM ---
+    tab_estimation, tab_panel, tab_commodity, tab_cashflow, tab_changeorder, tab_config = st.tabs([
         "📊 Data Matrix", 
-        "⚡ Three-Phase Panel Schedule & Sizing", 
-        "📈 Commodity Market & Thermal Risk", 
-        "⚙️ Hardware Parameters & Crew Balancer"
+        "⚡ Panel Schedules & AIC Physics", 
+        "📈 Commodities & Thermal Correction", 
+        "🗓️ Cash Flow Draws",
+        "🛑 Scope Leakage Control",
+        "⚙️ Crew Balancer"
     ])
 
-    # --- TAB 1: MASTER ESTIMATOR SPREADSHEET ---
+    # --- TAB 1: SPREADSHEET MATRIX ---
     with tab_estimation:
         st.write("### 🎛️ Active Multi-Sheet Data Grid Editor")
         edited_df = st.data_editor(df_takeoff, num_rows="dynamic", use_container_width=True, key="stealth_grid_master")
         
-        # Recalculate based on real-time data adjustments inside user viewport frame lines
         edited_df["Qty"] = pd.to_numeric(edited_df["Qty"]).fillna(0)
         edited_df["Adjusted Unit Cost ($)"] = pd.to_numeric(edited_df["Adjusted Unit Cost ($)"]).fillna(0)
         edited_df["Mins to Install"] = pd.to_numeric(edited_df["Mins to Install"]).fillna(0)
@@ -240,10 +265,9 @@ else:
         total_mat_cost = (edited_df["Qty"] * edited_df["Adjusted Unit Cost ($)"]).sum()
         total_labor_hours = ((edited_df["Qty"] * edited_df["Mins to Install"]) / 60).sum()
 
-    # --- TAB 2: THREE-PHASE BALANCER, VOLTAGE DROP, & WIRE PULL TENSION ---
+    # --- TAB 2: PHASE BALANCING, VOLTAGE DROP, & NEW NEC 110.9 AIC PHYSIC ---
     with tab_panel:
         st.write("### ⚡ NEC Three-Phase Circuit Load Balancing Matrix")
-        st.caption("Distribute single-phase branching continuous loads across Phase A, B, and C busbars to prevent neutral current oversaturation.")
         
         p_col1, p_col2 = st.columns([1, 2])
         with p_col1:
@@ -287,15 +311,13 @@ else:
             unbalance_pct = (max_deviation / avg_phase) * 100
             
             if unbalance_pct > 15.0:
-                st.warning(f"⚠️ **Phase Equilibrium Alert:** Current unbalance is at **{unbalance_pct:.1f}%**. Re-assign CKT 4 to Phase C to achieve structural balance limits.")
+                st.warning(f"⚠️ **Phase Equilibrium Alert:** Current unbalance is at **{unbalance_pct:.1f}%**. Re-assign CKT 4 to Phase C.")
             else:
                 st.success(f"✅ **Panel Balance Safe:** Unbalance is at **{unbalance_pct:.1f}%**.")
 
         # --- DYNAMIC VOLTAGE DROP DIAGNOSTIC MODULE ---
         st.divider()
         st.write("#### 📐 Intelligent Conductor Sizing & Voltage Drop Diagnostic")
-        st.caption("Executes automated cross-examinations of copper wire cross-sections and computes voltage sag parameters over physical distances.")
-        
         diag_col1, diag_col2 = st.columns(2)
         with diag_col1:
             nominal_system_voltage = st.selectbox("Circuit Voltage Base", [120, 208, 240, 277, 480], index=0)
@@ -311,7 +333,6 @@ else:
             active_cm = cm_specs[wire_gauge_choice]
             max_allowed_amps = ampacity_specs[wire_gauge_choice]
             
-            # Voltage Drop Math: V_drop = (2 * K * I * D) / CM
             constant_k = 12.9
             calculated_v_drop = (2 * constant_k * target_run_amperage * one_way_distance_ft) / active_cm
             drop_percentage = (calculated_v_drop / nominal_system_voltage) * 100
@@ -321,17 +342,15 @@ else:
             st.write(f"Terminal Output Voltage: **{terminal_voltage:.1f} V**")
             
             if target_run_amperage > max_allowed_amps:
-                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>🚨 AMPACITY OVERLOAD PROFILE</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>{wire_gauge_choice} is hard-capped at {max_allowed_amps}A per NEC Table 310.16. Your {target_run_amperage}A load will cause insulation thermal degradation.</p></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>🚨 AMPACITY OVERLOAD PROFILE</h5></div>", unsafe_allow_html=True)
             elif drop_percentage > 3.0:
-                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>⚠️ EXCESSIVE VOLTAGE DROP DROOP</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Voltage sag is at **{drop_percentage:.2f}%** ({calculated_v_drop:.2f}V lost). Exceeds the NEC 3% efficiency threshold recommendation. Size up wire gauge to avoid equipment stalling.</p></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>⚠️ EXCESSIVE VOLTAGE DROP DROOP ({drop_percentage:.2f}%)</h5></div>", unsafe_allow_html=True)
             else:
-                st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ ELECTRICAL WAVEFORM SECURE</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Voltage sag locked in at **{drop_percentage:.2f}%**. Conductor operating temperature and thermal footprints inside safe limits.</p></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ ELECTRICAL WAVEFORM SECURE</h5></div>", unsafe_allow_html=True)
 
-        # --- WIRE PULLING TENSION CALCULATOR ---
+        # --- WIRE PULLING TENSION ---
         st.divider()
         st.write("#### 📟 Dynamic Wire Pulling Tension & Bend Friction Tracker")
-        st.caption("Computes mechanical friction accumulation across raceway routing geometry to ensure adherence to the NEC 360-degree limitation constraint.")
-        
         pull_col1, pull_col2 = st.columns(2)
         with pull_col1:
             qty_90_bends = st.number_input("Count of 90° Elbows / Bends in Run", min_value=0, max_value=8, value=2, step=1)
@@ -348,185 +367,179 @@ else:
             calculated_pull_tension_lbs = estimated_cable_weight_lbs * math.exp(coefficient_friction * bend_radians)
             
             st.write(f"Calculated End-Line Pull Tension: **{calculated_pull_tension_lbs:.1f} Lbs of Force**")
-            
             if total_bend_degrees > 360:
-                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>🚨 NEC CODE VIOLATION: EXCEEDED 360°</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>NEC 358.26 strictly bans conduit runs containing more than 360° of accumulated bends between pull boxes. This pull will jam, stripping conductor jackets. Install an intermediate junction or pull box immediately.</p></div>", unsafe_allow_html=True)
-            elif calculated_pull_tension_lbs > 150.0:
-                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>⚠️ CRITICAL TENSION STRESS THRESHOLD</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Pull tension is high at {calculated_pull_tension_lbs:.1f} lbs. Requires mechanical pulling lubricants or poly-water compound sweeps to minimize jacket wall tearing risks.</p></div>", unsafe_allow_html=True)
-            else:
-                st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ RACEWAY PATH COMPLIANT</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Friction profiles look safe. Conductor run complies fully with standard pulling parameters.</p></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>🚨 NEC CODE VIOLATION: EXCEEDED 360°</h5></div>", unsafe_allow_html=True)
 
-    # --- TAB 3: COMMODITY SIMULATOR & THERMAL ANLYTICS ---
+        # --- NEW INTEGRATED FEATURE: NEC 110.9 AVAILABLE SHORT-CIRCUIT FAULT INTERRUPT EVALUATOR ---
+        st.divider()
+        st.write("#### 💥 NEC 110.9 Available Fault Short-Circuit Current Evaluator (AIC)")
+        st.caption("Executes Point-to-Point short-circuit calculus to verify that installed circuit breakers safely withstand utility transformer arc explosions.")
+        
+        aic_col1, aic_col2 = st.columns(2)
+        with aic_col1:
+            transformer_kva = st.selectbox("Utility Transformer Capacity Rating (kVA)", [25, 37.5, 50, 75, 100, 150], index=2)
+            transformer_z = st.number_input("Transformer Impedance Percentage (Z%)", min_value=1.0, max_value=5.0, value=2.0, step=0.1)
+            feeder_length_ft = st.number_input("Main Service Conductor Length (Feet)", min_value=10.0, max_value=300.0, value=45.0, step=5.0)
+            breaker_rating_aic = st.selectbox("Proposed Breaker Interrupting Capacity (AIC)", [10000, 22000, 42000, 65000], index=0)
+            
+        with aic_col2:
+            st.write("#### 📡 Fault Blast Waveform Analysis")
+            
+            # Point-to-Point Fault Current Calculation Logic
+            # Base Full Load Amps (FLA) approximation for single phase 120/240 base
+            transformer_fla = (transformer_kva * 1000) / 240
+            max_fault_current_at_transformer = transformer_fla / (transformer_z / 100)
+            
+            # Calculate f factor = (2 * L * I) / (C * n * V)
+            # Standard single phase factor constant C for #2/0 Copper in steel conduit is roughly 11,400
+            constant_c = 11400
+            f_factor = (2 * feeder_length_ft * max_fault_current_at_transformer) / (constant_c * 1 * 240)
+            m_multiplier = 1 / (1 + f_factor)
+            available_fault_current_aic = max_fault_current_at_transformer * m_multiplier
+            
+            st.write(f"Transformer Secondary Full-Load Capacity: **{transformer_fla:.1f} Amps**")
+            st.write(f"Max Fault Output at Source Terminals: **{max_fault_current_at_transformer:,.0f} Amps**")
+            st.metric("Available Short-Circuit Current at Board", f"{available_fault_current_aic:,.0f} Amps AIC")
+            
+            if available_fault_current_aic > breaker_rating_aic:
+                st.markdown(f"""
+                <div class='unifi-stealth-danger'>
+                    <h5 style='color:#EF4444; margin:0;'>🚨 CRITICAL HARDWARE EXPLOSION HAZARD</h5>
+                    <p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Available fault current ({available_fault_current_aic:,.0f}A) completely shears past your proposed breaker's {breaker_rating_aic:,} AIC rating limit. Under short-circuit conditions, this breaker can experience catastrophic failure. You must upgrade to high-AIC equipment.</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ BREAKER INTERRUPTING VALUE PASS</h5></div>", unsafe_allow_html=True)
+
+    # --- TAB 3: COMMODITY OVER MULTIPLIER AND THERMAL ---
     with tab_commodity:
         st.write("### 📈 Raw Metal Commodity Price Volatility Multiplier")
-        st.caption("Simulate real-time wholesale pricing risks caused by sudden supply-chain shifts in raw copper and galvanized steel indices.")
+        volatility_selection = st.slider("Set Simulated Commodity Market Spike (%)", -20, 50, 0, step=5)
+        if st.button("📈 Lock Risk Multiplier to Catalog Rates"):
+            st.session_state.copper_multiplier = volatility_selection / 100
+            ts = datetime.datetime.now().strftime('%H:%M:%S')
+            st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-warning'>[MARKET SYNC]</span> Applied {volatility_selection}% price shift profile.")
+            st.rerun()
+            
+        st.divider()
+        st.write("### 🌡️ NEC Article 310.15 Ambient Thermal Correction Engine")
+        design_ambient_temp_f = st.slider("Design Ambient Air Temperature (°F)", 60, 140, 95, step=5)
+        rooftop_exposure = st.checkbox("Conduit Routed Across Outdoor Rooftop Deck?", value=False)
         
-        com_col1, com_col2 = st.columns([1, 2])
-        with com_col1:
-            volatility_selection = st.slider("Set Simulated Commodity Market Spike (%)", -20, 50, 0, step=5)
-            if st.button("📈 Lock Risk Multiplier to Catalog Rates"):
-                st.session_state.copper_multiplier = volatility_selection / 100
+        final_calculated_temp = design_ambient_temp_f + (30 if rooftop_exposure else 0)
+        thermal_correction_factor = 1.0
+        if final_calculated_temp <= 86: thermal_correction_factor = 1.0
+        elif final_calculated_temp <= 95: thermal_correction_factor = 0.96
+        elif final_calculated_temp <= 104: thermal_correction_factor = 0.91
+        elif final_calculated_temp <= 113: thermal_correction_factor = 0.87
+        elif final_calculated_temp <= 122: thermal_correction_factor = 0.82
+        elif final_calculated_temp <= 131: thermal_correction_factor = 0.76
+        else: thermal_correction_factor = 0.71
+        
+        st.write(f"Active NEC Thermal Correction Factor ($C_t$): **{thermal_correction_factor:.2f}x Modifier**")
+
+    # --- DYNAMIC COST RECALIBRATION LOOPS ---
+    final_risk_adjusted_hours = total_labor_hours * neca_composite_multiplier
+    final_burdened_labor_cost = final_risk_adjusted_hours * burdened_rate
+    
+    # Track Change Orders Value Aggregations cleanly inside final calculation loops
+    total_change_order_revenue = sum([co["Total Cost"] for co in st.session_state.change_order_vault])
+    final_gross_target_bid = ((total_mat_cost + final_burdened_labor_cost) * (1 + st.session_state.overhead)) + total_change_order_revenue
+
+    # --- NEW FEATURE: TAB 4: PROGRESSIVE MILESTONE DRAW & CASH FLOW PREDICTOR ---
+    with tab_cashflow:
+        st.write("### 🗓️ AIA Milestone Progress Billing Draw Schedule & Cash Forecast")
+        st.caption("Splits the final contract bid into standard milestone billing blocks and matches inflows against continuous project payroll burns.")
+        
+        cash_col1, cash_col2 = st.columns([1, 2])
+        with cash_col1:
+            st.write("#### 📊 AIA Schedule G702 Allocation Split")
+            pct_mobilization = st.slider("Mobilization Draw Allotment (%)", 5, 20, 10, step=5)
+            pct_roughin = st.slider("Conduit Rough-In Complete Draw (%)", 20, 50, 40, step=5)
+            pct_wirepull = st.slider("Conductor Pull Complete Draw (%)", 10, 40, 30, step=5)
+            pct_trimout = st.slider("Final Trim & Finish Draw (%)", 10, 30, 20, step=5)
+            
+            total_draw_sum_check = pct_mobilization + pct_roughin + pct_wirepull + pct_trimout
+            if total_draw_sum_check != 100:
+                st.error(f"🚨 **AIA Allocation Audit Split Error:** Combined percentages equal **{total_draw_sum_check}%**. Must total exactly 100%.")
+            
+        with cash_col2:
+            st.write("#### 🛡️ Forecast Inflow Matrix Schedule")
+            val_mobilization = final_gross_target_bid * (pct_mobilization / 100)
+            val_roughin = final_gross_target_bid * (pct_roughin / 100)
+            val_wirepull = final_gross_target_bid * (pct_wirepull / 100)
+            val_trimout = final_gross_target_bid * (pct_trimout / 100)
+            
+            draw_df = pd.DataFrame({
+                "Construction Billing Phase": ["Phase 1: Mobilization", "Phase 2: Rough-In Stage", "Phase 3: Wire Pulling Run", "Phase 4: Final Trim-Out Finish"],
+                "Capital Draw Allocation Value ($)": [val_mobilization, val_roughin, val_wirepull, val_trimout]
+            })
+            st.data_editor(draw_df, use_container_width=True, disabled=True)
+            
+            # Map weekly payroll outlays
+            weekly_payroll_burn = final_risk_adjusted_hours * blended_raw_hourly_rate / 4  # Assuming a balanced 4 week production loop
+            st.caption(f"Estimated Operational Weekly Crew Payroll Cash Outlay: **${weekly_payroll_burn:,.2f}/week**")
+
+    # --- NEW FEATURE: TAB 5: CHANGE-ORDER LEAKAGE RECOVERY CONTROLLER ---
+    with tab_changeorder:
+        st.write("### 🛑 Scope Leakage Control & Change-Order Optimization Module")
+        st.caption("Intercept unforeseen field job adjustments and dynamically price them using your exact burdened crew rates and overhead margin arrays.")
+        
+        co_col1, co_col2 = st.columns([1, 1.5])
+        with co_col1:
+            st.write("#### ✍️ Log New Field Variation Brief")
+            co_title = st.text_input("Variation Scope Label", value="Add 4 wet-area Corridor GFCI Outlets")
+            co_mat_outlay = st.number_input("Wholesale Variation Materials Cost ($)", min_value=0.0, value=120.0, step=10.0)
+            co_hours_required = st.number_input("Estimated Field Labor Hours Required", min_value=1.0, value=4.0, step=0.5)
+            
+            # Formulate detailed cost parameters
+            raw_co_labor_cost = co_hours_required * burdened_rate
+            total_raw_co_cost = co_mat_outlay + raw_co_labor_cost
+            final_gross_co_target = total_raw_co_cost * (1 + st.session_state.overhead)
+            
+            if st.button("💾 Lock and Commit Variation Frame to Vault"):
                 ts = datetime.datetime.now().strftime('%H:%M:%S')
-                st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-warning'>[MARKET SYNC]</span> Applied {volatility_selection}% price shift profile to all physical metallic inventory items.")
-                st.success("Multiplier pinned safely to material data-frames.")
+                st.session_state.change_order_vault.append({
+                    "Label": co_title,
+                    "Material": co_mat_outlay,
+                    "Hours": co_hours_required,
+                    "Total Cost": final_gross_co_target,
+                    "Timestamp": ts
+                })
+                st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-success'>[CHANGE ORDER]</span> Formatted change order frame: '{co_title}' written to log vaults. Value: ${final_gross_co_target:,.2f}")
+                st.success("Variation archived. Baseline financial modules adjusted.")
                 time.sleep(0.4)
                 st.rerun()
                 
-        with com_col2:
-            st.write("#### 🛡️ Margin Deviation Performance Review")
-            st.write(f"Active Volatility Burden: **{st.session_state.copper_multiplier*100:+.0f}% Deviation**")
-            st.write(f"Updated Adjusted Material Estimate Total: **${total_mat_cost:,.2f}**")
-
-        # --- NEW PILLAR: AMBIENT TEMPERATURE RACWAY DERATING ENGINE ---
-        st.divider()
-        st.write("### 🌡️ NEC Article 310.15 Ambient Thermal Correction Engine")
-        st.caption("Calculates thermal wire insulation degradation multipliers caused by extreme environmental air heat parameters.")
-        
-        therm_col1, therm_col2 = st.columns(2)
-        with therm_col1:
-            design_ambient_temp_f = st.slider("Design Ambient Air Temperature (°F)", 60, 140, 95, step=5)
-            rooftop_exposure = st.checkbox("Conduit Routed Across Outdoor Rooftop Deck?", value=False)
-            
-            rooftop_adder = 0
-            if rooftop_exposure:
-                st.caption("☀️ *Rooftop Proximity Triggered:* Applying an automatic temperature expansion burden factor per NEC Table 310.15(B)(3)(c).")
-                rooftop_adder = 30  # Standard industrial conservative thermal trap adder
-                
-            final_calculated_temp = design_ambient_temp_f + rooftop_adder
-            st.write(f"True Operational Design Temperature: **{final_calculated_temp}°F**")
-            
-        with therm_col2:
-            st.write("#### 📡 Conductor Ampacity Correction Summary")
-            
-            # Compile correction factor factor indexes matching NEC Table 310.15(B)(1) for 90°C THHN wire
-            thermal_correction_factor = 1.0
-            if final_calculated_temp <= 86: thermal_correction_factor = 1.0
-            elif final_calculated_temp <= 95: thermal_correction_factor = 0.96
-            elif final_calculated_temp <= 104: thermal_correction_factor = 0.91
-            elif final_calculated_temp <= 113: thermal_correction_factor = 0.87
-            elif final_calculated_temp <= 122: thermal_correction_factor = 0.82
-            elif final_calculated_temp <= 131: thermal_correction_factor = 0.76
-            else: thermal_correction_factor = 0.71
-            
-            # Map safety limits onto a standard #12 AWG circuit baseline (Normally 30A before correction adjustments)
-            sample_wire_base_ampacity = 30.0
-            safe_derated_ampacity = sample_wire_base_ampacity * thermal_correction_factor
-            
-            st.write(f"Active NEC Thermal Correction Factor ($C_t$): **{thermal_correction_factor:.2f}x Modifier**")
-            st.write(f"True Load Capacity Limit for #12 THHN Wire: **{safe_derated_ampacity:.1f} Amps** (Down from 30A)")
-            
-            if thermal_correction_factor <= 0.80:
-                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>⚠️ SEVERE THERMAL DERATING CRUNCH</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Extreme localized radiant heat reduces safe loading capacity thresholds by over 20%. Upsizing the structural physical copper frame lines is mandatory to prevent circuit breaker thermal tripping loops.</p></div>", unsafe_allow_html=True)
+        with co_col2:
+            st.write("#### 🗃️ Active Variation Change-Order Vault Ledger")
+            if st.session_state.change_order_vault:
+                co_ledger_df = pd.DataFrame(st.session_state.change_order_vault)
+                st.data_editor(co_ledger_df, use_container_width=True, key="co_editor_grid")
+                st.metric("Total Scope Expansion Added Billings", f"${total_change_order_revenue:,.2f}")
             else:
-                st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ TEMPERATURE GRADIENT SAFE</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Thermal dissipation metrics inside safe structural margins. Conductor core cooling parameters fully verified.</p></div>", unsafe_allow_html=True)
+                st.info("No active variation adjustments captured. Scope leakage exposure profile currently monitored clean.")
 
-        st.divider()
-        st.write("### 🎯 System Load, Risk Architecture, & NECA Multipliers")
-        an_col1, an_col2 = st.columns(2)
-        with an_col1:
-            st.write("#### 🏗️ NECA Labor Productivity Adjustment Board")
-            st.session_state.installation_height_sel = st.selectbox("Field Working Height Profile", ["Standard Level (0 - 10 Ft)", "Elevated Scaffold Phase (11 - 20 Ft)", "High-Staging Zone (21+ Ft)"], index=0)
-            st.session_state.jobsite_congestion_sel = st.checkbox("Complex/Congested Area Workspace? (Occupied Clinic / Retrofit)", value=False)
-            
-            height_mult = 1.0
-            if "Elevated" in st.session_state.installation_height_sel: height_mult = 1.15
-            elif "High-Staging" in st.session_state.installation_height_sel: height_mult = 1.30
-            
-            congest_mult = 1.10 if st.session_state.jobsite_congestion_sel else 1.0
-            neca_composite_multiplier = height_mult * congest_mult
-            
-        with an_col2:
-            st.write("#### ⏳ Schedule Risk Capacity Monitoring")
-            project_days = st.number_input("Designated Contract Delivery Timeline (Working Days)", min_value=1, value=5, key="risk_days_input")
-
-        st.divider()
-        st.write("#### 📁 Automated Client Submittal Compilation")
-        project_architect_label = st.text_input("Lead Project Architect / Contact", value="Maksym Engineering Group")
-        project_location_tag = st.text_input("Project Site Destination Address", value="North Miami Beach District, FL")
-        
-        # Pull Down stream parameters for intermediate evaluations
-        total_field_crew = st.session_state.qty_journeymen + st.session_state.qty_helpers
-        raw_labor_sum = (st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)
-        blended_raw_hourly_rate = raw_labor_sum / total_field_crew if total_field_crew > 0 else 0
-        burdened_rate = blended_raw_hourly_rate * (1 + st.session_state.labor_burden_pct)
-        
-        final_risk_adjusted_hours = total_labor_hours * neca_composite_multiplier
-        final_burdened_labor_cost = final_risk_adjusted_hours * burdened_rate
-        final_gross_target_bid = (total_mat_cost + final_burdened_labor_cost) * (1 + st.session_state.overhead)
-
-        max_avail_man_hours = project_days * (total_field_crew * 8)
-        
-        if final_risk_adjusted_hours > max_avail_man_hours:
-            st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>⚠️ TIMELINE CONSTRAINTS EXCEEDED</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Derated labor requirement ({final_risk_adjusted_hours:.1f} hrs) completely burns past your active crew availability ceiling of {max_avail_man_hours:.1f} hours. Scale up field crew counts immediately to safeguard your baseline margin.</p></div>", unsafe_allow_html=True)
-        else:
-            utilization = (final_risk_adjusted_hours / max_avail_man_hours) * 100 if max_avail_man_hours > 0 else 0
-            st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ WORKLOAD ALLOCATION OPERATIONAL</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Active field operations utilize {utilization:.1f}% of crew milestone bandwidth limits under applied NECA adjustments.</p></div>", unsafe_allow_html=True)
-
-        st.divider()
-        submittal_preview_text = f"""===========================================================
-COMMERCIAL ELECTRICAL SUBMITTAL PROPOSAL PACKET
-ISSUED BY: {st.session_state.company_name.upper()}
-TARGET ARCHITECT: {project_architect_label.upper()}
-LOCATION: {project_location_tag.upper()}
-DATE COMPILED: {datetime.date.today().strftime('%m/%d/%Y')}
-===========================================================
-1. PROJECT FINANCIAL METRICS (NECA ADJUSTED)
-   - Total Estimated Contract Bid: ${final_gross_target_bid:,.2f}
-   - Raw Material Allotment Footprint: ${total_mat_cost:,.2f}
-   - Total Production Burden Labor: {final_risk_adjusted_hours:.1f} Man-Hours
-   - True Burdened Crew Blended Rate: ${burdened_rate:.2f}/hr
-   - Applied NECA Intensity Scaling Factor: {neca_composite_multiplier:.2f}x
-
-2. NATIONAL ELECTRICAL CODE (NEC) COMPLIANCE PROFILE
-   - Box Sizing Parameters: Compiled per NEC Article 314.16
-   - Branch Distribution Balance: Balanced per 3-Phase Busbar Guidelines
-==========================================================="""
-        st.text_area("Submittal Brief Layout Preview Frame", value=submittal_preview_text, height=180)
-        
-        buffer_submittal = BytesIO()
-        buffer_submittal.write(submittal_preview_text.encode('utf-8'))
-        st.download_button("📥 Download Compiled Submittal Brief (.txt)", data=buffer_submittal.getvalue(), file_name="Project_Submittal_Package.txt")
-
-    # --- TAB 4: ADVANCED CREW ARCHITECTURE & BALANCER ---
+    # --- TAB 6: CREW BALANCER ---
     with tab_config:
         st.write("### ⚙️ Core Hardware Profile & Crew Bandwidth Balancer")
-        st.caption("Dynamically adjust your field labor resource mix to calculate true blended hourly operational costs across project milestones.")
-        
         cf_col1, cf_col2 = st.columns(2)
         with cf_col1:
             st.write("#### 👥 Labor Tier Composition Matrix")
-            st.session_state.qty_journeymen = st.number_input("Journeymen Count (Licensed / Lead Techs)", min_value=1, value=st.session_state.qty_journeymen, key="crew_j_count")
-            st.session_state.rate_journeyman = st.number_input("Journeyman Hourly Base Rate ($/hr)", min_value=15.0, value=st.session_state.rate_journeyman, key="crew_j_rate")
-            
-            st.session_state.qty_helpers = st.number_input("Helpers / Apprentices Count", min_value=0, value=st.session_state.qty_helpers, key="crew_h_count")
-            st.session_state.rate_helper = st.number_input("Helper Hourly Base Rate ($/hr)", min_value=10.0, value=st.session_state.rate_helper, key="crew_h_rate")
-            
+            st.session_state.qty_journeymen = st.number_input("Journeymen Count", min_value=1, value=st.session_state.qty_journeymen, key="crew_j_count")
+            st.session_state.rate_journeyman = st.number_input("Journeyman Base Rate ($/hr)", min_value=15.0, value=st.session_state.rate_journeyman, key="crew_j_rate")
+            st.session_state.qty_helpers = st.number_input("Helpers Count", min_value=0, value=st.session_state.qty_helpers, key="crew_h_count")
+            st.session_state.rate_helper = st.number_input("Helper Base Rate ($/hr)", min_value=10.0, value=st.session_state.rate_helper, key="crew_h_rate")
             st.session_state.labor_burden_pct = st.slider("Labor Burden Allowance Multiplier (%)", 10, 60, int(st.session_state.labor_burden_pct * 100)) / 100
-
+            st.session_state.company_name = st.text_input("Subcontractor Corporate Designation", value=st.session_state.company_name, key="admin_company_name")
+            
         with cf_col2:
             st.write("#### 📡 Real-Time Blended Cost Analytics")
-            total_field_crew = st.session_state.qty_journeymen + st.session_state.qty_helpers
-            raw_labor_sum = (st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)
-            
-            blended_raw_hourly_rate = raw_labor_sum / total_field_crew if total_field_crew > 0 else 0
-            true_burdened_blended_rate = blended_raw_hourly_rate * (1 + st.session_state.labor_burden_pct)
-            
-            st.write(f"Total Active Field Force: **{total_field_crew} Operators**")
-            st.write(f"Raw Blended Crew Base Rate: **${blended_raw_hourly_rate:.2f}/hr**")
-            
-            st.markdown(f"""
-            <div class='unifi-stealth-blade' style='border-left-color: #10B981;'>
-                <h5 style='color: #10B981; margin: 0;'>💸 TRUE BURDENED HOURLY RATE LOCK</h5>
-                <p style='font-size: 20px; font-family: monospace; color: #38BDF8; margin: 6px 0;'>${true_burdened_blended_rate:.2f} / Man-Hour</p>
-                <p style='font-size: 11px; margin: 0; color: #94A3B8;'>This true variable rate includes your base wages plus an active {st.session_state.labor_burden_pct*100:.0f}% structural burden factor. It has been deployed across all live pricing models.</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        st.divider()
-        st.write("#### 🏢 Administrative Subcontractor Profile")
-        st.session_state.company_name = st.text_input("Subcontractor Corporate Header Designation", value=st.session_state.company_name, key="admin_company_name")
+            st.write(f"Total Field Force: **{total_field_crew} Operators**")
+            st.write(f"Raw Blended Base Rate: **${blended_raw_hourly_rate:.2f}/hr**")
+            st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color: #10B981;'><h5 style='color:#10B981; margin:0;'>💸 TRUE BURDENED HOURLY RATE LOCK</h5><p style='font-size:20px; font-family:monospace; color:#38BDF8; margin:6px 0;'>${burdened_rate:.2f} / hr</p></div>", unsafe_allow_html=True)
 
-    # --- STICKY STYLED TOP HEALTH MONITOR BLADES ---
+    # --- GLOBAL TELEMETRY HEADER STICKY PANEL ---
     st.markdown("<div style='margin-top:25px;'></div>", unsafe_allow_html=True)
     m_col1, m_col2, m_col3, m_col4 = st.columns(4)
     with m_col1:
@@ -545,7 +558,7 @@ DATE COMPILED: {datetime.date.today().strftime('%m/%d/%Y')}
     
     cmd_col1, cmd_col2 = st.columns([4, 1])
     with cmd_col1:
-        manual_input_cmd = st.text_input("Root Command Line Interface Entry Pin", placeholder="Enter operator command override block (e.g., /diagnostics, /sync_prices)", label_visibility="collapsed")
+        manual_input_cmd = st.text_input("Root Command Line Interface Entry Pin", placeholder="Enter operator command override block (e.g., /diagnostics, /clear_grid, /sync_prices)", label_visibility="collapsed")
     with cmd_col2:
         execute_cmd_btn = st.button("Run Command Line")
         
@@ -554,11 +567,11 @@ DATE COMPILED: {datetime.date.today().strftime('%m/%d/%Y')}
         cleaned_cmd = manual_input_cmd.strip().lower()
         
         if cleaned_cmd == "/diagnostics":
-            st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-kernel'>[MANUAL CMD]</span> Running diagnostics loop: 5-node matrix running optimal. Frame buffer capacity at 100%. Structural pulling, circuit balancing, and temperature boundaries pass code limits.")
+            st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-kernel'>[MANUAL CMD]</span> Running diagnostics loop: 5-node matrix running optimal. Short-circuit AIC configurations, progress draws, and variation logs locked in sync framework bounds.")
         elif cleaned_cmd == "/sync_prices":
             st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-kernel'>[MANUAL CMD]</span> Overwriting material catalog... Synchronized live commodity data tables for North Miami Beach market.")
         elif cleaned_cmd == "/clear_grid":
-            st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-warning'>[MANUAL CMD]</span> Attention: Grid clearing command flagged by user operator.")
+            st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-warning'>[MANUAL CMD]</span> Grid clearing instruction dispatched.")
         else:
-            st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-warning'>[ERROR Frame]</span> Unknown Syntax Error: Command '{manual_input_cmd}' not recognized by kernel.")
+            st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-danger'>[ERROR Frame]</span> Syntax Error: Command '{manual_input_cmd}' not recognized.")
         st.rerun()
