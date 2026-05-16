@@ -5,7 +5,6 @@ import time
 st.set_page_config(page_title="SparkyTakeoff Enterprise Portal", layout="wide")
 
 # --- PILLAR 1: USER AUTHENTICATION & SESSION ISOLATION STATE ---
-# In a full-scale deployment, these variables connect directly to a cloud database (like Firebase or Supabase Auth)
 if "user_authenticated" not in st.session_state:
     st.session_state.user_authenticated = False
 if "user_email" not in st.session_state:
@@ -13,7 +12,7 @@ if "user_email" not in st.session_state:
 if "subscription_tier" not in st.session_state:
     st.session_state.subscription_tier = "Free Trial Tier"
 
-# --- GLOBAL PROFILE AND SPACE PARAMETERS RE-INITIALIZATION ---
+# --- GLOBAL PROFILE AND SPACE PARAMETERS INITIALIZATION ---
 if "company_name" not in st.session_state:
     st.session_state.company_name = "Shard Visuals & Electrical"
 if "labor_rate" not in st.session_state:
@@ -44,7 +43,7 @@ if not st.session_state.user_authenticated:
     st.title("⚡ SparkyTakeoff SaaS Platform")
     st.subheader("Secure Enterprise Gatekeeper Login")
     
-    st.info("💡 **Beta Testing Profile Active:** You can share this portal link with your classmates and your electrical teacher. They can enter their credentials to test their isolated sandbox workspace profiles.")
+    st.info("💡 **Beta Testing Profile Active:** You can share this portal link with your classmates, sister, Maksym, and your electrical teacher. Enter a configured email credential below to unlock custom workspace environments.")
     
     col_login, col_info = st.columns([1, 1])
     with col_login:
@@ -58,15 +57,25 @@ if not st.session_state.user_authenticated:
                     st.session_state.user_authenticated = True
                     st.session_state.user_email = user_email
                     
-                    # Simulated customer tier assignment
-                    if "teacher" in user_email.lower() or "admin" in user_email.lower():
+                    # Clean lookups formatting
+                    check_email = user_email.lower().strip()
+                    
+                    # --- ELITE BETA-TESTER ACCESS PRIVILEGES ---
+                    if "teacher" in check_email or "admin" in check_email or "monday" in check_email:
                         st.session_state.subscription_tier = "Enterprise Firm Plan ($249/mo)"
-                    elif "student" in user_email.lower() or "classmate" in user_email.lower():
+                        
+                    elif "maksym" in check_email:
+                        st.session_state.subscription_tier = "Enterprise Firm Plan ($249/mo)"
+                        
+                    elif "sister" in check_email or "deleon" in check_email:
+                        st.session_state.subscription_tier = "Enterprise Firm Plan ($249/mo)"
+                        
+                    elif "student" in check_email or "classmate" in check_email:
                         st.session_state.subscription_tier = "Pro Estimator Plan ($99/mo)"
                     else:
                         st.session_state.subscription_tier = "Free Trial Tier"
                         
-                    st.success(f"Access granted! Welcome back, {user_email}.")
+                    st.success(f"Access granted! Welcome, {user_email}.")
                     time.sleep(1)
                     st.rerun()
                 else:
@@ -121,7 +130,7 @@ else:
         st.session_state.uploaded_file_bytes = uploaded_pdf.read()
         
         # Telemetry updates (Pillar 3)
-        st.session_state.founder_metrics["Total_Pages_Processed"] += 5  # Simulated page processing payload telemetry
+        st.session_state.founder_metrics["Total_Pages_Processed"] += 5  
         st.session_state.founder_metrics["Total_Calculations_Run"] += 1
         
         st.success("🎉 Blueprint package uploaded successfully and locked into Global Session State! Use the navigation menu on the left to begin your multi-phase takeoff.")
@@ -131,8 +140,7 @@ else:
         else:
             st.warning("💡 To unlock automation features, please drop your architectural PDF file here before proceeding to the sub-pages.")
 
-    # --- PILLAR 3: FOUNDER TELEMETRY ANALYTICS DASHBOARD DISPLAY ---
-    # This panel is designed for YOU as the software company owner. It gives you real-time insight into system workloads.
+    # --- PILLAR 3: FOUNDER TELEMETRY ANALYTICS DASHBOARD ---
     st.divider()
     st.write("### 📈 Operational Telemetry Analytics (Founder Viewport)")
     st.caption("This analytics panel tracks platform metrics across user workflows to monitor backend system performance.")
@@ -142,6 +150,7 @@ else:
     t_col2.metric("Total Ledger Formula Executions", st.session_state.founder_metrics["Total_Calculations_Run"])
     t_col3.metric("Scikit-Image Computer Vision System Invocations", len(st.session_state.vision_counts))
 
+    st.divider()
     if st.button("🚪 Log Out of Secure Access Session"):
         st.session_state.user_authenticated = False
         st.session_state.user_email = ""
