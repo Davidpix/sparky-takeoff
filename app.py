@@ -68,6 +68,7 @@ if "transaction_history" not in st.session_state: st.session_state.transaction_h
 if "contract_agreements" not in st.session_state: st.session_state.contract_agreements = []
 if "system_audit_trail" not in st.session_state: st.session_state.system_audit_trail = []
 if "purchase_orders" not in st.session_state: st.session_state.purchase_orders = []
+if "takeoff_results" not in st.session_state: st.session_state.takeoff_results = []
 
 if "commercial_units" not in st.session_state:
     st.session_state.commercial_units = pd.DataFrame(columns=["Tenant Owner", "Floor", "Unit Number", "Asset Type", "Fabrication Status", "Installation Status", "GC Sign-Off", "Value Release"])
@@ -233,11 +234,56 @@ elif selected_page == t["matrix"]:
     st.markdown("<div class='unifi-stealth-blade'><b>Trade Matrix Configuration Layer</b><br>Define cost codes and production units below.</div>", unsafe_allow_html=True)
     st.dataframe(pd.DataFrame([{"Trade Code": "ELEC-ROUGH", "Title": "Rough-In Conduit", "Rate/Hr": 45.00}, {"Trade Code": "STONE-FAB", "Title": "Countertop Cut", "Rate/Hr": 65.00}]), use_container_width=True, hide_index=True)
 
+# --- UPGRADED MODULE: NLP BLUEPRINT TAKEOFF ENGINE ---
 elif selected_page == t["takeoff"]:
     st.write(f"### {t['takeoff']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📐 Blueprint Automated Material Takeoff Ingestion</b></div>", unsafe_allow_html=True)
-    st.text_area("Paste Blueprint Specification Text / Bill of Materials Strings Here")
-    st.button("Run Text-Extraction Parser")
+    st.markdown("<div class='unifi-stealth-blade'><b>📐 Blueprint NLP Material Takeoff Extraction</b><br>Paste raw architectural specification text below. The AI engine will parse quantities, identify materials, and automatically calculate your estimated procurement overhead.</div>", unsafe_allow_html=True)
+    
+    col_in, col_out = st.columns([1, 1.2])
+    
+    with col_in:
+        sample_text = "SPEC-01: Provide and install 450x White Quartz Slabs for master vanities. SPEC-02: Pull 1200ft of 3/4-inch ENT conduit. SPEC-03: Mount 45x Yealink VoIP Endpoints on lobby walls."
+        raw_specs = st.text_area("Raw Architectural Blueprint Notes / BOM Strings", value=sample_text, height=200)
+        
+        if st.button("🧠 Run OmniMind Text Parsing Engine", use_container_width=True):
+            if raw_specs:
+                with st.spinner("Parsing syntax strings and extracting variables..."):
+                    time.sleep(0.8)
+                    # Regex logic to find patterns like "450x Item Name" or "1200ft of Item Name"
+                    matches = re.findall(r'(\d+)(x|ft)\s*(?:of\s*)?([a-zA-Z0-9\s\-]+?)(?=\.|$)', raw_specs, re.IGNORECASE)
+                    
+                    extracted_list = []
+                    for qty, unit, item in matches:
+                        base_cost = random.randint(25, 350) * 1.5 # Algorithmic mock pricing map
+                        extracted_list.append({
+                            "Material String": item.strip().title(),
+                            "Quantity": int(qty),
+                            "Measurement": "Linear Feet" if unit.lower() == 'ft' else "Units",
+                            "Est. Unit Cost": base_cost,
+                            "Total Overhead": int(qty) * base_cost
+                        })
+                    
+                    st.session_state.takeoff_results = extracted_list
+                    log_system_event(current_user, "Takeoff Parse", f"Extracted {len(extracted_list)} materials from raw blueprint strings.")
+                    st.success("Extraction parameters processed cleanly!")
+                    time.sleep(0.5); st.rerun()
+            else:
+                st.error("Text field is empty. Please paste specification text.")
+                
+    with col_out:
+        st.write("#### 📋 Extracted Bill of Materials Matrix")
+        if st.session_state.takeoff_results:
+            df_res = pd.DataFrame(st.session_state.takeoff_results)
+            st.dataframe(df_res, use_container_width=True, hide_index=True)
+            
+            calc_total = df_res["Total Overhead"].sum()
+            st.markdown(f"<div class='unifi-stealth-gold'><b>CALCULATED PROCUREMENT ESTIMATE:</b> ${calc_total:,.2f}</div>", unsafe_allow_html=True)
+            
+            if st.button("📥 Stage Items to Procurement Buyout Engine", use_container_width=True):
+                st.session_state.purchase_orders.insert(0, {"PO ID": f"PO-{len(st.session_state.purchase_orders)+1:03d}", "Amount": calc_total, "Status": "Staged from Takeoff"})
+                st.success("Materials successfully staged in the master procurement matrix!")
+        else:
+            st.caption("Awaiting string extraction... paste your specifications on the left to begin.")
 
 elif selected_page == t["bid"]:
     st.write(f"### {t['bid']}")
@@ -267,7 +313,6 @@ elif selected_page == t["comm_rollout"]:
             for idx, row in edited_df.iterrows(): supabase_api_call(endpoint="commercial_units", method="POST", payload=row.to_dict())
             st.success("All data updates have been permanently saved to your cloud database arrays.")
 
-# --- UPGRADED MODULE: AUTOMATED INVOICE ENGINE ---
 elif selected_page == t["fin"]:
     st.write(f"### {t['fin']}")
     u_bal = st.session_state.tenant_balances[current_user]
@@ -287,7 +332,6 @@ elif selected_page == t["fin"]:
         if st.button("📄 Generate Formal Commercial Draw Invoice", use_container_width=True):
             invoice_number = f"INV-{random.randint(1000,9999)}"
             date_str = datetime.datetime.now().strftime("%B %d, %Y")
-            
             line_items_html = ""
             for _, row in approved_units.iterrows():
                 line_items_html += f"<tr><td style='padding: 8px; border-bottom: 1px solid #1E293B;'>{row['Floor']} - {row['Unit Number']}</td><td style='padding: 8px; border-bottom: 1px solid #1E293B;'>{row['Asset Type']}</td><td style='padding: 8px; border-bottom: 1px solid #1E293B; text-align: right;'>${row['Value Release']:,.2f}</td></tr>"
@@ -295,34 +339,15 @@ elif selected_page == t["fin"]:
             invoice_html = f"""
             <div style='background-color: #F8FAFC; color: #0F172A; padding: 40px; border-radius: 8px; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; margin-top: 20px;'>
                 <div style='display: flex; justify-content: space-between; border-bottom: 2px solid #CBD5E1; padding-bottom: 20px; margin-bottom: 20px;'>
-                    <div>
-                        <h2 style='margin: 0; color: #0F172A;'>{st.session_state.company_name}</h2>
-                        <p style='margin: 5px 0 0 0; color: #475569;'>Authorized Subcontractor Entity</p>
-                    </div>
-                    <div style='text-align: right;'>
-                        <h1 style='margin: 0; color: #38BDF8;'>PAY APPLICATION</h1>
-                        <p style='margin: 5px 0 0 0; font-weight: bold;'>{invoice_number}</p>
-                        <p style='margin: 0; color: #475569;'>{date_str}</p>
-                    </div>
+                    <div><h2 style='margin: 0; color: #0F172A;'>{st.session_state.company_name}</h2><p style='margin: 5px 0 0 0; color: #475569;'>Authorized Subcontractor Entity</p></div>
+                    <div style='text-align: right;'><h1 style='margin: 0; color: #38BDF8;'>PAY APPLICATION</h1><p style='margin: 5px 0 0 0; font-weight: bold;'>{invoice_number}</p><p style='margin: 0; color: #475569;'>{date_str}</p></div>
                 </div>
                 <table style='width: 100%; border-collapse: collapse; margin-bottom: 30px;'>
-                    <thead>
-                        <tr style='background-color: #E2E8F0; text-align: left;'>
-                            <th style='padding: 10px;'>Location Node</th>
-                            <th style='padding: 10px;'>Asset / Scope</th>
-                            <th style='padding: 10px; text-align: right;'>Cleared Value</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {line_items_html}
-                    </tbody>
+                    <thead><tr style='background-color: #E2E8F0; text-align: left;'><th style='padding: 10px;'>Location Node</th><th style='padding: 10px;'>Asset / Scope</th><th style='padding: 10px; text-align: right;'>Cleared Value</th></tr></thead>
+                    <tbody>{line_items_html}</tbody>
                 </table>
-                <div style='text-align: right; font-size: 20px;'>
-                    <b>TOTAL DRAW REQUEST: <span style='color: #10B981;'>${invoice_total:,.2f}</span></b>
-                </div>
-                <div style='margin-top: 50px; border-top: 1px dashed #CBD5E1; padding-top: 20px;'>
-                    <p style='margin: 0; font-size: 12px; color: #64748B;'>SYSTEM GENERATED: OmniBuild OS Core Financial Engine. All work listed above has been inspected and digitally signed by authorized GC personnel. Please remit wire transfer to designated corporate accounts.</p>
-                </div>
+                <div style='text-align: right; font-size: 20px;'><b>TOTAL DRAW REQUEST: <span style='color: #10B981;'>${invoice_total:,.2f}</span></b></div>
+                <div style='margin-top: 50px; border-top: 1px dashed #CBD5E1; padding-top: 20px;'><p style='margin: 0; font-size: 12px; color: #64748B;'>SYSTEM GENERATED: OmniBuild OS Core Financial Engine.</p></div>
             </div>
             """
             st.markdown(invoice_html, unsafe_allow_html=True)
@@ -340,27 +365,22 @@ elif selected_page == t["bank"]:
 
 elif selected_page == t["sched"]:
     st.write(f"### {t['sched']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🧠 Algorithmic Critical Path Production Scheduler</b><br>Simulate vendor backorders, level crew assignments, and automatically calculate real-time project hand-over forecasting.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='unifi-stealth-blade'><b>🧠 Algorithmic Critical Path Production Scheduler</b></div>", unsafe_allow_html=True)
     
     col_sch_ctrl, col_sch_viz = st.columns([1, 1.4])
     with col_sch_ctrl:
-        st.write("#### 🛠️ Resource Leveling & Supply Controls")
         simulated_delay = st.slider("Supply-Chain Material Backorder Lag (Days)", 0, 14, st.session_state.schedule_delay_days)
         active_crew = st.slider("Active Field Crew Personnel Count", 1, 10, st.session_state.crew_count_leveling)
         
         if st.button("⚡ Execute Schedule Recalculation Engine", use_container_width=True):
             st.session_state.schedule_delay_days = simulated_delay
             st.session_state.crew_count_leveling = active_crew
-            st.toast("Algorithmic rescheduling parameters compiled!", icon="📈")
-            time.sleep(0.5); st.rerun()
+            st.rerun()
             
-        st.write("---")
-        st.write("#### 🏗️ Predecessor Structural Handshake Matrix")
         pre_drywall = st.checkbox("GC Drywall & Framing Sheetrock Complete (Floor 1)", value=True)
         pre_plumb = st.checkbox("Core Plumbing Rough-Ins Certified (Floor 2)", value=False)
         
     with col_sch_viz:
-        st.write("#### 📊 Dynamic Project Gantt Production Projections")
         base_start = datetime.date(2026, 6, 1)
         fab_start = base_start + datetime.timedelta(days=simulated_delay)
         fab_duration = max(2, math.ceil(12 / active_crew))
@@ -371,36 +391,17 @@ elif selected_page == t["sched"]:
         if not pre_plumb: install_duration += 5
         install_end = install_start + datetime.timedelta(days=install_duration)
         
-        sch_df = pd.DataFrame([
-            {"Task Node": "1. Material Fabrication Loop", "Start": fab_start.strftime("%Y-%m-%d"), "End": fab_end.strftime("%Y-%m-%d"), "Phase Metric": "Shop Tooling"},
-            {"Task Node": "2. High-Density Suite Rollout", "Start": install_start.strftime("%Y-%m-%d"), "End": install_end.strftime("%Y-%m-%d"), "Phase Metric": "Field Execution"}
-        ])
-        
+        sch_df = pd.DataFrame([{"Task Node": "1. Material Fabrication Loop", "Start": fab_start.strftime("%Y-%m-%d"), "End": fab_end.strftime("%Y-%m-%d"), "Phase Metric": "Shop Tooling"}, {"Task Node": "2. High-Density Suite Rollout", "Start": install_start.strftime("%Y-%m-%d"), "End": install_end.strftime("%Y-%m-%d"), "Phase Metric": "Field Execution"}])
         resolved_accent_color = st.session_state.get("wl_accent_color", "#38BDF8")
-        g_chart = alt.Chart(sch_df).mark_bar(size=24, cornerRadius=4).encode(
-            x=alt.X('Start:T', title="Project Calendar Timeline"),
-            x2='End:T',
-            y=alt.Y('Task Node:N', title=None),
-            color=alt.Color('Phase Metric:N', scale=alt.Scale(range=[resolved_accent_color, '#F59E0B']))
-        ).properties(height=180, width='container')
+        g_chart = alt.Chart(sch_df).mark_bar(size=24, cornerRadius=4).encode(x=alt.X('Start:T', title="Project Calendar Timeline"), x2='End:T', y=alt.Y('Task Node:N', title=None), color=alt.Color('Phase Metric:N', scale=alt.Scale(range=[resolved_accent_color, '#F59E0B']))).properties(height=180, width='container')
         st.altair_chart(g_chart, use_container_width=True)
-        
-        if not pre_plumb:
-            st.markdown("<div class='unifi-stealth-gold'><b>⚠️ CRITICAL PATH WARNING:</b> Core Plumbing Rough-Ins are unchecked. Automatic 5-day buffer variance added.</div>", unsafe_allow_html=True)
-        else:
-            st.markdown("<div class='unifi-stealth-green'><b>✅ CRITICAL PATH CLEAR:</b> Upstream trades are verified. Timeline running at 100% efficiency.</div>", unsafe_allow_html=True)
-        st.metric("Algorithmic Project Hand-Over Date", install_end.strftime("%B %d, %Y"), f"Adjusted by +{simulated_delay + (5 if not pre_plumb else 0)} Days Total")
 
 elif selected_page == t["ai_core"]:
     st.write(f"### {t['ai_core']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🧠 OmniMind Cross-Table Cognitive Summary Engine</b><br>Analyze real-time tenant ledger states and automatically write audit-ready executive operations summaries.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='unifi-stealth-blade'><b>🧠 OmniMind Cross-Table Cognitive Summary Engine</b></div>", unsafe_allow_html=True)
     
     col_ai_ops, col_ai_briefing = st.columns([1, 1.3])
-    
     with col_ai_ops:
-        st.write("#### 🛡️ Cognitive Diagnosis Controls")
-        st.caption("Trigger a system scan of all active cross-table values to compile structural business insights:")
-        
         user_units = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
         pending_review_count = len(user_units[user_units["GC Sign-Off"] == "Pending Review"])
         escrow_funds = st.session_state.tenant_balances[current_user]["escrow"]
@@ -409,39 +410,17 @@ elif selected_page == t["ai_core"]:
         st.write(f"📍 **Detected Open Inspection Requests:** `{pending_review_count} Units`")
         st.write(f"💰 **Detected Project Escrow Reserves:** `${escrow_funds:,.2f}`")
         st.write(f"⏳ **Detected Supply Backorder Lags:** `{schedule_lag} Days`")
-        
-        st.write("---")
         trigger_analysis = st.button("⚡ Run Live Cross-Table Cognitive Diagnostics", use_container_width=True)
         
     with col_ai_briefing:
-        st.write("#### 📋 Executive Operations Summary Statement")
-        
         if trigger_analysis:
-            with st.spinner("Synthesizing telemetry logs..."):
-                time.sleep(1)
-                
+            with st.spinner("Synthesizing telemetry logs..."): time.sleep(1)
             risk_tier = "High Alert" if schedule_lag > 5 or pending_review_count > 3 else "Stable / Optimized"
             border_color = "#F59E0B" if risk_tier == "High Alert" else st.session_state.get("wl_accent_color", "#38BDF8")
-            
-            st.markdown(f"""
-            <div style='background-color: #0F172A; border: 1px solid #1E293B; border-left: 4px solid {border_color}; padding: 20px; border-radius: 4px; color: #CBD5E1;'>
-                <h5 style='color: #F8FAFC !important; margin-top:0;'>📋 OMNIMIND COGNITIVE DATA ANALYSIS BRIEF</h5>
-                <b>Workspace Profile Node:</b> {st.session_state.company_name}<br>
-                <b>Authorized Operator:</b> {current_user}<br>
-                <b>Platform Risk Assessment Tier:</b> <span style='color:{border_color}; font-weight:bold;'>{risk_tier}</span><br>
-                --------------------------------------------------<br>
-                <b>FINANCIAL MATRIX RUNWAY:</b> Your current escrow reserve layer sits at <b>${escrow_funds:,.2f} USD</b>. Capital parameters are safely structured to cover current material allocations.<br><br>
-                <b>FIELD PRODUCTION VELOCITY:</b> There are currently <b>{pending_review_count} rooms</b> staged as 'Pending Review'. <i>Recommendation:</i> Send a digital push notice to the General Contractor to sign off on these units to release cash variables into your liquid wallet.<br><br>
-                <b>LOGISTICS RUNTIME PENALTY:</b> Supply backorders are causing a <b>{schedule_lag}-day shift</b> in material fabrication timelines. Crew assignments have been automatically leveled to protect project margin indices.
-            </div>
-            """, unsafe_allow_html=True)
-            log_system_event(current_user, "AI Diagnosis", "Synthesized a full dynamic executive data briefing statement.")
-        else:
-            st.caption("Click the diagnostic button on the left to read live table streams and generate your structural report card.")
+            st.markdown(f"<div style='background-color: #0F172A; border: 1px solid #1E293B; border-left: 4px solid {border_color}; padding: 20px; border-radius: 4px; color: #CBD5E1;'><h5 style='color: #F8FAFC !important; margin-top:0;'>📋 OMNIMIND COGNITIVE DATA ANALYSIS BRIEF</h5><b>Platform Risk Assessment Tier:</b> <span style='color:{border_color}; font-weight:bold;'>{risk_tier}</span><br>--------------------------------------------------<br><b>FINANCIAL MATRIX RUNWAY:</b> Your current escrow reserve layer sits at <b>${escrow_funds:,.2f} USD</b>.<br><br><b>FIELD PRODUCTION VELOCITY:</b> There are currently <b>{pending_review_count} rooms</b> staged as 'Pending Review'.<br><br><b>LOGISTICS RUNTIME PENALTY:</b> Supply backorders are causing a <b>{schedule_lag}-day shift</b> in material fabrication timelines.</div>", unsafe_allow_html=True)
 
 elif selected_page == t["dash"]:
     st.write(f"### {t['dash']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📊 Executive Telemetry Control Panel Graphs</b></div>", unsafe_allow_html=True)
     chart_data = pd.DataFrame({"Project Week": ["W1", "W2", "W3", "W4"], "Capital Position ($)": [20000, 35000, 50000, 75000]})
     st.altair_chart(alt.Chart(chart_data).mark_line(point=True).encode(x='Project Week', y='Capital Position ($)'), use_container_width=True)
 
@@ -472,8 +451,12 @@ elif selected_page == t["audit_logs"]:
 
 elif selected_page == t["procure"]:
     st.write(f"### {t['procure']}")
-    v_cost = total_material_cost if total_material_cost > 0 else (len(st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]) * 1250.00)
-    st.metric("Wholesale Procurement Overhead", f"${v_cost:,.2f}")
+    st.markdown("<div class='unifi-stealth-blade'><b>📦 Supply-Chain Procurement Purchase Orders</b></div>", unsafe_allow_html=True)
+    
+    if st.session_state.purchase_orders:
+        st.dataframe(pd.DataFrame(st.session_state.purchase_orders), use_container_width=True, hide_index=True)
+    else:
+        st.info("No active Purchase Orders. Run an automated takeoff to extract materials and stage them for buyout.")
 
 elif selected_page == t["saas_licensing"]:
     st.write(f"### {st.session_state.user_email}")
