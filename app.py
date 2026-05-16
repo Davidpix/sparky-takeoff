@@ -4,7 +4,7 @@ import time
 
 st.set_page_config(page_title="SparkyTakeoff Enterprise Portal", layout="wide")
 
-# --- USER AUTHENTICATION & SESSION ISOLATION STATE ---
+# --- PILLAR 1: USER AUTHENTICATION & SESSION ISOLATION STATE ---
 if "user_authenticated" not in st.session_state:
     st.session_state.user_authenticated = False
 if "user_email" not in st.session_state:
@@ -16,7 +16,6 @@ if "subscription_tier" not in st.session_state:
 if "company_name" not in st.session_state:
     st.session_state.company_name = "Shard Visuals & Electrical"
     
-# Advanced Labor Crew Configuration Tokens
 if "qty_journeymen" not in st.session_state:
     st.session_state.qty_journeymen = 1
 if "rate_journeyman" not in st.session_state:
@@ -26,7 +25,7 @@ if "qty_helpers" not in st.session_state:
 if "rate_helper" not in st.session_state:
     st.session_state.rate_helper = 22.0
 if "labor_burden_pct" not in st.session_state:
-    st.session_state.labor_burden_pct = 0.30  # Default 30% payroll burden rate
+    st.session_state.labor_burden_pct = 0.30  
 
 if "overhead" not in st.session_state:
     st.session_state.overhead = 0.20
@@ -41,7 +40,7 @@ if "conduit_runs" not in st.session_state:
 if "vision_counts" not in st.session_state:
     st.session_state.vision_counts = {}
 
-# --- FOUNDER TELEMETRY ANALYTICS LOG ---
+# --- PILLAR 3: FOUNDER TELEMETRY ANALYTICS LOG ---
 if "founder_metrics" not in st.session_state:
     st.session_state.founder_metrics = {
         "Total_Pages_Processed": 0,
@@ -69,6 +68,7 @@ if not st.session_state.user_authenticated:
                     st.session_state.user_email = user_email
                     check_email = user_email.lower().strip()
                     
+                    # --- ELITE BETA-TESTER ACCESS PRIVILEGES ---
                     if "teacher" in check_email or "admin" in check_email or "monday" in check_email:
                         st.session_state.subscription_tier = "Enterprise Firm Plan ($249/mo)"
                     elif "maksym" in check_email:
@@ -84,7 +84,7 @@ if not st.session_state.user_authenticated:
                     time.sleep(1)
                     st.rerun()
                 else:
-                    st.error("Authentication rejected. Please enter a valid email address and password token.")
+                    st.error("Authentication rejected. Ensure the password field has at least 4 characters typed into it.")
                     
     with col_info:
         st.write("### 💎 Commercial Platform Feature Tier Map")
@@ -112,7 +112,6 @@ else:
     
     # --- GLOBAL PROJECT SETUP MATRIX WITH ADVANCED LABOR CREW INTERFACE ---
     st.write("### 🏢 Project Environment Configuration")
-    
     col_admin, col_crew = st.columns([1, 2])
     
     with col_admin:
@@ -158,13 +157,15 @@ else:
         else:
             st.warning("💡 To unlock automation features, please drop your architectural PDF file here before proceeding to the sub-pages.")
 
-    # --- FOUNDER TELEMETRY ANALYTICS DASHBOARD ---
+    # --- PILLAR 3: FOUNDER TELEMETRY ANALYTICS DASHBOARD (COMMERCIAL RE-WORDING) ---
     st.divider()
-    st.write("### 📈 Operational Telemetry Analytics (Founder Viewport)")
+    st.write("### 📈 System Telemetry Analytics (Founder Viewport)")
+    st.caption("This administrative panel monitors platform utilization and backend processing workloads across all active user sessions.")
+    
     t_col1, t_col2, t_col3 = st.columns(3)
-    t_col1.metric("Calculated Document Pages Processed", st.session_state.founder_metrics["Total_Pages_Processed"])
-    t_col2.metric("Total Ledger Formula Executions", st.session_state.founder_metrics["Total_Calculations_Run"])
-    t_col3.metric("Scikit-Image Computer Vision System Invocations", len(st.session_state.vision_counts))
+    t_col1.metric("📄 Total Pages Analyzed", st.session_state.founder_metrics["Total_Pages_Processed"])
+    t_col2.metric("🧮 Automated Takeoff Runs", st.session_state.founder_metrics["Total_Calculations_Run"])
+    t_col3.metric("🤖 AI Visual Symbol Sweeps", len(st.session_state.vision_counts))
 
     st.divider()
     if st.button("🚪 Log Out of Secure Access Session"):
