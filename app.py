@@ -1,10 +1,11 @@
 import streamlit as st
 import random
 import time
+import datetime
 
 st.set_page_config(page_title="SparkyTakeoff Enterprise Portal", layout="wide")
 
-# --- INITIALIZE CORE STATE MACHINES ---
+# --- USER AUTHENTICATION & SESSION ISOLATION STATE ---
 if "user_authenticated" not in st.session_state:
     st.session_state.user_authenticated = False
 if "user_email" not in st.session_state:
@@ -12,26 +13,29 @@ if "user_email" not in st.session_state:
 if "subscription_tier" not in st.session_state:
     st.session_state.subscription_tier = "Free Trial Tier"
 
+# --- GLOBAL PROFILE AND LABOR CREW INITIALIZATION ---
 if "company_name" not in st.session_state:
     st.session_state.company_name = "Shard Visuals & Electrical"
-if "qty_journeymen" not in st.session_state:
-    st.session_state.qty_journeymen = 1
-if "rate_journeyman" not in st.session_state:
-    st.session_state.rate_journeyman = 45.0
-if "qty_helpers" not in st.session_state:
-    st.session_state.qty_helpers = 1
-if "rate_helper" not in st.session_state:
-    st.session_state.rate_helper = 22.0
-if "labor_burden_pct" not in st.session_state:
-    st.session_state.labor_burden_pct = 0.30  
-if "overhead" not in st.session_state:
-    st.session_state.overhead = 0.20
-if "uploaded_file_bytes" not in st.session_state:
-    st.session_state.uploaded_file_bytes = None
-if "click_history" not in st.session_state:
-    st.session_state.click_history = []
-if "vision_counts" not in st.session_state:
-    st.session_state.vision_counts = {}
+if "qty_journeymen" not in st.session_state: st.session_state.qty_journeymen = 1
+if "rate_journeyman" not in st.session_state: st.session_state.rate_journeyman = 45.0
+if "qty_helpers" not in st.session_state: st.session_state.qty_helpers = 1
+if "rate_helper" not in st.session_state: st.session_state.rate_helper = 22.0
+if "labor_burden_pct" not in st.session_state: st.session_state.labor_burden_pct = 0.30  
+if "overhead" not in st.session_state: st.session_state.overhead = 0.20
+if "uploaded_file_bytes" not in st.session_state: st.session_state.uploaded_file_bytes = None
+if "vision_counts" not in st.session_state: st.session_state.vision_counts = {}
+
+# --- INITIALIZE CORE DYNAMIC VENDOR MATRIX ---
+if "vendor_pricing" not in st.session_state:
+    st.session_state.vendor_pricing = {
+        "Main Panel Enclosure": 450.00, 
+        "GFCI Receptacle": 18.00, 
+        "Disconnect Switch": 85.00, 
+        "Single Pole Switch": 1.50,
+        "3/4\" EMT Conduit Run (Linear Ft)": 1.25
+    }
+if "last_price_sync" not in st.session_state:
+    st.session_state.last_price_sync = "Never Synced (Using Local Fallback Catalog)"
 
 if "founder_metrics" not in st.session_state:
     st.session_state.founder_metrics = {"Total_Pages_Processed": 0, "Total_Calculations_Run": 0}
@@ -40,8 +44,6 @@ if "founder_metrics" not in st.session_state:
 if not st.session_state.user_authenticated:
     st.title("⚡ SparkyTakeoff")
     st.subheader("The Simple Blueprint Estimator for Electrical Contractors")
-    
-    st.write("Welcome! This application helps you automatically scan residential blueprints, trace conduit runs, and instantly generate a professional material and labor bid package.")
     
     col_login, col_guide = st.columns([1, 1])
     with col_login:
@@ -57,9 +59,7 @@ if not st.session_state.user_authenticated:
                     st.session_state.user_email = user_email
                     check_email = user_email.lower().strip()
                     
-                    if "teacher" in check_email or "admin" in check_email or "monday" in check_email:
-                        st.session_state.subscription_tier = "Enterprise Firm Plan ($249/mo)"
-                    elif "maksym" in check_email or "sister" in check_email or "deleon" in check_email:
+                    if "teacher" in check_email or "admin" in check_email or "monday" in check_email or "maksym" in check_email or "sister" in check_email or "deleon" in check_email:
                         st.session_state.subscription_tier = "Enterprise Firm Plan ($249/mo)"
                     else:
                         st.session_state.subscription_tier = "Free Trial Tier"
@@ -85,9 +85,7 @@ else:
     st.write(f"Logged in as: `{st.session_state.user_email}` | Subscription Level: **{st.session_state.subscription_tier}**")
     
     st.divider()
-    
     st.write("## 🛠️ Follow These 3 Easy Steps to Start Your Estimate")
-    st.caption("Complete this page first, then use the sidebar on the left to move to your worksheet or measuring canvas.")
     
     # --- STEP 1 BLOCK ---
     st.write("### 🏢 Step 1: Basic Company & Profit Info")
@@ -102,9 +100,7 @@ else:
     
     # --- STEP 2 BLOCK ---
     st.write("### 👥 Step 2: Define Your Field Crew (Labor Costs)")
-    st.write("Tell the app who will be working on this job. The computer uses this to calculate exact composite man-hour labor costs automatically.")
-    
-    with st.expander("👉 Click here to adjust your labor crew size and hourly wages", expanded=True):
+    with st.expander("👉 Click here to adjust your labor crew size and hourly wages", expanded=False):
         cc1, cc2, cc3 = st.columns(3)
         with cc1:
             st.session_state.qty_journeymen = st.number_input("Number of Journeymen on Job", min_value=1, value=st.session_state.qty_journeymen)
@@ -115,41 +111,51 @@ else:
         with cc3:
             st.session_state.labor_burden_pct = st.slider("Labor Burden % (Payroll Taxes, Insurance, Workers Comp)", 10, 60, int(st.session_state.labor_burden_pct * 100)) / 100
 
-        # Run background calculations
         total_crew_members = st.session_state.qty_journeymen + st.session_state.qty_helpers
         raw_composite_rate = ((st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)) / total_crew_members
         burdened_composite_rate = raw_composite_rate * (1 + st.session_state.labor_burden_pct)
-        
-        st.success(f"📊 Crew Math Calculated: Your blended crew labor billing target is securely locked at **\${burdened_composite_rate:,.2f} per hour**.")
+        st.success(f"📊 Crew Math Calculated: Labor billing target is locked at **\${burdened_composite_rate:,.2f} per hour**.")
+
+    st.divider()
+
+    # --- ADVANCED FEATURE BLOCK: LIVE WHOLESALE DISTRIBUTOR FEED SYNC ---
+    st.write("### 📈 Step 3: Live Supplier Pricing Integration")
+    st.write("Connect directly to local distributors to pull real-time material wholesale costs based on active commodities (copper, steel, pvc index).")
+    
+    with st.expander("🔌 Wholesale Material Sourcing Portal", expanded=True):
+        col_m1, col_m2 = st.columns([2, 1])
+        with col_m1:
+            st.write("**Current Supply House Catalog Rates:**")
+            st.json(st.session_state.vendor_pricing)
+            st.caption(f"Status: `{st.session_state.last_price_sync}`")
+        with col_m2:
+            supplier_region = st.selectbox("Select Regional Supply House Node", ["Southeast Hub (Miami / Broward)", "National Wholesale Feed"])
+            if st.button("🔄 Sync Live Supplier Catalog Prices"):
+                with st.spinner("Connecting to distributor inventory networks..."):
+                    time.sleep(1.5) # Simulated API latency
+                    
+                    # Simulate slight raw metal price fluctuations (+/- 5% to 15%)
+                    modifier = 1.0 + random.uniform(-0.04, 0.14)
+                    st.session_state.vendor_pricing["Main Panel Enclosure"] = round(450.00 * modifier, 2)
+                    st.session_state.vendor_pricing["GFCI Receptacle"] = round(18.00 * modifier, 2)
+                    st.session_state.vendor_pricing["Disconnect Switch"] = round(85.00 * modifier, 2)
+                    st.session_state.vendor_pricing["Single Pole Switch"] = round(1.50 * modifier, 2)
+                    st.session_state.vendor_pricing["3/4\" EMT Conduit Run (Linear Ft)"] = round(1.25 * modifier, 2)
+                    
+                    st.session_state.last_price_sync = f"Successfully Synced with {supplier_region} on {datetime.datetime.now().strftime('%m/%d/%Y %I:%M %p')}"
+                    st.toast("Prices synchronized live!")
+                    st.rerun()
 
     st.divider()
     
-    # --- STEP 3 BLOCK ---
-    st.write("### 📂 Step 3: Upload Your Blueprint Blueprint Package")
-    st.write("Upload your residential or commercial architectural plan set. Only PDF documents are supported.")
-    
+    # --- STEP 4 BLOCK (FORMERLY STEP 3) ---
+    st.write("### 📂 Step 4: Upload Your Blueprint Document Package")
     uploaded_pdf = st.file_uploader("Drop your blueprint PDF file right here", type="pdf")
     
     if uploaded_pdf is not None:
         uploaded_pdf.seek(0)
         st.session_state.uploaded_file_bytes = uploaded_pdf.read()
-        st.session_state.founder_metrics["Total_Pages_Processed"] += 5  
-        st.session_state.founder_metrics["Total_Calculations_Run"] += 1
-        
-        st.success("🎉 Blueprint loaded successfully! Now look at the left sidebar and click on **'1. Active Worksheet'** or **'2. Spatial Canvas'** to start measuring your job layout!")
-    else:
-        if st.session_state.uploaded_file_bytes is not None:
-            st.info("ℹ️ A blueprint blueprint package is currently active in memory. You can replace it anytime by dropping a new file here.")
-        else:
-            st.warning("💡 Please upload your project blueprint PDF right here before moving over to the measurement tools.")
-
-    # --- HIDDEN ADMIN METRICS EXPANDER ---
-    st.divider()
-    with st.expander("⚙️ Administrative System Telemetry (Founder Viewport)"):
-        st.caption("This data block is only visible to you as the platform operator to monitor processing loads.")
-        t_col1, t_col2 = st.columns(2)
-        t_col1.metric("📄 Total Pages Processed", st.session_state.founder_metrics["Total_Pages_Processed"])
-        t_col2.metric("🧮 Automated Formula Runs", st.session_state.founder_metrics["Total_Calculations_Run"])
+        st.success("🎉 Blueprint loaded successfully! Now use the left sidebar menu to navigate to your worksheet or canvas pages.")
 
     if st.button("🚪 Log Out of Estimator Profile"):
         st.session_state.user_authenticated = False
