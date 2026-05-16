@@ -28,7 +28,6 @@ Electrical Issue Revision Assistance
 Electrical Inspection Follow-Up Message
 Blood Pressure Reading and Hypertension Stage
 Trump Buildings Near Aventura
-Trump's Miami Beach Construction History
 Trump Organization Building Activity Update
 TL-WN722N Kali Linux Driver Guide
 Real Estate Fixer-Upper Terminology
