@@ -37,7 +37,8 @@ lang_dict = {
     "English": {
         "home": "🏠 Command Center", "matrix": "📊 Trade Matrix", "takeoff": "📐 Automated Takeoff", "gc_budg": "🏗️ GC Budget", 
         "fin": "💳 OmniPay & Escrow", "bank": "🏦 Bank Portal", "clinic": "🏥 Clinic Infra & Audit", 
-        "co_lien": "📝 Change Orders & Liens", "bid": "🎯 AI Bid Optimizer", "sched": "📅 Trade Calendar", "ai_core": "🧠 OmniMind AI Core", "api": "☁️ Cloud API"
+        "co_lien": "📝 Change Orders & Liens", "bid": "🎯 AI Bid Optimizer", "sched": "📅 Trade Calendar", 
+        "ai_core": "🧠 OmniMind AI Core", "dash": "📊 Telemetry Dashboard", "api": "☁️ Cloud API"
     }
 }
 
@@ -47,8 +48,8 @@ if "user_email" not in st.session_state: st.session_state.user_email = ""
 if "user_role" not in st.session_state: st.session_state.user_role = "⚡ Electrical Sub"
 if "company_name" not in st.session_state: st.session_state.company_name = "Independent Operator"
 if "lang" not in st.session_state: st.session_state.lang = "English"
-if "wallet_balance" not in st.session_state: st.session_state.wallet_balance = 25000.00
-if "escrow_locked" not in st.session_state: st.session_state.escrow_locked = 125000.00
+if "wallet_balance" not in st.session_state: st.session_state.wallet_balance = 35000.00
+if "escrow_locked" not in st.session_state: st.session_state.escrow_locked = 110000.00
 if "bank_connected" not in st.session_state: st.session_state.bank_connected = True
 if "change_orders" not in st.session_state: st.session_state.change_orders = []
 if "transaction_history" not in st.session_state: st.session_state.transaction_history = []
@@ -59,8 +60,6 @@ st.markdown("""
     .stApp { background-color: #070B12 !important; color: #94A3B8 !important; }
     h1, h2, h3, h4, h5, h6 { color: #CBD5E1 !important; font-weight: 500 !important; }
     .unifi-stealth-blade { background-color: #0F172A !important; border: 1px solid #1E293B !important; border-left: 3px solid #38BDF8 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
-    .unifi-stealth-danger { background-color: #1E1014 !important; border: 1px solid #3B1E22 !important; border-left: 3px solid #EF4444 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
-    .unifi-stealth-green { background-color: #0B1C16 !important; border: 1px solid #143A2E !important; border-left: 3px solid #10B981 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -87,7 +86,7 @@ if not st.session_state.user_authenticated:
 
 t = lang_dict[st.session_state.lang]
 
-# --- 7. GLOBAL CROSS-TABLE DATAPROF FILE EXTRACTIONS ---
+# --- 7. CROSS-TABLE DATA EXTRACTIONS ---
 raw_cloud_data = supabase_api_call(endpoint="materials", method="GET", params={"user_email": f"eq.{st.session_state.user_email}"})
 total_labor_hours = 0.0
 total_material_cost = 0.0
@@ -99,7 +98,6 @@ if raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_dat
     total_labor_hours = ((df_elec_clean["quantity"] * df_elec_clean["labor_minutes"]) / 60).sum()
 
 calculated_duration_days = max(1, math.ceil(total_labor_hours / 8)) if total_labor_hours > 0 else 5
-approved_co_total = sum(co["Cost Impact"] for co in st.session_state.change_orders if co["Status"] == "Approved & Signed")
 
 # --- 8. SIDEBAR CONTROL PANEL ---
 st.sidebar.title("🌍 OmniBuild OS")
@@ -107,9 +105,9 @@ st.sidebar.write(f"🏢 **Entity:** `{st.session_state.company_name}`")
 st.sidebar.divider()
 
 if "General Contractor" in st.session_state.user_role:
-    menu_options = [t["home"], t["gc_budg"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["api"]]
+    menu_options = [t["home"], t["gc_budg"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["api"]]
 else:
-    menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["api"]]
+    menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["api"]]
 
 selected_page = st.sidebar.radio("Navigation Menu", menu_options)
 st.sidebar.divider()
@@ -126,38 +124,56 @@ elif selected_page == t["co_lien"]: st.write(f"### {t['co_lien']}")
 elif selected_page == t["fin"]: st.write(f"### {t['fin']}")
 elif selected_page == t["bank"]: st.write(f"### {t['bank']}")
 elif selected_page == t["sched"]: st.write(f"### {t['sched']}")
+elif selected_page == t["ai_core"]: st.write(f"### {t['ai_core']}")
 elif selected_page == t["api"]: st.write(f"### {t['api']}")
 
-# NEW ARCHITECTURE MODULE: OMNIMIND AI EXECUTIVE CORES
-elif selected_page == t["ai_core"]:
-    st.write(f"### {t['ai_core']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>OmniMind Live Cognitive Analytics Node</b><br>Assembling architectural cross-vector arrays to construct critical path risk profiles and financial diagnostic briefings.</div>", unsafe_allow_html=True)
+# NEW ARCHITECTURE MODULE: VISUAL TELEMETRY ANALYTICS DASHBOARD
+elif selected_page == t["dash"]:
+    st.write(f"### {t['dash']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>Executive Telemetry Control Panel</b><br>High-fidelity dynamic charting mapping production burn rates and cash runway velocities.</div>", unsafe_allow_html=True)
     
-    # 1. Financial Liquidity Math Vectors
-    liquid_asset_ratio = (st.session_state.wallet_balance / total_material_cost * 100) if total_material_cost > 0 else 100.0
+    # Grid Row 1: Key Performance Metrics
+    kpi1, kpi2, kpi3 = st.columns(3)
+    kpi1.metric("Escrow Liquidation Runway", f"${st.session_state.escrow_locked:,.2f}", "+12.4%")
+    kpi2.metric("Liquid Capital Density", f"${st.session_state.wallet_balance:,.2f}", "+5.2%")
+    kpi3.metric("Project Production Velocity", f"{calculated_duration_days} Days", "On Target")
     
-    col_tele_1, col_tele_2 = st.columns(2)
+    st.divider()
     
-    with col_tele_1:
-        st.write("#### 📡 System Telemetry State Matrices")
-        st.metric("Project Liquid Resource Buffer Ratio", f"{liquid_asset_ratio:.1f}%")
-        st.progress(min(1.0, max(0.0, liquid_asset_ratio / 100)))
+    # Grid Row 2: Visual Chart Paneling
+    col_chart_left, col_chart_right = st.columns(2)
+    
+    with col_chart_left:
+        st.write("#### 📈 Financial Runway Variance (Weekly Projection)")
+        # Simulated chronological trend line tracking funding depletion curves
+        runway_data = pd.DataFrame({
+            "Project Week": ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"],
+            "Locked Escrow ($)": [st.session_state.escrow_locked + 20000, st.session_state.escrow_locked + 10000, st.session_state.escrow_locked, st.session_state.escrow_locked - 15000, st.session_state.escrow_locked - 30000],
+            "Liquid Wallet ($)": [15000, 25000, st.session_state.wallet_balance, st.session_state.wallet_balance + 10000, st.session_state.wallet_balance + 25000]
+        }).melt("Project Week", var_name="Financial Account", value_name="Balance ($)")
         
-    with col_tele_2:
-        st.write("#### 🛡️ Scope Anomaly Matrix Diagnostics")
-        if calculated_duration_days > 15 and st.session_state.escrow_locked < 50000.0:
-            st.markdown("<div class='unifi-stealth-danger'><b>CRITICAL RISK DETECTED:</b> Duration spreads indicate long field execution timeline, but project escrow locks sit beneath baseline burn levels. Danger of liquidity starvation.</div>", unsafe_allow_html=True)
-        elif total_material_cost == 0.0:
-            st.markdown("<div class='unifi-stealth-blade' style='border-left-color: #F59E0B;'><b>DIAGNOSTIC NOTICE:</b> Cloud database scope ledger is currently unpopulated. Run a blueprint spec takeoff block to fuel the cognitive models.</div>", unsafe_allow_html=True)
-        else:
-            st.markdown("<div class='unifi-stealth-green'><b>HEALTH MATRIX EXCELLENT:</b> Capital-to-Burn metrics show optimal project funding alignment. Production vectors are fully cleared.</div>", unsafe_allow_html=True)
-            
-    st.write("---")
-    st.write("#### 🧠 AI Executive Advisory Actions Brief")
-    
-    # Generate contextual recommendations using the dynamic program states
-    st.markdown(f"""
-    *   **Financial Procurement Strategy:** Based on a calculated raw material overhead cost of **${total_material_cost:,.2f}**, the AI recommends locking down supplier contracts within the next **72 hours** to avoid supply-chain inflation fluctuations.
-    *   **Labor Scaling Directives:** To cleanly execute **{total_labor_hours:.1f} total labor hours** within your projected **{calculated_duration_days} production days**, your optimal field crew size deployment factor is calculated at exactly **{max(1, math.ceil(total_labor_hours / (calculated_duration_days * 8)))} electricians/technicians** on-site daily.
-    *   **Waiver Risk Analysis:** Currently tracking **{len(st.session_state.change_orders)} active scope modifications**. Ensure all corresponding statutory conditional lien releases match the current approved variance value line of **${approved_co_total:,.2f}** before authorizing the next draw event sequence.
-    """)
+        line_chart = alt.Chart(runway_data).mark_line(point=True, strokeWidth=3).encode(
+            x='Project Week:N',
+            y='Balance ($):Q',
+            color=alt.Color('Financial Account:N', scale=alt.Scale(range=['#F59E0B', '#10B981']))
+        ).properties(height=300, width='container')
+        
+        st.altair_chart(line_chart, use_container_width=True)
+        
+    with col_chart_right:
+        st.write("#### 📊 Labor Deployment Burn (Estimated vs Actual Hours)")
+        # Simulated labor matrix values mapping operational metrics
+        labor_burn_data = pd.DataFrame({
+            "Trade Vector": ["Conduit Routing", "Device Install", "Panel Termination", "System Tuning"],
+            "Estimated Hours": [total_labor_hours * 0.4, total_labor_hours * 0.3, total_labor_hours * 0.2, total_labor_hours * 0.1],
+            "Actual Consumed": [total_labor_hours * 0.38, total_labor_hours * 0.25, 0.0, 0.0]
+        }).melt("Trade Vector", var_name="Time Metric", value_name="Man-Hours")
+        
+        bar_chart = alt.Chart(labor_burn_data).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+            x=alt.X('Time Metric:N', title=None),
+            y=alt.Y('Man-Hours:Q', title="Hours Spent"),
+            color=alt.Color('Time Metric:N', scale=alt.Scale(range=['#38BDF8', '#475569'])),
+            column=alt.Column('Trade Vector:N', title=None)
+        ).properties(height=280, width=100)
+        
+        st.altair_chart(bar_chart, use_container_width=True)
