@@ -44,7 +44,7 @@ lang_dict = {
         "fin": "💳 OmniPay & Escrow", "bank": "🏦 Bank Portal", "clinic": "🏥 Clinic Infra & Audit", 
         "co_lien": "📝 Change Orders & Liens", "bid": "🎯 AI Bid Optimizer", "sched": "📅 Trade Calendar", 
         "ai_core": "🧠 OmniMind AI Core", "dash": "📊 Telemetry Dashboard", "comm_rollout": "🏢 Commercial Rollout", 
-        "legal_contract": "📝 Master Contracts", "field_signoff": "🔍 Field Sign-Off", "punch_list": "🛠️ QA & Punch List", "nec_calcs": "⚡ NEC Load Engine", "pitch_white": "🎨 Brand White-Label", 
+        "legal_contract": "📝 Master Contracts", "field_signoff": "🔍 Field Sign-Off", "punch_list": "🛠️ QA & Punch List", "nec_calcs": "⚡ NEC Load Engine", "labor": "⏱️ Field Labor & DFR", "pitch_white": "🎨 Brand White-Label", 
         "audit_logs": "📋 Audit Trail & Reports", "procure": "📦 Procurement & POs", "saas_licensing": "🔑 SaaS Tenant Licensing",
         "chat_hub": "💬 Field Dispatch Hub", "api": "☁️ Cloud API"
     }
@@ -72,6 +72,7 @@ if "takeoff_results" not in st.session_state: st.session_state.takeoff_results =
 if "punch_list_items" not in st.session_state: st.session_state.punch_list_items = []
 if "clinic_hardware_matrix" not in st.session_state: st.session_state.clinic_hardware_matrix = []
 if "security_audit_score" not in st.session_state: st.session_state.security_audit_score = None
+if "labor_logs" not in st.session_state: st.session_state.labor_logs = []
 
 if "commercial_units" not in st.session_state:
     st.session_state.commercial_units = pd.DataFrame(columns=["Tenant Owner", "Floor", "Unit Number", "Asset Type", "Fabrication Status", "Installation Status", "GC Sign-Off", "Value Release"])
@@ -180,7 +181,7 @@ if chosen_preset != st.session_state.ui_theme_preset:
     st.session_state.ui_theme_preset = chosen_preset; st.rerun()
 
 st.sidebar.divider()
-menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["nec_calcs"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["punch_list"], t["pitch_white"], t["audit_logs"], t["procure"], t["saas_licensing"], t["chat_hub"], t["api"]]
+menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["nec_calcs"], t["co_lien"], t["labor"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["punch_list"], t["pitch_white"], t["audit_logs"], t["procure"], t["saas_licensing"], t["chat_hub"], t["api"]]
 selected_page = st.sidebar.radio("Navigation Menu", menu_options)
 st.sidebar.divider()
 if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=True):
@@ -256,79 +257,49 @@ elif selected_page == t["takeoff"]:
                 st.session_state.purchase_orders.insert(0, {"PO ID": f"PO-{len(st.session_state.purchase_orders)+1:03d}", "Amount": calc_total, "Status": "Fabrication", "lat": 25.7617 + random.uniform(-0.02, 0.02), "lon": -80.1918 + random.uniform(-0.02, 0.02)})
                 st.success("Materials successfully staged in the master procurement matrix!")
 
-# --- UPGRADED MODULE: GENERATIVE AI BID & PROPOSAL ENGINE ---
 elif selected_page == t["bid"]:
     st.write(f"### {t['bid']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>🎯 Generative AI Proposal & Bid Engine</b><br>Compile takeoff data, labor projections, and margin requirements into a formal, client-ready commercial bid.</div>", unsafe_allow_html=True)
-    
+    st.markdown("<div class='unifi-stealth-blade'><b>🎯 Generative AI Proposal & Bid Engine</b></div>", unsafe_allow_html=True)
     col_cfg, col_doc = st.columns([1, 1.5])
-    
     with col_cfg:
-        st.write("#### ⚙️ Bid Parameter Tuning")
         base_margin = st.slider("Target Profit Margin (%)", 10.0, 50.0, 32.5)
         contingency = st.slider("Risk Contingency (%)", 0.0, 20.0, 5.0)
-        
-        # Calculate base costs intelligently from the NLP Takeoff
-        if st.session_state.takeoff_results:
-            mat_cost = sum([item["Total Overhead"] for item in st.session_state.takeoff_results])
-        else:
-            mat_cost = 125000.00 # Standard fallback if takeoff is empty
-            
-        labor_cost = mat_cost * 0.85 # Algorithmic labor assumption
+        mat_cost = sum([item["Total Overhead"] for item in st.session_state.takeoff_results]) if st.session_state.takeoff_results else 125000.00
+        labor_cost = mat_cost * 0.85
         subtotal = mat_cost + labor_cost
         contingency_val = subtotal * (contingency / 100)
         margin_val = (subtotal + contingency_val) * (base_margin / 100)
         final_bid_val = subtotal + contingency_val + margin_val
-        
         st.write(f"**Calculated Material Cost:** ${mat_cost:,.2f}")
         st.write(f"**Calculated Labor Burden:** ${labor_cost:,.2f}")
         st.markdown(f"<div class='unifi-stealth-green'><b>Projected Bid Value:</b> ${final_bid_val:,.2f}</div>", unsafe_allow_html=True)
-        
         generate_bid = st.button("📝 Generate Executive Proposal", use_container_width=True)
 
     with col_doc:
-        st.write("#### 📄 Formal Proposal Document")
         if generate_bid:
-            with st.spinner("OmniMind is drafting the proposal..."):
-                time.sleep(1.2)
-                
+            with st.spinner("OmniMind is drafting the proposal..."): time.sleep(1.2)
             proposal_id = f"PRP-{random.randint(10000, 99999)}"
             date_str = datetime.datetime.now().strftime("%B %d, %Y")
-            
             proposal_html = f"""
             <div style='background-color: #F8FAFC; color: #0F172A; padding: 40px; border-radius: 8px; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;'>
                 <div style='border-bottom: 2px solid #0F172A; padding-bottom: 20px; margin-bottom: 20px;'>
                     <h1 style='margin: 0; color: #0F172A;'>{st.session_state.company_name}</h1>
-                    <p style='margin: 0; color: #475569;'>Commercial Electrical & Infrastructure Subcontractor</p>
+                    <p style='margin: 0; color: #475569;'>Commercial Subcontractor Entity</p>
                 </div>
                 <h2 style='text-align: center; color: #38BDF8;'>EXECUTIVE COMMERCIAL PROPOSAL</h2>
                 <p><b>PROPOSAL ID:</b> {proposal_id} <span style='float:right;'><b>DATE:</b> {date_str}</span></p>
-                <p><b>CLIENT:</b> OmniBuild General Contracting Partners</p>
                 <hr style='border: 1px solid #E2E8F0;'>
-                
-                <h4 style='color: #0F172A;'>I. EXECUTIVE SUMMARY & SCOPE OF WORK</h4>
-                <p>Based on the architectural specifications provided, <b>{st.session_state.company_name}</b> proposes to furnish all required labor, premium enterprise materials, and project management oversight to execute the structural and network infrastructure rollout.</p>
-                
-                <h4 style='color: #0F172A;'>II. FINANCIAL INVESTMENT SUMMARY</h4>
+                <h4 style='color: #0F172A;'>I. FINANCIAL INVESTMENT SUMMARY</h4>
                 <table style='width: 100%; border-collapse: collapse; margin-bottom: 20px;'>
                     <tr style='background-color: #E2E8F0;'><th style='padding: 8px; text-align: left;'>Cost Category</th><th style='padding: 8px; text-align: right;'>Estimated Value</th></tr>
                     <tr><td style='padding: 8px; border-bottom: 1px solid #CBD5E1;'>Direct Material Procurement</td><td style='padding: 8px; border-bottom: 1px solid #CBD5E1; text-align: right;'>${mat_cost:,.2f}</td></tr>
                     <tr><td style='padding: 8px; border-bottom: 1px solid #CBD5E1;'>Labor & Field Execution</td><td style='padding: 8px; border-bottom: 1px solid #CBD5E1; text-align: right;'>${labor_cost:,.2f}</td></tr>
-                    <tr><td style='padding: 8px; border-bottom: 1px solid #CBD5E1;'>Risk Contingency ({contingency}%)</td><td style='padding: 8px; border-bottom: 1px solid #CBD5E1; text-align: right;'>${contingency_val:,.2f}</td></tr>
                     <tr><td style='padding: 8px; font-weight: bold;'>TOTAL FIRM FIXED PRICE</td><td style='padding: 8px; text-align: right; font-weight: bold; color: #10B981; font-size: 18px;'>${final_bid_val:,.2f}</td></tr>
                 </table>
-                
-                <h4 style='color: #0F172A;'>III. TERMS & CONDITIONS</h4>
-                <p style='font-size: 12px; color: #475569;'>This proposal is valid for 30 days. Execution of this proposal will transition into a binding Master Service Agreement (MSA) governed by the OmniBuild OS legal engine. Schedule guarantees are contingent upon verified upstream trade predecessor completion.</p>
             </div>
             """
             st.markdown(proposal_html, unsafe_allow_html=True)
-            log_system_event(current_user, "Bid Generation", f"Generated Proposal {proposal_id} for ${final_bid_val:,.2f}.")
-            
-            if st.button("📤 Route Proposal to GC for Digital Signature"):
-                st.success("Proposal routed successfully! Awaiting GC authorization.")
-        else:
-            st.caption("Adjust your margin and contingency sliders on the left, then generate your proposal.")
+            if st.button("📤 Route Proposal to GC"): st.success("Proposal routed successfully!")
 
 elif selected_page == t["nec_calcs"]:
     st.write(f"### {t['nec_calcs']}")
@@ -419,6 +390,88 @@ elif selected_page == t["co_lien"]:
                             st.session_state.commercial_units.at[idx_match[0], "GC Sign-Off"] = "Pending Review"
                             st.session_state.commercial_units.at[idx_match[0], "Value Release"] += co['Value Delta']
                         st.success("GC Authorized!"); time.sleep(1); st.rerun()
+
+# --- UPGRADED MODULE: LABOR TRACKING & DAILY FIELD REPORT (DFR) ---
+elif selected_page == t["labor"]:
+    st.write(f"### {t['labor']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>⏱️ Labor Telemetry & Daily Field Reporting (DFR)</b><br>Track active crew hours against geo-fenced site perimeters and generate compliant, automated Daily Field Reports for the General Contractor.</div>", unsafe_allow_html=True)
+    
+    col_clock, col_dfr = st.columns([1, 1.2])
+    
+    with col_clock:
+        st.write("#### 📍 Geofenced Time Terminal")
+        st.caption("Site Coordinates Target: Miami, FL (25.7617° N, 80.1918° W)")
+        
+        worker_name = st.text_input("Crew Member Name")
+        worker_role = st.selectbox("Classification", ["Journeyman Wireman", "Apprentice", "Foreman", "Laborer"])
+        
+        # Determine clock state for this demo
+        is_clocked_in = any([log['Status'] == 'Active' for log in st.session_state.labor_logs if log['Name'] == worker_name])
+        
+        if not is_clocked_in:
+            if st.button("🟢 Authenticate GPS & Clock In", use_container_width=True):
+                if worker_name:
+                    with st.spinner("Pinging satellites... Verifying site perimeter..."):
+                        time.sleep(1)
+                    st.session_state.labor_logs.insert(0, {
+                        "Name": worker_name,
+                        "Role": worker_role,
+                        "Time In": datetime.datetime.now().strftime("%I:%M %p"),
+                        "Time Out": "--",
+                        "Status": "Active"
+                    })
+                    st.success(f"{worker_name} clocked in successfully inside geofence."); time.sleep(1); st.rerun()
+                else:
+                    st.error("Please enter a name.")
+        else:
+            if st.button("🔴 Clock Out & Sync Hours", use_container_width=True):
+                for idx, log in enumerate(st.session_state.labor_logs):
+                    if log['Name'] == worker_name and log['Status'] == 'Active':
+                        st.session_state.labor_logs[idx]['Time Out'] = datetime.datetime.now().strftime("%I:%M %p")
+                        st.session_state.labor_logs[idx]['Status'] = "Completed Shift"
+                st.success("Shift closed and hours logged to payroll matrix."); time.sleep(1); st.rerun()
+                
+        st.write("---")
+        st.write("**Active Labor Roster**")
+        if st.session_state.labor_logs:
+            st.dataframe(pd.DataFrame(st.session_state.labor_logs), use_container_width=True, hide_index=True)
+        else:
+            st.caption("No personnel currently clocked into the site perimeter.")
+
+    with col_dfr:
+        st.write("#### 📋 Auto-Generate Daily Field Report (DFR)")
+        st.caption("Compile weather, manpower, and task logs into a formal PDF structure.")
+        
+        today_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        active_headcount = len(st.session_state.labor_logs)
+        
+        if st.button("⚙️ Compile AI Daily Field Report", use_container_width=True):
+            with st.spinner("Aggregating daily variables and fetching local meteorology..."):
+                time.sleep(1.5)
+                
+            dfr_html = f"""
+            <div style='background-color: #F8FAFC; color: #0F172A; padding: 30px; border-radius: 8px; border: 1px solid #E2E8F0;'>
+                <h3 style='margin-top:0; border-bottom: 2px solid #0F172A; padding-bottom: 10px;'>DAILY FIELD REPORT (DFR)</h3>
+                <p><b>SUBCONTRACTOR:</b> {st.session_state.company_name}</p>
+                <p><b>DATE:</b> {today_date}</p>
+                <p><b>SITE WEATHER:</b> 88°F, High Humidity, Partly Cloudy (Miami-Dade Data)</p>
+                <hr style='border: 1px solid #CBD5E1;'>
+                <h4 style='color: #38BDF8;'>MANPOWER</h4>
+                <p>Total Personnel On-Site: <b>{active_headcount}</b></p>
+                <p>Zero OSHA Safety Incidents or Near-Misses reported today.</p>
+                <hr style='border: 1px solid #CBD5E1;'>
+                <h4 style='color: #10B981;'>WORK COMPLETED</h4>
+                <ul>
+                    <li>Continued general layout and coordination.</li>
+                    <li>Maintained active schedule alignment with GC drywall framing.</li>
+                    <li>Staged inbound logistics and material deliveries.</li>
+                </ul>
+                <p style='font-size:12px; color:#64748B; margin-top:20px;'>Submitted by: Site Foreman via OmniBuild OS Authorized Terminal.</p>
+            </div>
+            """
+            st.markdown(dfr_html, unsafe_allow_html=True)
+            if st.button("📤 Send DFR to GC Project Manager"):
+                st.success("Report successfully emailed to the General Contractor!")
 
 elif selected_page == t["comm_rollout"]:
     st.write(f"### {t['comm_rollout']}")
@@ -570,6 +623,10 @@ elif selected_page == t["chat_hub"]:
     if st.button("⚡ Send Message"):
         st.session_state.field_dispatch_messages.insert(0, {"Timestamp": datetime.datetime.now().strftime("%I:%M %p"), "Sender": current_user, "Message String": sanitize_input(msg_text)})
         st.success("Dispatched!"); time.sleep(0.5); st.rerun()
+    st.write("---")
+    for m in st.session_state.field_dispatch_messages:
+        border_color = "#F59E0B" if m["Sender"] == "SYSTEM INTELLIGENCE" else st.session_state.get("wl_accent_color", "#38BDF8")
+        st.markdown(f"<div class='chat-bubble-sub' style='border-left-color: {border_color};'><b>{m['Sender']}:</b> {m['Message String']}</div>", unsafe_allow_html=True)
 
 elif selected_page == t["api"]:
     st.write(f"### {t['api']}")
