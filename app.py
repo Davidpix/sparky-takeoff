@@ -10,7 +10,7 @@ from io import BytesIO
 
 st.set_page_config(page_title="UniFi SparkyTakeoff OS", layout="wide", initial_sidebar_state="collapsed")
 
-# --- ADVANCED STEALTH & CYBER TERMINAL STYLE INJECTION ---
+# --- EXECUTIVE STEALTH DARK MODE CSS INJECTION ---
 st.markdown("""
 <style>
     .stApp {
@@ -49,8 +49,26 @@ st.markdown("""
         border-radius: 4px;
         margin-bottom: 12px;
     }
-    
-    /* --- THE HIGH-FI DEV TERMINAL WRAPPER --- */
+    .panel-breaker-even {
+        background-color: #0F172A;
+        border: 1px solid #1E293B;
+        padding: 10px;
+        text-align: center;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+    }
+    .panel-bus-bar {
+        background-color: #1E293B;
+        height: 100%;
+        min-height: 50px;
+        border-radius: 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #64748B;
+        font-weight: bold;
+    }
     .cyber-terminal-output {
         background-color: #030712 !important;
         border: 1px solid #1E293B !important;
@@ -58,7 +76,7 @@ st.markdown("""
         padding: 12px;
         font-family: 'Courier New', monospace !important;
         font-size: 12px !important;
-        color: #34D399 !important; /* Matte Terminal Green */
+        color: #34D399 !important;
         line-height: 1.6 !important;
         height: 150px;
         overflow-y: auto;
@@ -72,7 +90,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- SYSTEM DIRECTORY STORAGE ---
+# --- DIRECTORY CONFIGURATION ---
 SAVED_PROJECTS_DIR = "saved_estimates_vault"
 if not os.path.exists(SAVED_PROJECTS_DIR):
     os.makedirs(SAVED_PROJECTS_DIR)
@@ -88,12 +106,12 @@ if "rate_journeyman" not in st.session_state: st.session_state.rate_journeyman =
 if "rate_helper" not in st.session_state: st.session_state.rate_helper = 22.0
 if "labor_burden_pct" not in st.session_state: st.session_state.labor_burden_pct = 0.30  
 if "overhead" not in st.session_state: st.session_state.overhead = 0.20
+if "copper_multiplier" not in st.session_state: st.session_state.copper_multiplier = 0.0
 
-# Structured dynamic log history array using complete raw HTML objects for advanced rendering
 if "sys_log_frames" not in st.session_state:
     st.session_state.sys_log_frames = [
-        f"<span class='terminal-timestamp'>[{datetime.datetime.now().strftime('%H:%M:%S')}]</span> <span class='terminal-kernel'>[SYS CORE]</span> Stealth kernel running safely.",
-        f"<span class='terminal-timestamp'>[{datetime.datetime.now().strftime('%H:%M:%S')}]</span> <span class='terminal-kernel'>[NET KERNEL]</span> Connected to South Florida distributor pricing nodes."
+        f"<span class='terminal-timestamp'>[{datetime.datetime.now().strftime('%H:%M:%S')}]</span> <span class='terminal-kernel'>[SYS CORE]</span> Stealth multi-module matrix online.",
+        f"<span class='terminal-timestamp'>[{datetime.datetime.now().strftime('%H:%M:%S')}]</span> <span class='terminal-kernel'>[NET KERNEL]</span> Connected to global commodity index streams."
     ]
 
 if "vendor_pricing" not in st.session_state:
@@ -138,17 +156,26 @@ else:
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # DATA SET PRESETS
+    # --- BASE DATASET SETUP ---
     baseline_mock_manifest = [
-        {"Item Name": "3/4\" EMT Conduit (10ft Factory Sticks)", "Phase": "Rough-In", "Target Zone": "General Branch Run", "Qty": 150, "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Conduit (10ft Factory Sticks)"], "Mins to Install": 12},
-        {"Item Name": "3/4\" EMT Set-Screw Coupling", "Phase": "Rough-In", "Target Zone": "General Branch Run", "Qty": 140, "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Set-Screw Coupling"], "Mins to Install": 3},
-        {"Item Name": "3/4\" 1-Hole EMT Strap", "Phase": "Rough-In", "Target Zone": "General Branch Run", "Qty": 200, "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" 1-Hole EMT Strap"], "Mins to Install": 2},
-        {"Item Name": "Commercial Grade 20A GFCI Device", "Phase": "Trim-Out", "Target Zone": "Kitchen Layout", "Qty": 25, "Unit Cost ($)": st.session_state.vendor_pricing["Commercial Grade 20A GFCI Device"], "Mins to Install": 15},
-        {"Item Name": "Specification Grade 20A Toggle Switch", "Phase": "Trim-Out", "Target Zone": "General Lighting", "Qty": 40, "Unit Cost ($)": st.session_state.vendor_pricing["Specification Grade 20A Toggle Switch"], "Mins to Install": 10}
+        {"Item Name": "3/4\" EMT Conduit (10ft Factory Sticks)", "Phase": "Rough-In", "Target Zone": "General Branch Run", "Qty": 150, "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Conduit (10ft Factory Sticks)"], "Mins to Install": 12, "Is Metal Commodity": True},
+        {"Item Name": "3/4\" EMT Set-Screw Coupling", "Phase": "Rough-In", "Target Zone": "General Branch Run", "Qty": 140, "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Set-Screw Coupling"], "Mins to Install": 3, "Is Metal Commodity": True},
+        {"Item Name": "3/4\" 1-Hole EMT Strap", "Phase": "Rough-In", "Target Zone": "General Branch Run", "Qty": 200, "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" 1-Hole EMT Strap"], "Mins to Install": 2, "Is Metal Commodity": True},
+        {"Item Name": "Commercial Grade 20A GFCI Device", "Phase": "Trim-Out", "Target Zone": "Kitchen Layout", "Qty": 25, "Unit Cost ($)": st.session_state.vendor_pricing["Commercial Grade 20A GFCI Device"], "Mins to Install": 15, "Is Metal Commodity": False},
+        {"Item Name": "Specification Grade 20A Toggle Switch", "Phase": "Trim-Out", "Target Zone": "General Lighting", "Qty": 40, "Unit Cost ($)": st.session_state.vendor_pricing["Specification Grade 20A Toggle Switch"], "Mins to Install": 10, "Is Metal Commodity": False}
     ]
     df_takeoff = pd.DataFrame(baseline_mock_manifest)
     
-    total_mat_cost = (df_takeoff["Qty"] * df_takeoff["Unit Cost ($)"]).sum()
+    # Apply Commodity Multiplier Adjustments
+    def apply_market_pricing(row):
+        if row["Is Metal Commodity"]:
+            return round(row["Unit Cost ($)"] * (1 + st.session_state.copper_multiplier), 2)
+        return row["Unit Cost ($)"]
+        
+    df_takeoff["Adjusted Unit Cost ($)"] = df_takeoff.apply(apply_market_pricing, axis=1)
+    
+    # Financial Aggregations
+    total_mat_cost = (df_takeoff["Qty"] * df_takeoff["Adjusted Unit Cost ($)"]).sum()
     total_crew_members = st.session_state.qty_journeymen + st.session_state.qty_helpers
     raw_composite_rate = ((st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)) / total_crew_members
     burdened_rate = raw_composite_rate * (1 + st.session_state.labor_burden_pct)
@@ -156,7 +183,7 @@ else:
     total_labor_cost = total_labor_hours * burdened_rate
     target_gross_bid = (total_mat_cost + total_labor_cost) * (1 + st.session_state.overhead)
 
-    # --- TOP TELEMETRY CARD BLADES ---
+    # --- TOP TELEMETRY METRIC BLADES ---
     m_col1, m_col2, m_col3, m_col4 = st.columns(4)
     with m_col1:
         st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px; color:#64748B; text-transform:uppercase;'>System Gross Valuation</p><h3 style='margin:4px 0 0 0; color:#38BDF8; font-family:monospace;'>${target_gross_bid:,.2f}</h3></div>", unsafe_allow_html=True)
@@ -167,59 +194,142 @@ else:
     with m_col4:
         st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px; color:#64748B; text-transform:uppercase;'>Target Operational Margin</p><h3 style='margin:4px 0 0 0; color:#38BDF8; font-family:monospace;'>{st.session_state.overhead*100:.0f}%</h3></div>", unsafe_allow_html=True)
 
-    # --- TAB NAVIGATION PANELS ---
-    tab_estimation, tab_sourcing, tab_analytics, tab_config = st.tabs([
-        "📊 Data Grid", "🏪 Vendor Router", "🎯 System Metrics", "⚙️ Hardware Parameters"
+    # --- THE COMPREHENSIVE TAB LAYOUT ---
+    tab_estimation, tab_panel, tab_commodity, tab_submittal = st.tabs([
+        "📊 Data Matrix", 
+        "⚡ Three-Phase Panel Schedule", 
+        "📈 Commodity Market Multiplier", 
+        "📁 Executive Submittal Generator"
     ])
 
+    # --- TAB 1: CORE GRIDS ---
     with tab_estimation:
-        edited_df = st.data_editor(df_takeoff, num_rows="dynamic", use_container_width=True, key="stealth_grid")
+        st.write("### 🎛️ Active Multi-Sheet Data Grid Editor")
+        st.data_editor(df_takeoff, num_rows="dynamic", use_container_width=True, key="stealth_grid_master")
 
-    with tab_sourcing:
-        sc_col1, sc_col2 = st.columns([1, 2])
-        with sc_col1:
-            target_supply_house = st.selectbox("Select Counter Node Drop", ["City Electric Supply (CES North Miami)", "Rexel Electrical Supply", "Graybar District Counter"])
-            delivery_method = st.radio("Logistics Pathway", ["Will Call Counter Pickup", "Flatbed Carrier Site Drop"])
-            po_reference_id = st.text_input("PO Frame Index ID", value=f"PO-{random.randint(10000, 99999)}")
-        with sc_col2:
-            st.write("#### 📝 Current Procurement Payload Preview")
-            order_summary_list = [f"• {int(r['Qty'])}x -- {r['Item Name']}" for _, r in edited_df.iterrows() if r["Qty"] > 0]
-            st.markdown("\n".join(order_summary_list))
+    # --- NEW PILLAR 1: THREE-PHASE PANEL SCHEDULE BALANCER ---
+    with tab_panel:
+        st.write("### ⚡ NEC Three-Phase Circuit Load Balancing Matrix")
+        st.caption("Distribute single-phase branching continuous loads across Phase A, B, and C busbars to prevent current oversaturation.")
+        
+        # Simulated distribution architecture
+        p_col1, p_col2 = st.columns([1, 2])
+        with p_col1:
+            st.write("#### ➕ Add Load Entry to Phase Rail")
+            circuit_label = st.text_input("Circuit Load Name Tag", value="CKT-1: Kitchen Receptacles")
+            volt_amps_load = st.number_input("Connected Load Power Footprint (Volt-Amperes)", min_value=100, max_value=10000, value=1800, step=100)
+            target_phase = st.selectbox("Assign Target Phase Busbar", ["Phase A", "Phase B", "Phase C"])
             
-            if st.button("Transmit Secure Order"):
+            if st.button("🔌 Inject Circuit to Panel Main"):
                 ts = datetime.datetime.now().strftime('%H:%M:%S')
-                st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-success'>[ROUTER OUTBOUND]</span> Transmitted order payload frame <span style='color:#FFF;'>{po_reference_id}</span> to counter endpoint '{target_supply_house}'. Secure confirmation handshake verified.")
-                st.toast("Order packet successfully processed.")
-
-    with tab_analytics:
-        an_col1, an_col2 = st.columns(2)
-        with an_col1:
-            alloc_df = pd.DataFrame({
-                "Component Sector": ["Wholesale Items", "Labor Overhead", "Target Profit Buffer"],
-                "Allocation Value ($)": [total_mat_cost, total_labor_cost, (total_mat_cost + total_labor_cost) * st.session_state.overhead]
-            })
-            st.bar_chart(data=alloc_df, x="Component Sector", y="Allocation Value ($)", use_container_width=True)
-        with an_col2:
-            project_days = st.number_input("Contract Operating Timeline Scope (Days)", min_value=1, value=5)
-            max_avail_man_hours = project_days * (total_crew_members * 8)
+                st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-kernel'>[PANEL MATRIX]</span> Injected load '{circuit_label}' ({volt_amps_load}VA) onto {target_phase} bus.")
+                st.toast("Circuit injected successfully!")
+                
+        with p_col2:
+            st.write("#### 🗊 120/208V 3-Phase 4-Wire Panelboard Layout")
             
-            if total_labor_hours > max_avail_man_hours:
-                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>⚠️ TIMELINE CONSTRAINTS EXCEEDED</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Estimated man-hours ({total_labor_hours:.1f}) exceed active crew availability limits. Schedule risk profile elevated.</p></div>", unsafe_allow_html=True)
+            # Interactive visualization of alternating circuits mimicking real hardware panels
+            b_row1, b_bus, b_row2 = st.columns([4, 1, 4])
+            with b_row1:
+                st.markdown("<div class='panel-breaker-even'><b>CKT 1 (A)</b><br>Kitchen Receptacles<br><span style='color:#38BDF8;'>1,800 VA</span></div>", unsafe_allow_html=True)
+                st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+                st.markdown("<div class='panel-breaker-even'><b>CKT 3 (C)</b><br>Lighting Track Main<br><span style='color:#38BDF8;'>1,200 VA</span></div>", unsafe_allow_html=True)
+            with b_bus:
+                st.markdown("<div class='panel-bus-bar'>A</div>", unsafe_allow_html=True)
+                st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+                st.markdown("<div class='panel-bus-bar'>B</div>", unsafe_allow_html=True)
+            with b_row2:
+                st.markdown("<div class='panel-breaker-even'><b>CKT 2 (B)</b><br>A/C Condenser Fan<br><span style='color:#38BDF8;'>2,400 VA</span></div>", unsafe_allow_html=True)
+                st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+                st.markdown("<div class='panel-breaker-even'><b>CKT 4 (A)</b><br>Water Outlet Heater<br><span style='color:#38BDF8;'>3,100 VA</span></div>", unsafe_allow_html=True)
+                
+            st.divider()
+            # Calculate panel equilibrium matrix readings
+            load_a, load_b, load_load_c = 4900, 2400, 1200
+            total_panel_va = load_a + load_b + load_load_c
+            
+            tot_c1, tot_c2, tot_c3 = st.columns(3)
+            tot_c1.metric("Phase A Connected Load", f"{load_a:,.0f} VA")
+            tot_c2.metric("Phase B Connected Load", f"{load_b:,.0f} VA")
+            tot_c3.metric("Phase C Connected Load", f"{load_load_c:,.0f} VA")
+            
+            # Phase unbalance equation logic checking
+            avg_phase = total_panel_va / 3
+            max_deviation = max(abs(load_a - avg_phase), abs(load_b - avg_phase), abs(load_load_c - avg_phase))
+            unbalance_pct = (max_deviation / avg_phase) * 100
+            
+            if unbalance_pct > 15.0:
+                st.warning(f"⚠️ **Phase Equilibrium Alert:** Current unbalance is at **{unbalance_pct:.1f}%**. Re-assign CKT 4 to Phase C to achieve structural balance limits.")
             else:
-                utilization = (total_labor_hours / max_avail_man_hours) * 100 if max_avail_man_hours > 0 else 0
-                st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ WORKLOAD ALLOCATION OPERATIONAL</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Active pipeline is drawing {utilization:.1f}% of crew milestone bandwidth limits.</p></div>", unsafe_allow_html=True)
+                st.success(f"✅ **Panel Balance Safe:** Unbalance is at **{unbalance_pct:.1f}%**.")
 
-    with tab_config:
-        st.session_state.company_name = st.text_input("Subcontractor Workspace Label", value=st.session_state.company_name)
-        st.session_state.qty_journeymen = st.number_input("Active Journeymen Operational Links", min_value=1, value=st.session_state.qty_journeymen)
-        st.session_state.qty_helpers = st.number_input("Active Helper Operational Links", min_value=0, value=st.session_state.qty_helpers)
+    # --- NEW PILLAR 2: COPPER GLOBAL MARKET COMMODITY SIMULATOR ---
+    with tab_commodity:
+        st.write("### 📈 Raw Metal Commodity Price Volatility Multiplier")
+        st.caption("Simulate real-time wholesale pricing risks caused by sudden supply-chain shifts in raw copper and galvanized steel indices.")
+        
+        com_col1, com_col2 = st.columns([1, 2])
+        with com_col1:
+            volatility_selection = st.slider("Set Simulated Commodity Market Spike (%)", -20, 50, 0, step=5)
+            if st.button("📈 Lock Risk Multiplier to Catalog Rates"):
+                st.session_state.copper_multiplier = volatility_selection / 100
+                ts = datetime.datetime.now().strftime('%H:%M:%S')
+                st.session_state.sys_log_frames.append(f"<span class='terminal-timestamp'>[{ts}]</span> <span class='terminal-warning'>[MARKET SYNC]</span> Applied {volatility_selection}% price shift profile to all physical metallic inventory items.")
+                st.success("Multiplier pinned safely to material data-frames.")
+                time.sleep(0.4)
+                st.rerun()
+                
+        with com_col2:
+            st.write("#### 🛡️ Margin Deviation Performance Review")
+            st.write(f"Active Volatility Burden: **{st.session_state.copper_multiplier*100:+.0f}% Deviation**")
+            st.write(f"Updated Adjusted Material Estimate Total: **${total_mat_cost:,.2f}**")
+            st.write(f"Recalibrated Gross Target Proposal Price: **${target_gross_bid:,.2f}**")
 
-    # --- THE OVERHAULED CYBER TELEMETRY TERMINAL CONSOLE ---
+    # --- NEW PILLAR 3: EXECUTIVE CLIENT-FACING SUBMITTAL GENERATOR ---
+    with tab_submittal:
+        st.write("### 📁 Automated Client Submittal & Compliance Documentation")
+        st.caption("Compile project inventories, calculated box volumes, and NEC codes into an official engineering packet document package.")
+        
+        sub_col1, sub_col2 = st.columns(2)
+        with sub_col1:
+            project_architect_label = st.text_input("Lead Project Architect / Contact", value="Maksym Engineering Group")
+            project_location_tag = st.text_input("Project Site Destination Address", value="North Miami Beach District, FL")
+            include_compliance_logs = st.checkbox("Attach System Telemetry Logs Stream?", value=True)
+            
+        with sub_col2:
+            st.write("#### 📥 Document Compilation Output Profile")
+            st.info("📄 **Packet Type:** Official Electrical Submittal Briefing | **Status:** Ready for Stamped Sign-off")
+            
+            # High-fidelity text simulation preview panel layout
+            submittal_preview_text = f"""
+            ===========================================================
+            COMMERCIAL ELECTRICAL SUBMITTAL PROPOSAL PACKET
+            ISSUED BY: {st.session_state.company_name.upper()}
+            TARGET ARCHITECT: {project_architect_label.upper()}
+            LOCATION: {project_location_tag.upper()}
+            DATE COMPILED: {datetime.date.today().strftime('%m/%d/%Y')}
+            ===========================================================
+            1. PROJECT FINANCIAL METRICS
+               - Total Estimated Contract Bid: ${target_gross_bid:,.2f}
+               - Raw Material Allotment Footprint: ${total_mat_cost:,.2f}
+               - Total Production Burden Labor: {total_labor_hours:.1f} Man-Hours
+            
+            2. NATIONAL ELECTRICAL CODE (NEC) COMPLIANCE PROFILE
+               - Box Sizing Parameters: Compiled per NEC Article 314.16
+               - Branch Distribution Balance: Balanced per 3-Phase Busbar Guidelines
+            ===========================================================
+            """
+            st.text_area("Submittal Brief Layout Preview Frame", value=submittal_preview_text, height=180)
+            
+            # Complete raw file conversion export hook download wrapper button
+            buffer_submittal = BytesIO()
+            buffer_submittal.write(submittal_preview_text.encode('utf-8'))
+            st.download_button("📥 Download Compiled Submittal Brief (.txt)", data=buffer_submittal.getvalue(), file_name="Project_Submittal_Package.txt")
+
+    # --- THE LOWER TELEMETRY ACTIVITIES STREAM LOG ---
     st.divider()
-    st.markdown("<p style='color:#475569; text-transform:uppercase; letter-spacing:1px; font-size:10px; margin-bottom:6px; font-weight:600;'>📟 SYSTEM CORE INTELLIGENCE ACTIVITY TERMINAL</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#475569; text-transform:uppercase; letter-spacing:1px; font-size:10px; margin-bottom:4px; font-weight:600;'>📟 SYSTEM CORE INTELLIGENCE ACTIVITY TERMINAL</p>", unsafe_allow_html=True)
     
-    # Render the logs cleanly inside our custom responsive HTML container box
-    # Reversing the listing order keeps the freshest server packets streaming directly onto the top line of the terminal screen view
     reversed_logs_html = "".join([f"<div>{frame}</div>" for frame in st.session_state.sys_log_frames[::-1]])
     st.markdown(f"<div class='cyber-terminal-output'>{reversed_logs_html}</div>", unsafe_allow_html=True)
     
