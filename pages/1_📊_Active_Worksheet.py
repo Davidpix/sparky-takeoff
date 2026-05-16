@@ -18,6 +18,18 @@ if "company_name" not in st.session_state:
     st.error("⚠️ Please return to the main Dashboard Gateway page to initialize your session parameters.")
     st.stop()
 
+# Fallback structures for safety
+if "qty_journeymen" not in st.session_state: st.session_state.qty_journeymen = 1
+if "rate_journeyman" not in st.session_state: st.session_state.rate_journeyman = 45.0
+if "qty_helpers" not in st.session_state: st.session_state.qty_helpers = 1
+if "rate_helper" not in st.session_state: st.session_state.rate_helper = 22.0
+if "labor_burden_pct" not in st.session_state: st.session_state.labor_burden_pct = 0.30
+
+# --- MATH ENGINE: CALCULATE BLENDED LABOUR RATES ON THE FLY ---
+total_crew_members = st.session_state.qty_journeymen + st.session_state.qty_helpers
+raw_composite_rate = ((st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)) / total_crew_members
+fully_burdened_labor_rate = raw_composite_rate * (1 + st.session_state.labor_burden_pct)
+
 # Initialize price DB safety keys if a user goes straight to page 1
 if "vendor_pricing" not in st.session_state:
     st.session_state.vendor_pricing = {
@@ -43,14 +55,11 @@ with st.sidebar:
     
     st.divider()
     st.metric("Live Commodity Index Cost Multiplier", f"{((market_multiplier - 1) * 100):.2f}%")
+    st.metric("Active Burdened Billing Rate", f"${fully_burdened_labor_rate:,.2f}/hr")
 
 # --- CORE TEXT SCANNING ENGINE ---
 @st.cache_data
 def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw, prices_dict):
-    """
-    Scans the blueprint text using custom patterns.
-    Drives unit material costs directly from the custom Vendor Matrix database.
-    """
     pdf_file = BytesIO(uploaded_file_bytes)
     full_text = ""
     with pdfplumber.open(pdf_file) as pdf:
@@ -63,7 +72,6 @@ def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw, pric
         parts = [p.strip() for p in raw_input.split(",")]
         return r"(\d+)\s*(?:-|x)?\s*(?:amp)?\s*(?:" + "|".join(parts) + ")"
 
-    # CONNECTED DIRECTLY TO THE VENDOR PRICING DATABASE
     electrical_manifest = {
         "Main Panel Enclosure": {"pattern": clean_pattern(p_kw), "cost": prices_dict["Main Panel Enclosure"], "mins": 120, "phase": "Rough-In", "zone": "Service Room"},
         "GFCI Receptacle": {"pattern": clean_pattern(g_kw), "cost": prices_dict["GFCI Receptacle"], "mins": 20, "phase": "Trim-Out", "zone": "Wet Areas (Kitchen/Bath)"},
@@ -77,18 +85,13 @@ def process_and_scan_blueprint(uploaded_file_bytes, p_kw, g_kw, d_kw, s_kw, pric
         total_qty = sum(int(match) for match in matches if match.isdigit())
         
         scanned_results.append({
-            "Item Name": item, 
-            "Phase": info["phase"], 
-            "Zone/Location": info["zone"],
-            "Detected Qty": total_qty, 
-            "Unit Cost ($)": info["cost"], 
-            "Mins to Install": info["mins"]
+            "Item Name": item, "Phase": info["phase"], "Zone/Location": info["zone"],
+            "Detected Qty": total_qty, "Unit Cost ($)": info["cost"], "Mins to Install": info["mins"]
         })
     return scanned_results
 
 # --- EXECUTE ACTIVE SCAN DATASTREAM ---
 if st.session_state.uploaded_file_bytes is not None:
-    # Pass the vendor pricing dictionary token straight into the caching thread
     scanned_data = process_and_scan_blueprint(
         st.session_state.uploaded_file_bytes, 
         panel_kw, gfci_kw, disc_kw, switch_kw, 
@@ -104,28 +107,20 @@ else:
 
 master_df = pd.DataFrame(scanned_data)
 
-# Inject Measured Canvas Conduit Footage row from vendor matrix price tokens
+# Inject Measured Canvas Conduit Footage
 if st.session_state.conduit_runs > 0:
     conduit_row = pd.DataFrame([{
-        "Item Name": "3/4\" EMT Conduit Run (Linear Ft)", 
-        "Phase": "Rough-In", 
-        "Zone/Location": "Branch Run Takeoff", 
-        "Detected Qty": int(st.session_state.conduit_runs), 
-        "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Conduit Run (Linear Ft)"], 
-        "Mins to Install": 4
+        "Item Name": "3/4\" EMT Conduit Run (Linear Ft)", "Phase": "Rough-In", "Zone/Location": "Branch Run Takeoff", 
+        "Detected Qty": int(st.session_state.conduit_runs), "Unit Cost ($)": st.session_state.vendor_pricing["3/4\" EMT Conduit Run (Linear Ft)"], "Mins to Install": 4
     }])
     master_df = pd.concat([master_df, conduit_row], ignore_index=True)
 
-# Inject Vision Computer Vision Count row using custom pricing matrix structures
+# Inject Vision Computer Vision Count row
 for item_name, count in st.session_state.vision_counts.items():
     if count > 0:
         vision_row = pd.DataFrame([{
-            "Item Name": f"AI Scan: {item_name}", 
-            "Phase": "Trim-Out", 
-            "Zone/Location": "Vision Takeoff", 
-            "Detected Qty": count, 
-            "Unit Cost ($)": 24.50, # Vision base profile fallback
-            "Mins to Install": 25
+            "Item Name": f"AI Scan: {item_name}", "Phase": "Trim-Out", "Zone/Location": "Vision Takeoff", 
+            "Detected Qty": count, "Unit Cost ($)": 24.50, "Mins to Install": 25
         }])
         master_df = pd.concat([master_df, vision_row], ignore_index=True)
 
@@ -133,21 +128,20 @@ for item_name, count in st.session_state.vision_counts.items():
 st.caption("Review compiled data metrics below. Double-click any quantity cell to adjust.")
 edited_df = st.data_editor(master_df, num_rows="dynamic", use_container_width=True)
 
-# Force data types for downstream mathematical execution
 edited_df["Detected Qty"] = pd.to_numeric(edited_df["Detected Qty"]).fillna(0)
 edited_df["Unit Cost ($)"] = pd.to_numeric(edited_df["Unit Cost ($)"]).fillna(0)
 edited_df["Mins to Install"] = pd.to_numeric(edited_df["Mins to Install"]).fillna(0)
 
-# Aggregation calculations
+# Aggregation calculations driven by the fully burdened composite crew rate
 total_mat = (edited_df["Detected Qty"] * edited_df["Unit Cost ($)"]).sum()
-total_labor = ((edited_df["Detected Qty"] * edited_df["Mins to Install"] / 60) * st.session_state.labor_rate).sum()
+total_labor = ((edited_df["Detected Qty"] * edited_df["Mins to Install"] / 60) * fully_burdened_labor_rate).sum()
 final_bid = (total_mat + total_labor) * (1 + st.session_state.overhead)
 
 # --- LIVE METRIC DASHBOARD STRIPS ---
 st.divider()
 colA, colB, colC = st.columns(3)
 colA.metric("Material Cost Subtotal", f"${total_mat:,.2f}")
-colB.metric("Labor Cost Subtotal", f"${total_labor:,.2f}")
+colB.metric("Fully Burdened Labor Subtotal", f"${total_labor:,.2f}")
 colC.metric("Target Contract Price", f"${final_bid:,.2f}", delta=f"{st.session_state.overhead * 100:.0f}% Gross Margin Linked")
 
 # --- HIGH-FIDELITY EXCEL COMPILATION HOOK ---
@@ -168,7 +162,7 @@ def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_
     ws1["A1"] = f"{comp_name.upper()} PROPOSAL"; ws1["A1"].font = title_font
     ws1.merge_cells("A4:B4"); ws1["A4"] = "PROJECT FINANCIAL SUMMARY"; ws1["A4"].fill = charcoal_fill; ws1["A4"].font = section_font
     
-    metrics = [("Material Cost Subtotal", mat_cost), ("Labor Cost Allocation", labor_cost), ("Labor Rate Configuration ($/hr)", rate), ("Markup Burden Percentage", overhead_pct)]
+    metrics = [("Material Cost Subtotal", mat_cost), ("Burdened Labor Allocation", labor_cost), ("Blended Crew Composite Rate ($/hr)", rate), ("Markup Burden Percentage", overhead_pct)]
     for idx, (m, v) in enumerate(metrics, start=5):
         ws1[f"A{idx}"] = m; ws1[f"A{idx}"].font = regular_font; ws1[f"A{idx}"].border = thin_border
         ws1[f"B{idx}"] = v; ws1[f"B{idx}"].font = regular_font; ws1[f"B{idx}"].border = thin_border
@@ -204,7 +198,6 @@ def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_
     wb.save(output)
     return output.getvalue()
 
-# --- DOCUMENT GENERATION INTERFACE ---
 st.write("### 📥 Document Distribution Panel")
-excel_data = generate_executive_excel(edited_df, total_mat, total_labor, final_bid, st.session_state.overhead, st.session_state.labor_rate, st.session_state.company_name)
+excel_data = generate_executive_excel(edited_df, total_mat, total_labor, final_bid, st.session_state.overhead, fully_burdened_labor_rate, st.session_state.company_name)
 st.download_button("🚀 Export Executive Proposal Package (.xlsx)", data=excel_data, file_name="Executive_Bid.xlsx")
