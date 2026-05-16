@@ -12,8 +12,8 @@ import math
 
 st.set_page_config(page_title="Active Worksheet", layout="wide")
 
-st.title("📊 Engineering Control Worksheet & Takeoff Engine")
-st.write("This portal executes automated NEC compliance cross-examinations, structural voltage drop physics calculations, and advanced photometric layout matrices.")
+st.title("📊 Enterprise Engineering Control & Contract Worksheet")
+st.write("This platform executes automated NEC compliance cross-examinations, structural voltage drop physics calculations, and advanced commercial contract breakouts.")
 
 if "company_name" not in st.session_state:
     st.error("⚠️ Please return to the main Dashboard Gateway page to initialize your session parameters.")
@@ -50,10 +50,9 @@ with eng_col2:
 with eng_col3:
     apply_kitting = st.checkbox("Enable Smart Assembly Kitting (Explode Counts)", value=True)
 
-# --- NEW: ADVANCED PHOTOMETRIC & POWER DENSITY CALCULATION ENGINE ---
+# --- PHOTOMETRIC & POWER DENSITY CALCULATION ENGINE ---
 st.divider()
 st.write("### 💡 Automated Photometric Layout & NEC Load Density Planner")
-st.caption("Calculate light fixture distributions using the Zonal Cavity Lumens Method and cross-reference service sizing limits per NEC 220.12.")
 
 photo_col1, photo_col2, photo_col3 = st.columns(3)
 with photo_col1:
@@ -71,17 +70,14 @@ with photo_col3:
     va_multiplier = 2.0 if "Residential" in occupancy_type else (1.3 if "Office" in occupancy_type else 1.9)
 
 # Compute Photometrics Matrix
-# N = (E * A) / (Lumens * CU * LLF)
 cu_factor = 0.60
 llf_factor = 0.85
 calculated_fixtures_needed = math.ceil((target_footcandles * room_area) / (fixture_lumen_output * cu_factor * llf_factor))
-
-# Compute NEC Service Load
 nec_minimum_va_load = room_area * va_multiplier
 
 p_res1, p_res2 = st.columns(2)
-p_res1.success(f"💡 **Photometric Recommendation:** To maintain an optimal illumination level of {target_footcandles} footcandles, you must deploy exactly **{calculated_fixtures_needed} Recessed LED Fixtures** in this zone.")
-p_res2.info(f"⚡ **NEC Load Calculation:** Minimum continuous power footprint for this room area is locked at **{nec_minimum_va_load:,.1f} Volt-Amperes (VA)** per NEC Table 220.12 specifications.")
+p_res1.success(f"💡 **Photometric Recommendation:** Deploy **{calculated_fixtures_needed} Recessed LED Fixtures** in this zone.")
+p_res2.info(f"⚡ **NEC Load Calculation:** Minimum continuous power footprint: **{nec_minimum_va_load:,.1f} Volt-Amperes (VA)**.")
 
 # --- READ DISTRIBUTOR MATRIX RATES ---
 if "vendor_pricing" not in st.session_state:
@@ -106,30 +102,13 @@ if "sheet_ledger" in st.session_state:
 
 rows_to_compile = []
 
-# Automatically inject the photometrically designed LED fixtures into our pricing matrices
 if calculated_fixtures_needed > 0:
     rows_to_compile.append({
         "Item Name": "Specification Grade 2x2 Recessed LED Troffer", "Phase": "Trim-Out", "Zone/Location": "Photometric Layout Zone",
         "Detected Qty": int(calculated_fixtures_needed), "Unit Cost ($)": 65.00, "Mins to Install": 25
     })
 
-# --- EXECUTE 3D VOLTAGE DROP PHYSICS CALCULATION ---
 if total_raw_footage > 0:
-    st.divider()
-    st.write("### ⚡ Dynamic Electrical Performance Analysis")
-    k_constant = 12.9  
-    computed_v_drop = (2 * k_constant * circuit_amperage * total_raw_footage) / active_cm
-    v_drop_percentage = (computed_v_drop / target_voltage) * 100
-    
-    v_colA, v_colB = st.columns(2)
-    v_colA.metric("Calculated Line Voltage Drop", f"{computed_v_drop:.2f} Volts")
-    
-    if v_drop_percentage > 3.0:
-        v_colB.metric("Voltage Drop Ratio", f"{v_drop_percentage:.2f}%", delta="⚠️ EXCEEDS 3% NEC THRESHOLD", delta_color="inverse")
-    else:
-        v_colB.metric("Voltage Drop Ratio", f"{v_drop_percentage:.2f}%", delta="✅ COMPLIANT DESIGN")
-
-    # --- EXECUTE MECHANICAL CONDUIT MATERIALIZER & NEC COMPLIANCE ---
     conduit_sticks = math.ceil(total_raw_footage / 10.0)
     rows_to_compile.append({
         "Item Name": f"3/4\" EMT Conduit (10ft Sticks) - Formed for {wire_size_selection}", "Phase": "Rough-In", "Zone/Location": active_zone_tag,
@@ -236,17 +215,66 @@ edited_df["Detected Qty"] = pd.to_numeric(edited_df["Detected Qty"]).fillna(0)
 edited_df["Unit Cost ($)"] = pd.to_numeric(edited_df["Unit Cost ($)"]).fillna(0)
 edited_df["Mins to Install"] = pd.to_numeric(edited_df["Mins to Install"]).fillna(0)
 
-total_mat = (edited_df["Detected Qty"] * edited_df["Unit Cost ($)"]).sum()
-total_labor = ((edited_df["Detected Qty"] * edited_df["Mins to Install"] / 60) * fully_burdened_labor_rate).sum()
-final_bid = (total_mat + total_labor) * (1 + st.session_state.overhead)
+# Execute Financial Aggregations
+edited_df["Line_Material"] = edited_df["Detected Qty"] * edited_df["Unit Cost ($)"]
+edited_df["Line_Labor"] = (edited_df["Detected Qty"] * edited_df["Mins to Install"] / 60) * fully_burdened_labor_rate
 
-colA, colB, colC = st.columns(3)
-colA.metric("Material Cost Subtotal", f"${total_mat:,.2f}")
-colB.metric("Fully Burdened Labor Subtotal", f"${total_labor:,.2f}")
-colC.metric("Target Contract Price", f"${final_bid:,.2f}", delta=f"{st.session_state.overhead * 100:.0f}% Gross Margin Linked")
+total_mat = edited_df["Line_Material"].sum()
+total_labor = edited_df["Line_Labor"].sum()
+base_contract_value = (total_mat + total_labor) * (1 + st.session_state.overhead)
+
+# --- NEW PILLAR 1: SCHEDULE OF VALUES (SOV) MILESTONE GENERATOR ---
+st.divider()
+st.write("### 📑 Schedule of Values (SOV) Progressive Project Breakdown")
+st.caption("Commercial project breakdown showing itemized project costs mapped cleanly to specialized project installation phases.")
+
+sov_rows = []
+for phase, group in edited_df.groupby("Phase"):
+    phase_mat = group["Line_Material"].sum()
+    phase_labor = group["Line_Labor"].sum()
+    phase_total_with_markup = (phase_mat + phase_labor) * (1 + st.session_state.overhead)
+    allocation_pct = (phase_total_with_markup / base_contract_value * 100) if base_contract_value > 0 else 0
+    
+    sov_rows.append({
+        "Construction Phase Milestone": phase,
+        "Allocated Material Cost": round(phase_mat, 2),
+        "Allocated Burdened Labor": round(phase_labor, 2),
+        "Total Milestone Billing Sum": round(phase_total_with_markup, 2),
+        "Contract Allocation Ratio": f"{allocation_pct:.1f}%"
+    })
+
+sov_df = pd.DataFrame(sov_rows)
+st.dataframe(sov_df, use_container_width=True, hide_index=True)
+
+# --- NEW PILLAR 2: DYNAMIC CHANGE-ORDER VARIATION ENGINE ---
+st.divider()
+st.write("### 📝 Active Project Change-Order Management System")
+st.caption("Layer field variations over the baseline contract pricing profile to calculate adjusted net values dynamically.")
+
+with st.expander("➕ Open Live Change-Order Modification Console", expanded=False):
+    co_col1, co_col2, co_col3 = st.columns(3)
+    with co_col1:
+        co_title = st.text_input("Change Order Designation Title", value="CO #1: Owner Added Kitchen Circuits")
+    with co_col2:
+        co_mat_adjust = st.number_input("Variation Material Adjustment ($ Value)", value=0.0, step=50.0)
+    with co_col3:
+        co_hours_adjust = st.number_input("Variation Labor Adjustment (Man-Hours)", value=0.0, step=1.0)
+        
+    co_labor_cost = co_hours_adjust * fully_burdened_labor_rate
+    co_total_gross = (co_mat_adjust + co_labor_cost) * (1 + st.session_state.overhead)
+    adjusted_final_contract = base_contract_value + co_total_gross
+    
+    st.write("---")
+    m_col1, m_col2, m_col3 = st.columns(3)
+    m_col1.metric("Original Baseline Contract Value", f"${base_contract_value:,.2f}")
+    m_col2.metric("Net Change-Order Cost Impact", f"${co_total_gross:,.2f}", delta=f"{co_hours_adjust:.1f} Hrs Variant Impact")
+    m_col3.metric("Adjusted Target Contract Value", f"${adjusted_final_contract:,.2f}", delta="Dynamic Variation Sync Active")
+
+st.divider()
+st.write("### 📥 Executive Proposal Distribution")
 
 # --- HIGH-FIDELITY EXCEL COMPILATION HOOK ---
-def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_pct, rate, comp_name):
+def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_pct, rate, comp_name, sov_dataframe):
     output = BytesIO()
     wb = openpyxl.Workbook()
     font_family = "Segoe UI"
@@ -272,6 +300,25 @@ def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_
     ws1["A10"] = "TOTAL TARGET CONTRACT BID"; ws1["A10"].font = bold_font; ws1["A10"].fill = gold_accent_fill; ws1["A10"].border = thin_border
     ws1["B10"] = total_bid; ws1["B10"].font = Font(name=font_family, size=12, bold=True, color="C00000"); ws1["B10"].fill = gold_accent_fill; ws1["B10"].border = thin_border; ws1["B10"].number_format = '$#,##0.00'
     
+    # Inject SOV Table directly into Excel layout
+    start_row = 13
+    ws1.cell(row=start_row, column=1, value="SCHEDULE OF VALUES (SOV) PHASE BREAKOUT").font = section_font
+    ws1.merge_cells(start_row=start_row, start_column=1, end_row=start_row, end_column=4)
+    ws1.cell(row=start_row, column=1).fill = charcoal_fill
+    
+    sov_headers = ["Phase", "Material Cost", "Burdened Labor", "Total Milestone Sum"]
+    for c_idx, h in enumerate(sov_headers, start=1):
+        cell = ws1.cell(row=start_row+1, column=c_idx, value=h)
+        cell.font = bold_font; cell.fill = ice_fill; cell.border = thin_border
+        
+    for r_idx, r_data in sov_dataframe.iterrows():
+        cur_r = start_row + 2 + r_idx
+        ws1.cell(row=cur_r, column=1, value=r_data["Construction Phase Milestone"]).font = regular_font
+        ws1.cell(row=cur_r, column=2, value=r_data["Allocated Material Cost"]).number_format = '$#,##0.00'
+        ws1.cell(row=cur_r, column=3, value=r_data["Allocated Burdened Labor"]).number_format = '$#,##0.00'
+        ws1.cell(row=cur_r, column=4, value=r_data["Total Milestone Billing Sum"]).number_format = '$#,##0.00'
+        for c in range(1, 5): ws1.cell(row=cur_r, column=c).border = thin_border
+    
     ws2 = wb.create_sheet(title="Bill of Materials"); ws2.views.sheetView[0].showGridLines = True
     headers = ["Component Name", "Phase", "Target Zone", "Takeoff Qty", "Estimated Unit Cost"]
     for idx, t in enumerate(headers, start=1):
@@ -284,7 +331,6 @@ def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_
         ws2.cell(row=r, column=3, value=r_data["Zone/Location"]).font = regular_font
         ws2.cell(row=r, column=4, value=r_data["Detected Qty"]).number_format = '#,##0'
         ws2.cell(row=r, column=5, value=r_data["Unit Cost ($)"]).number_format = '$#,##0.00'
-        
         if r_idx % 2 == 0:
             for col_c in range(1, 6): ws2.cell(row=r, column=col_c).fill = ice_fill
         for col_c in range(1, 6): ws2.cell(row=r, column=col_c).border = thin_border
@@ -299,6 +345,5 @@ def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_
     wb.save(output)
     return output.getvalue()
 
-st.write("### 📥 Document Distribution Panel")
-excel_data = generate_executive_excel(edited_df, total_mat, total_labor, final_bid, st.session_state.overhead, fully_burdened_labor_rate, st.session_state.company_name)
+excel_data = generate_executive_excel(edited_df, total_mat, total_labor, base_contract_value, st.session_state.overhead, fully_burdened_labor_rate, st.session_state.company_name, sov_df)
 st.download_button("🚀 Export Executive Proposal Package (.xlsx)", data=excel_data, file_name="Executive_Bid.xlsx")
