@@ -38,7 +38,7 @@ lang_dict = {
         "home": "🏠 Command Center", "matrix": "📊 Trade Matrix", "takeoff": "📐 Automated Takeoff", "gc_budg": "🏗️ GC Budget", 
         "fin": "💳 OmniPay & Escrow", "bank": "🏦 Bank Portal", "clinic": "🏥 Clinic Infra & Audit", 
         "co_lien": "📝 Change Orders & Liens", "bid": "🎯 AI Bid Optimizer", "sched": "📅 Trade Calendar", 
-        "ai_core": "🧠 OmniMind AI Core", "dash": "📊 Telemetry Dashboard", "api": "☁️ Cloud API"
+        "ai_core": "🧠 OmniMind AI Core", "dash": "📊 Telemetry Dashboard", "comm_rollout": "🏢 Commercial Rollout", "api": "☁️ Cloud API"
     }
 }
 
@@ -54,12 +54,24 @@ if "bank_connected" not in st.session_state: st.session_state.bank_connected = T
 if "change_orders" not in st.session_state: st.session_state.change_orders = []
 if "transaction_history" not in st.session_state: st.session_state.transaction_history = []
 
+# Persistent state arrays for Commercial Multi-Unit Simulator (Angel's scaling engine)
+if "commercial_units" not in st.session_state:
+    st.session_state.commercial_units = pd.DataFrame([
+        {"Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed"},
+        {"Floor": "Floor 01", "Unit Number": "Room 102", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed"},
+        {"Floor": "Floor 02", "Unit Number": "Room 201", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "In Shop Progress", "Installation Status": "Staged On-Site"},
+        {"Floor": "Floor 02", "Unit Number": "Room 202", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "In Shop Progress", "Installation Status": "Pending Delivery"},
+        {"Floor": "Floor 03", "Unit Number": "Room 301", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Raw Slab Inventory", "Installation Status": "Unscheduled"},
+        {"Floor": "Floor 03", "Unit Number": "Room 302", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Raw Slab Inventory", "Installation Status": "Unscheduled"}
+    ])
+
 # --- 5. STYLING INJECTION ---
 st.markdown("""
 <style>
     .stApp { background-color: #070B12 !important; color: #94A3B8 !important; }
     h1, h2, h3, h4, h5, h6 { color: #CBD5E1 !important; font-weight: 500 !important; }
     .unifi-stealth-blade { background-color: #0F172A !important; border: 1px solid #1E293B !important; border-left: 3px solid #38BDF8 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
+    .unifi-stealth-green { background-color: #0B1C16 !important; border: 1px solid #143A2E !important; border-left: 3px solid #10B981 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -86,35 +98,20 @@ if not st.session_state.user_authenticated:
 
 t = lang_dict[st.session_state.lang]
 
-# --- 7. CROSS-TABLE DATA EXTRACTIONS ---
-raw_cloud_data = supabase_api_call(endpoint="materials", method="GET", params={"user_email": f"eq.{st.session_state.user_email}"})
-total_labor_hours = 0.0
-total_material_cost = 0.0
-
-if raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_data) > 0:
-    full_df = pd.DataFrame(raw_cloud_data)
-    df_elec_clean = full_df[full_df["trade_type"] == "Electrical"]
-    total_material_cost = (df_elec_clean["quantity"] * df_elec_clean["cost_per_unit"]).sum()
-    total_labor_hours = ((df_elec_clean["quantity"] * df_elec_clean["labor_minutes"]) / 60).sum()
-
-calculated_duration_days = max(1, math.ceil(total_labor_hours / 8)) if total_labor_hours > 0 else 5
-
-# --- 8. SIDEBAR CONTROL PANEL ---
+# --- 7. SIDEBAR CONTROL PANEL ---
 st.sidebar.title("🌍 OmniBuild OS")
 st.sidebar.write(f"🏢 **Entity:** `{st.session_state.company_name}`")
 st.sidebar.divider()
 
-if "General Contractor" in st.session_state.user_role:
-    menu_options = [t["home"], t["gc_budg"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["api"]]
-else:
-    menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["api"]]
+# Dynmically adjust menus to include the brand new Commercial Scaling module
+menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["api"]]
 
 selected_page = st.sidebar.radio("Navigation Menu", menu_options)
 st.sidebar.divider()
 if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=True):
     st.session_state.user_authenticated = False; st.rerun()
 
-# --- 9. MODULE ROUTING CONTAINER ---
+# --- 8. MODULE ROUTING CONTAINER ---
 if selected_page == t["home"]: st.write(f"### {t['home']}")
 elif selected_page == t["matrix"]: st.write(f"### {t['matrix']}")
 elif selected_page == t["takeoff"]: st.write(f"### {t['takeoff']}")
@@ -125,55 +122,57 @@ elif selected_page == t["fin"]: st.write(f"### {t['fin']}")
 elif selected_page == t["bank"]: st.write(f"### {t['bank']}")
 elif selected_page == t["sched"]: st.write(f"### {t['sched']}")
 elif selected_page == t["ai_core"]: st.write(f"### {t['ai_core']}")
+elif selected_page == t["dash"]: st.write(f"### {t['dash']}")
 elif selected_page == t["api"]: st.write(f"### {t['api']}")
 
-# NEW ARCHITECTURE MODULE: VISUAL TELEMETRY ANALYTICS DASHBOARD
-elif selected_page == t["dash"]:
-    st.write(f"### {t['dash']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Executive Telemetry Control Panel</b><br>High-fidelity dynamic charting mapping production burn rates and cash runway velocities.</div>", unsafe_allow_html=True)
+# NEW ARCHITECTURE MODULE: COMMERCIAL MULTI-UNIT ROLLOUT TARGET ENGINE
+elif selected_page == t["comm_rollout"]:
+    st.write(f"### {t['comm_rollout']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>Multi-Unit High-Density Real Estate Scaling Portal</b><br>Track room-by-room fabrication streams, floor allocation statuses, and high-volume commercial production velocity metrics.</div>", unsafe_allow_html=True)
     
-    # Grid Row 1: Key Performance Metrics
-    kpi1, kpi2, kpi3 = st.columns(3)
-    kpi1.metric("Escrow Liquidation Runway", f"${st.session_state.escrow_locked:,.2f}", "+12.4%")
-    kpi2.metric("Liquid Capital Density", f"${st.session_state.wallet_balance:,.2f}", "+5.2%")
-    kpi3.metric("Project Production Velocity", f"{calculated_duration_days} Days", "On Target")
+    # Calculate commercial production telemetry dynamically
+    total_units = len(st.session_state.commercial_units)
+    installed_units = (st.session_state.commercial_units["Installation Status"] == "Fully Installed").sum()
+    rollout_percentage = (installed_units / total_units * 100) if total_units > 0 else 0.0
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total Project Contract Units", f"{total_units} High-End Suites")
+    c2.metric("Handed-Over Fully Installed Rooms", f"{installed_units} / {total_units} Units")
+    c3.metric("Project Total Completion Velocity", f"{rollout_percentage:.1f}%")
     
     st.divider()
     
-    # Grid Row 2: Visual Chart Paneling
-    col_chart_left, col_chart_right = st.columns(2)
+    col_grid, col_visual = st.columns([1.5, 1])
     
-    with col_chart_left:
-        st.write("#### 📈 Financial Runway Variance (Weekly Projection)")
-        # Simulated chronological trend line tracking funding depletion curves
-        runway_data = pd.DataFrame({
-            "Project Week": ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"],
-            "Locked Escrow ($)": [st.session_state.escrow_locked + 20000, st.session_state.escrow_locked + 10000, st.session_state.escrow_locked, st.session_state.escrow_locked - 15000, st.session_state.escrow_locked - 30000],
-            "Liquid Wallet ($)": [15000, 25000, st.session_state.wallet_balance, st.session_state.wallet_balance + 10000, st.session_state.wallet_balance + 25000]
-        }).melt("Project Week", var_name="Financial Account", value_name="Balance ($)")
+    with col_grid:
+        st.write("#### 🧱 Multi-Unit Floor Plan Ledger Matrix")
+        st.caption("Double-click fields to update stone fabrication pipeline or installation states for hotel tower rollouts:")
         
-        line_chart = alt.Chart(runway_data).mark_line(point=True, strokeWidth=3).encode(
-            x='Project Week:N',
-            y='Balance ($):Q',
-            color=alt.Color('Financial Account:N', scale=alt.Scale(range=['#F59E0B', '#10B981']))
-        ).properties(height=300, width='container')
+        updated_comm_df = st.data_editor(st.session_state.commercial_units, use_container_width=True, num_rows="dynamic")
         
-        st.altair_chart(line_chart, use_container_width=True)
+        if st.button("💾 Synchronize Commercial Ledger State", use_container_width=True):
+            st.session_state.commercial_units = updated_comm_df
+            st.success("Commercial multi-unit status matrix cleanly synced!")
+            time.sleep(0.5); st.rerun()
+            
+    with col_visual:
+        st.write("#### 📊 Logistics Pipeline Allocation")
         
-    with col_chart_right:
-        st.write("#### 📊 Labor Deployment Burn (Estimated vs Actual Hours)")
-        # Simulated labor matrix values mapping operational metrics
-        labor_burn_data = pd.DataFrame({
-            "Trade Vector": ["Conduit Routing", "Device Install", "Panel Termination", "System Tuning"],
-            "Estimated Hours": [total_labor_hours * 0.4, total_labor_hours * 0.3, total_labor_hours * 0.2, total_labor_hours * 0.1],
-            "Actual Consumed": [total_labor_hours * 0.38, total_labor_hours * 0.25, 0.0, 0.0]
-        }).melt("Trade Vector", var_name="Time Metric", value_name="Man-Hours")
+        # Build an interactive chart breaking down inventory stages for commercial developers
+        chart_data = st.session_state.commercial_units.groupby("Fabrication Status").size().reset_name_params = pd.DataFrame(st.session_state.commercial_units["Fabrication Status"].value_counts()).reset_index()
+        chart_data.columns = ["Status Phase", "Total Units Count"]
         
-        bar_chart = alt.Chart(labor_burn_data).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-            x=alt.X('Time Metric:N', title=None),
-            y=alt.Y('Man-Hours:Q', title="Hours Spent"),
-            color=alt.Color('Time Metric:N', scale=alt.Scale(range=['#38BDF8', '#475569'])),
-            column=alt.Column('Trade Vector:N', title=None)
-        ).properties(height=280, width=100)
+        status_chart = alt.Chart(chart_data).mark_bar(cornerRadiusTopRight=3, cornerRadiusBottomRight=3, size=24).encode(
+            x=alt.X('Total Units Count:Q', title="Number of High-End Suites"),
+            y=alt.Y('Status Phase:N', sort='-x', title=None),
+            color=alt.Color('Status Phase:N', scale=alt.Scale(range=['#10B981', '#38BDF8', '#475569']))
+        ).properties(height=200, width='container')
         
-        st.altair_chart(bar_chart, use_container_width=True)
+        st.altair_chart(status_chart, use_container_width=True)
+        
+        st.markdown("""
+        <div class='unifi-stealth-blade' style='border-left-color: #A855F7;'>
+            <b>💡 Commercial Scaler Directive:</b><br>
+            Export this dashboard view directly to your proposal deck when pitching hotel GCs. Showing an active room-by-room structural delivery matrix instantly proves your 3-man operation possesses enterprise management capability.
+        </div>
+        """, unsafe_allow_html=True)
