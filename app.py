@@ -44,7 +44,7 @@ lang_dict = {
         "fin": "💳 OmniPay & Escrow", "bank": "🏦 Bank Portal", "clinic": "🏥 Clinic Infra & Audit", 
         "co_lien": "📝 Change Orders & Liens", "bid": "🎯 AI Bid Optimizer", "sched": "📅 Trade Calendar", 
         "ai_core": "🧠 OmniMind AI Core", "dash": "📊 Telemetry Dashboard", "comm_rollout": "🏢 Commercial Rollout", 
-        "legal_contract": "📝 Master Contracts", "field_signoff": "🔍 Field Sign-Off", "pitch_white": "🎨 Brand White-Label", 
+        "legal_contract": "📝 Master Contracts", "field_signoff": "🔍 Field Sign-Off", "punch_list": "🛠️ QA & Punch List", "pitch_white": "🎨 Brand White-Label", 
         "audit_logs": "📋 Audit Trail & Reports", "procure": "📦 Procurement & POs", "saas_licensing": "🔑 SaaS Tenant Licensing",
         "chat_hub": "💬 Field Dispatch Hub", "api": "☁️ Cloud API"
     }
@@ -69,6 +69,7 @@ if "contract_agreements" not in st.session_state: st.session_state.contract_agre
 if "system_audit_trail" not in st.session_state: st.session_state.system_audit_trail = []
 if "purchase_orders" not in st.session_state: st.session_state.purchase_orders = []
 if "takeoff_results" not in st.session_state: st.session_state.takeoff_results = []
+if "punch_list_items" not in st.session_state: st.session_state.punch_list_items = []
 
 if "commercial_units" not in st.session_state:
     st.session_state.commercial_units = pd.DataFrame(columns=["Tenant Owner", "Floor", "Unit Number", "Asset Type", "Fabrication Status", "Installation Status", "GC Sign-Off", "Value Release"])
@@ -178,7 +179,7 @@ if chosen_preset != st.session_state.ui_theme_preset:
     st.session_state.ui_theme_preset = chosen_preset; st.rerun()
 
 st.sidebar.divider()
-menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["pitch_white"], t["audit_logs"], t["procure"], t["saas_licensing"], t["chat_hub"], t["api"]]
+menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["punch_list"], t["pitch_white"], t["audit_logs"], t["procure"], t["saas_licensing"], t["chat_hub"], t["api"]]
 selected_page = st.sidebar.radio("Navigation Menu", menu_options)
 st.sidebar.divider()
 if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=True):
@@ -244,6 +245,7 @@ elif selected_page == t["takeoff"]:
                     matches = re.findall(r'(\d+)(x|ft)\s*(?:of\s*)?([a-zA-Z0-9\s\-]+?)(?=\.|$)', raw_specs, re.IGNORECASE)
                     extracted_list = [{"Material String": item.strip().title(), "Quantity": int(qty), "Measurement": "Linear Feet" if unit.lower() == 'ft' else "Units", "Est. Unit Cost": random.randint(25, 350) * 1.5, "Total Overhead": int(qty) * (random.randint(25, 350) * 1.5)} for qty, unit, item in matches]
                     st.session_state.takeoff_results = extracted_list
+                    log_system_event(current_user, "Takeoff Parse", f"Extracted {len(extracted_list)} materials.")
                     st.success("Extraction processed cleanly!"); time.sleep(0.5); st.rerun()
     with col_out:
         if st.session_state.takeoff_results:
@@ -263,68 +265,40 @@ elif selected_page == t["clinic"]:
     st.write(f"### {t['clinic']}")
     st.checkbox("HIPAA Network Isolation Ring Active", value=True)
 
-# --- UPGRADED MODULE: CHANGE ORDER & VARIANCE ARBITRATION ENGINE ---
 elif selected_page == t["co_lien"]:
     st.write(f"### {t['co_lien']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>📝 Field Variance & Change Order (CO) Arbitration</b><br>Log blueprint disruptions instantly. OmniMind calculates the labor penalty and financially locks the asset block until the GC executes a digital signature.</div>", unsafe_allow_html=True)
-    
+    st.markdown("<div class='unifi-stealth-blade'><b>📝 Field Variance & Change Order (CO) Arbitration</b></div>", unsafe_allow_html=True)
     col_log, col_active = st.columns([1, 1.2])
-    
     with col_log:
-        st.write("#### ⚠️ Log Field Disruption")
         user_units_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
-        
-        if user_units_df.empty:
-            st.info("No active structural units available to log a variance against.")
+        if user_units_df.empty: st.info("No active structural units available.")
         else:
             impacted_unit = st.selectbox("Select Impacted Node", user_units_df["Unit Number"].tolist())
-            disruption_desc = st.text_area("Describe GC Verbal Request / Blueprint Deviation", placeholder="e.g., GC requested rerouting 45 Yealink endpoints 3 feet left...")
-            
+            disruption_desc = st.text_area("Describe GC Verbal Request / Blueprint Deviation")
             if st.button("⚖️ Calculate Cost Delta & Lock Area", use_container_width=True):
                 if disruption_desc:
-                    # Algorithmic penalty modeling
                     mat_cost = random.randint(300, 1500)
-                    labor_penalty = random.randint(8, 24) * 65.00 # hours * rate
-                    co_markup = (mat_cost + labor_penalty) * 0.20
-                    total_co_val = mat_cost + labor_penalty + co_markup
-                    
+                    labor_penalty = random.randint(8, 24) * 65.00
+                    total_co_val = mat_cost + labor_penalty + ((mat_cost + labor_penalty) * 0.20)
                     co_id = f"CO-{random.randint(100,999)}"
-                    st.session_state.active_change_orders.insert(0, {
-                        "CO ID": co_id, "Impacted Node": impacted_unit, "Description": sanitize_input(disruption_desc), 
-                        "Value Delta": total_co_val, "Status": "Awaiting GC Signature"
-                    })
-                    
-                    # Intercept schedule matrix automatically
+                    st.session_state.active_change_orders.insert(0, {"CO ID": co_id, "Impacted Node": impacted_unit, "Description": sanitize_input(disruption_desc), "Value Delta": total_co_val, "Status": "Awaiting GC Signature"})
                     st.session_state.schedule_delay_days += 2
-                    
-                    # Update asset status in ledger
                     idx_match = user_units_df[user_units_df["Unit Number"] == impacted_unit].index
-                    if not idx_match.empty:
-                        st.session_state.commercial_units.at[idx_match[0], "GC Sign-Off"] = "CO FINANCIAL LOCK"
-                        
-                    log_system_event(current_user, "Change Order", f"Generated Variance {co_id} for ${total_co_val:,.2f}.")
+                    if not idx_match.empty: st.session_state.commercial_units.at[idx_match[0], "GC Sign-Off"] = "CO FINANCIAL LOCK"
                     st.success(f"Variance recorded! Calculated penalty: ${total_co_val:,.2f}"); time.sleep(1); st.rerun()
-                else:
-                    st.error("Please describe the field disruption.")
-
     with col_active:
-        st.write("#### 🛡️ Active Change Order Ledger")
-        if not st.session_state.active_change_orders:
-            st.caption("No active field variance disputes logged.")
+        if not st.session_state.active_change_orders: st.caption("No active field variance disputes logged.")
         else:
             for idx, co in enumerate(st.session_state.active_change_orders):
                 if co['Status'] == "Awaiting GC Signature":
-                    st.markdown(f"<div class='unifi-stealth-red'><b>{co['CO ID']} — {co['Impacted Node']}</b><br><b>Disruption:</b> {co['Description']}<br><b>Cost Penalty:</b> ${co['Value Delta']:,.2f}<br><i>Status: Locked. Awaiting GC Authorization.</i></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='unifi-stealth-red'><b>{co['CO ID']} — {co['Impacted Node']}</b><br><b>Disruption:</b> {co['Description']}<br><b>Cost Penalty:</b> ${co['Value Delta']:,.2f}</div>", unsafe_allow_html=True)
                     if st.button(f"🖋️ GC: Authorize & Clear Lock ({co['CO ID']})", key=f"gc_{idx}"):
                         st.session_state.active_change_orders[idx]['Status'] = "Executed"
-                        # Release the financial lock
                         idx_match = user_units_df[user_units_df["Unit Number"] == co['Impacted Node']].index
                         if not idx_match.empty:
                             st.session_state.commercial_units.at[idx_match[0], "GC Sign-Off"] = "Pending Review"
-                            st.session_state.commercial_units.at[idx_match[0], "Value Release"] += co['Value Delta'] # Add to unit invoice value
-                        st.success("GC Authorized! Financial lock released and invoice value updated."); time.sleep(1); st.rerun()
-                else:
-                    st.markdown(f"<div class='unifi-stealth-green'><b>{co['CO ID']} — {co['Impacted Node']}</b><br><b>Status:</b> Legally Executed & Bound. Value appended to Master Ledger.</div>", unsafe_allow_html=True)
+                            st.session_state.commercial_units.at[idx_match[0], "Value Release"] += co['Value Delta']
+                        st.success("GC Authorized! Financial lock released."); time.sleep(1); st.rerun()
 
 elif selected_page == t["comm_rollout"]:
     st.write(f"### {t['comm_rollout']}")
@@ -366,8 +340,7 @@ elif selected_page == t["sched"]:
         active_crew = st.slider("Active Field Crew Personnel Count", 1, 10, st.session_state.crew_count_leveling)
         if st.button("⚡ Execute Schedule Recalculation Engine", use_container_width=True):
             st.session_state.schedule_delay_days = simulated_delay
-            st.session_state.crew_count_leveling = active_crew
-            st.rerun()
+            st.session_state.crew_count_leveling = active_crew; st.rerun()
         pre_plumb = st.checkbox("Core Plumbing Rough-Ins Certified", value=False)
     with col_sch_viz:
         base_start = datetime.date(2026, 6, 1)
@@ -383,8 +356,7 @@ elif selected_page == t["ai_core"]:
     st.write(f"### {t['ai_core']}")
     st.markdown("<div class='unifi-stealth-blade'><b>🧠 OmniMind Cross-Table Cognitive Summary Engine</b></div>", unsafe_allow_html=True)
     trigger_analysis = st.button("⚡ Run Live Cross-Table Cognitive Diagnostics", use_container_width=True)
-    if trigger_analysis:
-        st.success("Diagnostics run successfully.")
+    if trigger_analysis: st.success("Diagnostics run successfully.")
 
 elif selected_page == t["dash"]:
     st.write(f"### {t['dash']}")
@@ -403,11 +375,67 @@ elif selected_page == t["field_signoff"]:
     u_rooms = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
     for idx, row in u_rooms.iterrows():
         with st.expander(f"Suites {row['Unit Number']} — Status: {row['GC Sign-Off']}"):
-            if row['GC Sign-Off'] == "CO FINANCIAL LOCK":
-                st.error("🚨 This asset is under a statutory financial lock due to an unapproved Change Order. Field execution suspended.")
+            if row['GC Sign-Off'] == "CO FINANCIAL LOCK": st.error("🚨 Asset under statutory financial lock.")
             elif st.button(f"Release Funds via Sign-off ({row['Unit Number']})", key=f"fo_{idx}"):
                 st.session_state.commercial_units.at[idx, "GC Sign-Off"] = "Approved & Certified"
+                st.session_state.tenant_balances[current_user]["escrow"] -= 2250.00
+                st.session_state.tenant_balances[current_user]["wallet"] += 2250.00
                 st.success("Micro-draw executed!"); time.sleep(0.5); st.rerun()
+
+# --- UPGRADED MODULE: QA & PUNCH LIST ENGINE ---
+elif selected_page == t["punch_list"]:
+    st.write(f"### {t['punch_list']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>🛠️ Field Quality Assurance & Punch Defect Tracker</b><br>Log final architectural defects to protect your retainage payout. Automated paging ensures field crews resolve issues instantly.</div>", unsafe_allow_html=True)
+    
+    col_log, col_active = st.columns([1, 1.2])
+    
+    with col_log:
+        st.write("#### 📝 Log New Punch Item")
+        user_units_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
+        
+        if user_units_df.empty:
+            st.info("No active units available.")
+        else:
+            punch_unit = st.selectbox("Location / Node", user_units_df["Unit Number"].tolist())
+            punch_desc = st.text_area("Defect Description", placeholder="e.g., Scratch on quartz edge, missing switch plate...")
+            punch_sev = st.selectbox("Severity Classification", ["Minor Cosmetic", "Rework Required", "Safety Hazard"])
+            
+            if st.button("⚡ Dispatch Punch Ticket to Crew", use_container_width=True):
+                if punch_desc:
+                    ticket_id = f"PUNCH-{random.randint(1000, 9999)}"
+                    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                    
+                    st.session_state.punch_list_items.insert(0, {
+                        "Ticket ID": ticket_id,
+                        "Unit": punch_unit,
+                        "Description": sanitize_input(punch_desc),
+                        "Severity": punch_sev,
+                        "Timestamp": timestamp
+                    })
+                    
+                    # Ping the field dispatch hub automatically
+                    msg = f"🛠️ PUNCH LIST ASSIGNMENT: ({ticket_id}) in {punch_unit}. Severity: {punch_sev}. Task: {sanitize_input(punch_desc)}. Resolve before end of shift."
+                    st.session_state.field_dispatch_messages.insert(0, {"Timestamp": datetime.datetime.now().strftime("%I:%M %p"), "Sender": "SYSTEM INTELLIGENCE", "Message String": msg})
+                    
+                    st.success(f"Ticket {ticket_id} created and dispatched to field crew!"); time.sleep(1); st.rerun()
+                else:
+                    st.error("Please describe the defect.")
+
+    with col_active:
+        st.write("#### 📋 Active Punch List Matrix")
+        if not st.session_state.punch_list_items:
+            st.caption("No open punch items! Your retainage is clear for payout.")
+        else:
+            for idx, item in enumerate(st.session_state.punch_list_items):
+                sev_color = "#10B981" if item["Severity"] == "Minor Cosmetic" else "#F59E0B" if item["Severity"] == "Rework Required" else "#EF4444"
+                with st.expander(f"{item['Ticket ID']} — {item['Unit']} ({item['Severity']})"):
+                    st.markdown(f"<span style='color:{sev_color}; font-weight:bold;'>Description:</span> {item['Description']}", unsafe_allow_html=True)
+                    st.caption(f"Logged: {item['Timestamp']}")
+                    
+                    if st.button(f"✅ Mark Resolved & Clear Ticket", key=f"punch_{idx}"):
+                        resolved_item = st.session_state.punch_list_items.pop(idx)
+                        log_system_event(current_user, "QA Resolution", f"Cleared Punch Ticket {resolved_item['Ticket ID']} in {resolved_item['Unit']}.")
+                        st.success("Ticket cleared from the active matrix."); time.sleep(0.5); st.rerun()
 
 elif selected_page == t["pitch_white"]:
     st.write(f"### {t['pitch_white']}")
@@ -434,7 +462,13 @@ elif selected_page == t["saas_licensing"]:
 elif selected_page == t["chat_hub"]:
     st.write(f"### {t['chat_hub']}")
     msg_text = st.text_area("Broadcast Site Update Note")
-    if st.button("⚡ Send Message"): st.success("Dispatched!")
+    if st.button("⚡ Send Message"):
+        st.session_state.field_dispatch_messages.insert(0, {"Timestamp": datetime.datetime.now().strftime("%I:%M %p"), "Sender": current_user, "Message String": sanitize_input(msg_text)})
+        st.success("Dispatched!"); time.sleep(0.5); st.rerun()
+    st.write("---")
+    for m in st.session_state.field_dispatch_messages:
+        border_color = "#F59E0B" if m["Sender"] == "SYSTEM INTELLIGENCE" else st.session_state.get("wl_accent_color", "#38BDF8")
+        st.markdown(f"<div class='chat-bubble-sub' style='border-left-color: {border_color};'><b>{m['Sender']}:</b> {m['Message String']}</div>", unsafe_allow_html=True)
 
 elif selected_page == t["api"]:
     st.write(f"### {t['api']}")
