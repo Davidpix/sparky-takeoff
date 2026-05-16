@@ -13,7 +13,7 @@ import math
 st.set_page_config(page_title="Active Worksheet", layout="wide")
 
 st.title("📊 Enterprise Engineering Control & Contract Worksheet")
-st.write("This platform executes automated NEC compliance cross-examinations, structural voltage drop physics calculations, and advanced commercial contract breakouts.")
+st.write("This portal executes automated NEC compliance cross-examinations, structural voltage drop physics calculations, and advanced commercial contract breakouts.")
 
 if "company_name" not in st.session_state:
     st.error("⚠️ Please return to the main Dashboard Gateway page to initialize your session parameters.")
@@ -222,12 +222,25 @@ edited_df["Line_Labor"] = (edited_df["Detected Qty"] * edited_df["Mins to Instal
 total_mat = edited_df["Line_Material"].sum()
 total_labor = edited_df["Line_Labor"].sum()
 base_contract_value = (total_mat + total_labor) * (1 + st.session_state.overhead)
+total_overhead_markup = (total_mat + total_labor) * st.session_state.overhead
 
-# --- NEW PILLAR 1: SCHEDULE OF VALUES (SOV) MILESTONE GENERATOR ---
+# --- NEW: CORE EXECUTIVE ANALYTICS GRAPHICS DASHBOARD ---
 st.divider()
-st.write("### 📑 Schedule of Values (SOV) Progressive Project Breakdown")
-st.caption("Commercial project breakdown showing itemized project costs mapped cleanly to specialized project installation phases.")
+st.write("### 📈 Project Financial Analytics Viewport")
+st.caption("Live graphical visualization of contract allocations and cost factors for engineer analysis reviews.")
 
+chart_col1, chart_col2 = st.columns(2)
+
+with chart_col1:
+    st.write("#### 💸 Operational Cost Breakdown Factor")
+    # Build a clean scannable bar data matrix displaying the core budget distribution split
+    financial_breakdown_data = pd.DataFrame({
+        "Cost Center Category": ["Raw Materials", "Burdened Field Labor", "Overhead & Gross Margin"],
+        "Project Budget Allocation ($)": [total_mat, total_labor, total_overhead_markup]
+    })
+    st.bar_chart(data=financial_breakdown_data, x="Cost Center Category", y="Project Budget Allocation ($)", use_container_width=True)
+
+# --- SCHEDULE OF VALUES (SOV) PHASE BREAKOUT ---
 sov_rows = []
 for phase, group in edited_df.groupby("Phase"):
     phase_mat = group["Line_Material"].sum()
@@ -240,16 +253,25 @@ for phase, group in edited_df.groupby("Phase"):
         "Allocated Material Cost": round(phase_mat, 2),
         "Allocated Burdened Labor": round(phase_labor, 2),
         "Total Milestone Billing Sum": round(phase_total_with_markup, 2),
-        "Contract Allocation Ratio": f"{allocation_pct:.1f}%"
+        "Value": phase_total_with_markup # Numerical slot driving the timeline charts
     })
 
 sov_df = pd.DataFrame(sov_rows)
+
+with chart_col2:
+    st.write("#### 📑 Milestone Funding Weights")
+    if not sov_df.empty:
+        st.line_chart(data=sov_df, x="Construction Phase Milestone", y="Total Milestone Billing Sum", use_container_width=True)
+    else:
+        st.info("Awaiting active blueprint measurements to chart milestones.")
+
+st.divider()
+st.write("### 📑 Schedule of Values (SOV) Progressive Project Breakdown")
 st.dataframe(sov_df, use_container_width=True, hide_index=True)
 
-# --- NEW PILLAR 2: DYNAMIC CHANGE-ORDER VARIATION ENGINE ---
+# --- ACTIVE PROJECT CHANGE-ORDER MANAGEMENT SYSTEM ---
 st.divider()
 st.write("### 📝 Active Project Change-Order Management System")
-st.caption("Layer field variations over the baseline contract pricing profile to calculate adjusted net values dynamically.")
 
 with st.expander("➕ Open Live Change-Order Modification Console", expanded=False):
     co_col1, co_col2, co_col3 = st.columns(3)
@@ -271,7 +293,10 @@ with st.expander("➕ Open Live Change-Order Modification Console", expanded=Fal
     m_col3.metric("Adjusted Target Contract Value", f"${adjusted_final_contract:,.2f}", delta="Dynamic Variation Sync Active")
 
 st.divider()
-st.write("### 📥 Executive Proposal Distribution")
+colA, colB, colC = st.columns(3)
+colA.metric("Material Cost Subtotal", f"${total_mat:,.2f}")
+colB.metric("Fully Burdened Labor Subtotal", f"${total_labor:,.2f}")
+colC.metric("Target Contract Price", f"${base_contract_value:,.2f}", delta=f"{st.session_state.overhead * 100:.0f}% Gross Margin Linked")
 
 # --- HIGH-FIDELITY EXCEL COMPILATION HOOK ---
 def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_pct, rate, comp_name, sov_dataframe):
@@ -300,7 +325,6 @@ def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_
     ws1["A10"] = "TOTAL TARGET CONTRACT BID"; ws1["A10"].font = bold_font; ws1["A10"].fill = gold_accent_fill; ws1["A10"].border = thin_border
     ws1["B10"] = total_bid; ws1["B10"].font = Font(name=font_family, size=12, bold=True, color="C00000"); ws1["B10"].fill = gold_accent_fill; ws1["B10"].border = thin_border; ws1["B10"].number_format = '$#,##0.00'
     
-    # Inject SOV Table directly into Excel layout
     start_row = 13
     ws1.cell(row=start_row, column=1, value="SCHEDULE OF VALUES (SOV) PHASE BREAKOUT").font = section_font
     ws1.merge_cells(start_row=start_row, start_column=1, end_row=start_row, end_column=4)
@@ -345,5 +369,6 @@ def generate_executive_excel(df_data, mat_cost, labor_cost, total_bid, overhead_
     wb.save(output)
     return output.getvalue()
 
+st.write("### 📥 Document Distribution Panel")
 excel_data = generate_executive_excel(edited_df, total_mat, total_labor, base_contract_value, st.session_state.overhead, fully_burdened_labor_rate, st.session_state.company_name, sov_df)
 st.download_button("🚀 Export Executive Proposal Package (.xlsx)", data=excel_data, file_name="Executive_Bid.xlsx")
