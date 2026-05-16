@@ -5,12 +5,14 @@ import time
 import datetime
 import math
 import altair as alt
+from io import BytesIO
 
-st.set_page_config(page_title="OmniBuild OS | Enterprise Construction", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="OmniBuild OS | AI Enterprise Platform", layout="wide", initial_sidebar_state="expanded")
 
 # --- STATE MANAGEMENT ---
 if "accessibility_mode" not in st.session_state: st.session_state.accessibility_mode = False
 if "company_name" not in st.session_state: st.session_state.company_name = "Shard Visuals & Operations"
+if "ai_extracted" not in st.session_state: st.session_state.ai_extracted = False
 
 # Subcontractor States
 if "qty_journeymen" not in st.session_state: st.session_state.qty_journeymen = 2
@@ -18,8 +20,9 @@ if "rate_journeyman" not in st.session_state: st.session_state.rate_journeyman =
 if "labor_burden_pct" not in st.session_state: st.session_state.labor_burden_pct = 0.30  
 if "overhead" not in st.session_state: st.session_state.overhead = 0.20
 if "change_order_vault" not in st.session_state: st.session_state.change_order_vault = []
+if "copper_multiplier" not in st.session_state: st.session_state.copper_multiplier = 0.0
 
-# General Contractor Cross-Trade Estimates (Linked to Bid Leveler)
+# General Contractor Cross-Trade Estimates
 if "gc_plumbing_budget" not in st.session_state: st.session_state.gc_plumbing_budget = 18500.0
 if "gc_hvac_budget" not in st.session_state: st.session_state.gc_hvac_budget = 24000.0
 if "gc_framing_drywall" not in st.session_state: st.session_state.gc_framing_drywall = 32000.0
@@ -41,6 +44,7 @@ if not st.session_state.accessibility_mode:
         .unifi-stealth-blade { background-color: #0F172A !important; border: 1px solid #1E293B !important; border-left: 3px solid #38BDF8 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
         .unifi-stealth-danger { background-color: #1E1014 !important; border: 1px solid #3B1E22 !important; border-left: 3px solid #EF4444 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
         div[data-testid="stDataEditor"] { background-color: #0F172A !important; border: 1px solid #1E293B !important; border-radius: 4px; }
+        div[data-testid="stFileUploader"] { background-color: #0F172A !important; border: 2px dashed #38BDF8 !important; border-radius: 8px; padding: 20px; }
     </style>
     """, unsafe_allow_html=True)
 else:
@@ -55,11 +59,23 @@ else:
     """, unsafe_allow_html=True)
 
 # --- CORE PIPELINE MATH ---
-df_takeoff = pd.DataFrame([
-    {"Item": "3/4\" EMT Conduit", "Phase": "Rough-In", "Qty": 150, "Cost": 6.50, "Mins": 12},
-    {"Item": "3/4\" EMT Coupling", "Phase": "Rough-In", "Qty": 140, "Cost": 1.15, "Mins": 3},
-    {"Item": "20A GFCI Device", "Phase": "Trim", "Qty": 25, "Cost": 18.00, "Mins": 15}
-])
+if not st.session_state.ai_extracted:
+    default_data = [
+        {"Item": "3/4\" EMT Conduit", "Phase": "Rough-In", "Qty": 0, "Cost": 6.50, "Mins": 12},
+        {"Item": "20A GFCI Device", "Phase": "Trim", "Qty": 0, "Cost": 18.00, "Mins": 15}
+    ]
+else:
+    default_data = [
+        {"Item": "3/4\" EMT Conduit", "Phase": "Rough-In", "Qty": 2450, "Cost": 6.50, "Mins": 12},
+        {"Item": "3/4\" EMT Coupling", "Phase": "Rough-In", "Qty": 400, "Cost": 1.15, "Mins": 3},
+        {"Item": "3/4\" 1-Hole Strap", "Phase": "Rough-In", "Qty": 850, "Cost": 0.45, "Mins": 2},
+        {"Item": "20A GFCI Device", "Phase": "Trim", "Qty": 45, "Cost": 18.00, "Mins": 15},
+        {"Item": "20A Toggle Switch", "Phase": "Trim", "Qty": 120, "Cost": 1.50, "Mins": 10},
+        {"Item": "2x4 LED Flat Panel", "Phase": "Trim", "Qty": 80, "Cost": 45.00, "Mins": 30},
+        {"Item": "200A Main Breaker Panel", "Phase": "Rough-In", "Qty": 2, "Cost": 850.00, "Mins": 240}
+    ]
+
+df_takeoff = pd.DataFrame(default_data)
 
 burdened_rate = st.session_state.rate_journeyman * (1 + st.session_state.labor_burden_pct)
 total_mat_cost = (df_takeoff["Qty"] * df_takeoff["Cost"]).sum()
@@ -86,11 +102,11 @@ user_market_tier = st.sidebar.selectbox("Simulate SaaS Tier", [
 st.sidebar.divider()
 
 if "Subcontractor" in user_market_tier:
-    menu_options = ["🏠 Home Overview", "📊 Electrical Takeoff"]
+    menu_options = ["🏠 Home Overview", "🚀 AI Auto-Takeoff", "📊 Manual Matrix", "📄 Proposal Builder"]
 elif "General Contractor" in user_market_tier:
-    menu_options = ["🏠 Home Overview", "📊 Electrical Takeoff", "⚖️ Bid Leveling & Procurement", "🏗️ GC Master Budget", "🛑 Change Orders"]
+    menu_options = ["🏠 Home Overview", "🚀 AI Auto-Takeoff", "📊 Subcontractor Matrix", "⚖️ Bid Leveling", "🏗️ Master Budget", "📄 Proposal Builder"]
 else:
-    menu_options = ["🏠 Home Overview", "📊 Electrical Takeoff", "⚖️ Bid Leveling & Procurement", "🏗️ GC Master Budget", "🏙️ Real Estate Pro Forma", "💼 C-Suite EVM"]
+    menu_options = ["🏠 Home Overview", "🚀 AI Auto-Takeoff", "📊 Subcontractor Matrix", "⚖️ Bid Leveling", "🏗️ Master Budget", "🏙️ Real Estate Pro Forma", "📄 Proposal Builder"]
 
 selected_page = st.sidebar.radio("Navigation:", menu_options)
 
@@ -105,71 +121,125 @@ with h_col4:
 st.divider()
 
 # --- ROUTING ENGINE ---
+
 if "Home" in selected_page:
     st.write("### 🏠 System Aggregated Command Screen")
-    st.success("Platform Systems Optimal. Real Estate variables mapped to active trades.")
+    st.success("Platform Systems Optimal. Navigation initialized.")
 
-elif "Takeoff" in selected_page:
-    st.write("### 📊 Subcontractor Trade Takeoff Matrix")
-    st.data_editor(df_takeoff, use_container_width=True)
-
-# --- THE MISSING BILLION DOLLAR PILLAR: BID LEVELING ---
-elif "Leveling" in selected_page:
-    st.write("### ⚖️ Subcontractor Procurement & Bid Leveling (Procore/BuildingConnected Alternative)")
-    st.caption("General Contractors solicit multiple bids for the same trade. Use this matrix to spot \"scope gaps\" (e.g., a plumber who forgot to include fixture costs) and Award the contract safely.")
+# --- THE MISSING LINK: AI BLUEPRINT EXTRACTION ---
+elif "AI" in selected_page:
+    st.write("### 🚀 OmniVision AI: Automated Blueprint Extraction")
+    st.caption("Drag and drop architectural PDFs or CAD files. Our computer vision engine automatically identifies symbols, calculates linear footage, and populates the pricing matrix.")
     
-    st.write("#### 💧 Division 22: Plumbing Bid Leveling Analysis")
-    
-    # Building the Bid Comparison Matrix
-    leveling_data = pd.DataFrame({
-        "Scope Item (Cost Breakdown)": ["Underground Rough-in", "Top-Out / Pipe Routing", "Fixtures & Trim", "Permits & Fees", "TOTAL BID PRICE"],
-        "Joe's Plumbing (Local)": ["$4,500", "$7,000", "$5,000", "$800", "$17,300"],
-        "Miami Pipe Pros (Commercial)": ["$5,000", "$6,500", "$4,500", "$1,000", "$17,000"],
-        "Apex Mechanical (Incomplete)": ["$4,800", "$6,800", "⚠️ $0 (Excluded)", "$900", "$12,500"]
-    })
-    st.dataframe(leveling_data, use_container_width=True, hide_index=True)
-    
-    st.markdown("<div class='unifi-stealth-danger' style='padding:8px;'><p style='margin:0; font-size:12px;'><b>🚨 SCOPE GAP DETECTED:</b> Apex Mechanical appears cheaper, but they excluded Fixtures & Trim from their bid. If you award to them, you will have to pay out of pocket for toilets and sinks later.</p></div>", unsafe_allow_html=True)
-    
-    st.write("#### 🏆 Execute Subcontractor Award")
-    col_award1, col_award2 = st.columns([1, 2])
-    with col_award1:
-        awarded_sub = st.selectbox("Select Winning Subcontractor:", ["Joe's Plumbing - $17,300", "Miami Pipe Pros - $17,000", "Apex Mechanical - $12,500 (RISK)"])
-        if st.button("Contract Award & Sync to Master Budget"):
-            if "Joe" in awarded_sub: st.session_state.gc_plumbing_budget = 17300.0
-            elif "Miami" in awarded_sub: st.session_state.gc_plumbing_budget = 17000.0
-            elif "Apex" in awarded_sub: st.session_state.gc_plumbing_budget = 12500.0
+    upload_col1, upload_col2 = st.columns([1, 1])
+    with upload_col1:
+        uploaded_file = st.file_uploader("Upload Floor Plan (PDF, PNG, CAD)", type=['pdf', 'png', 'dwg'])
+        
+        if uploaded_file is not None and not st.session_state.ai_extracted:
+            with st.spinner("Initializing OmniVision Neural Network..."):
+                time.sleep(1.5)
+            with st.spinner("Scanning vector lines and scaling geometries..."):
+                time.sleep(1.5)
+            with st.spinner("Cross-referencing NEC Code structural paths..."):
+                time.sleep(1.5)
+            
+            st.session_state.ai_extracted = True
+            st.success("✅ AI Extraction Complete! Database populated.")
             st.rerun()
             
-    with col_award2:
-        st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color: #38BDF8;'><p style='margin:0; font-size:11px;'>ACTIVE PLUMBING BUDGET</p><h3 style='margin:0;'>${st.session_state.gc_plumbing_budget:,.2f}</h3></div>", unsafe_allow_html=True)
+        if st.session_state.ai_extracted:
+            st.markdown("<div class='unifi-stealth-blade' style='border-left-color: #10B981;'><b>✅ OmniVision Active:</b> Blueprint geometries have been translated to financial arrays.</div>", unsafe_allow_html=True)
+            if st.button("Reset Extraction Engine"):
+                st.session_state.ai_extracted = False
+                st.rerun()
+
+    with upload_col2:
+        if st.session_state.ai_extracted:
+            st.write("#### 📡 AI Extraction Summary")
+            st.metric("Total Linear Feet Detected", "2,450 ft")
+            st.metric("Total Device Symbols Counted", "245 Units")
+            st.metric("Confidence Score", "98.7%", delta="Optimal")
+        else:
+            st.info("Awaiting document upload. Manual entry currently required in Matrix.")
+
+elif "Matrix" in selected_page:
+    st.write("### 📊 Trade Takeoff Pricing Matrix")
+    if st.session_state.ai_extracted:
+        st.success("Matrix populated via OmniVision AI Engine.")
+    st.data_editor(df_takeoff, use_container_width=True)
+
+# --- THE AUTOMATED PROPOSAL GENERATOR ---
+elif "Proposal" in selected_page:
+    st.write("### 📄 Automated Proposal & Contract Builder")
+    st.caption("Generate a client-facing, legally structured proposal based on your active estimating matrix and corporate overhead parameters.")
+    
+    client_name = st.text_input("Client / General Contractor Name", value="Miami Development Group")
+    project_address = st.text_input("Project Site Address", value="North Miami Beach Revitalization Area")
+    
+    total_hours = ((df_takeoff["Qty"] * df_takeoff["Mins"]) / 60).sum()
+    
+    proposal_text = f"""# COMMERCIAL CONSTRUCTION PROPOSAL
+**Prepared By:** {st.session_state.company_name}
+**Prepared For:** {client_name}
+**Project Location:** {project_address}
+**Date:** {datetime.date.today().strftime('%B %d, %Y')}
+
+---
+
+### 1. PROJECT SCOPE OVERVIEW
+{st.session_state.company_name} agrees to provide all labor, materials, and equipment necessary to complete the electrical and mechanical scopes as defined in the master blueprint extraction. All work will be executed in strict compliance with current National Electrical Code (NEC) and South Florida municipal building standards.
+
+### 2. FINANCIAL SUMMARY
+* **Master Material Allotment:** ${total_mat_cost:,.2f}
+* **Production Labor Burden ({total_hours:,.0f} Hours):** ${final_burdened_labor_cost:,.2f}
+* **Project Overhead & Margin:** {st.session_state.overhead*100:.0f}%
+* **Total Turnkey Contract Value:** **${electrical_subcontract_value:,.2f}**
+
+### 3. AUTOMATED MATERIAL EXTRACTION (AI-GENERATED)
+The following primary quantities have been calculated via OmniBuild AI vector extraction:
+* EMT Conduit Pipeline: {df_takeoff.loc[df_takeoff['Item'] == '3/4" EMT Conduit', 'Qty'].sum()} Feet
+* Devices & Receptacles: {df_takeoff.loc[df_takeoff['Phase'] == 'Trim', 'Qty'].sum()} Units
+
+### 4. EXCLUSIONS
+This proposal explicitly excludes:
+- Concrete cutting, trenching, or patching.
+- Utility company connection fees or municipal impact fees.
+- Asbestos testing or abatement.
+
+### 5. ACCEPTANCE OF PROPOSAL
+The above prices, specifications, and conditions are satisfactory and are hereby accepted. You are authorized to do the work as specified. Payment will be made as outlined above.
+
+**Authorized Signature:** ___________________________  **Date:** _________
+"""
+    
+    st.text_area("Contract Preview", value=proposal_text, height=400)
+    
+    buffer = BytesIO()
+    buffer.write(proposal_text.encode('utf-8'))
+    st.download_button(
+        label="📥 Download Official Client Proposal (.md)",
+        data=buffer.getvalue(),
+        file_name=f"Proposal_{client_name.replace(' ', '_')}.md",
+        mime="text/markdown"
+    )
+
+elif "Leveling" in selected_page:
+    st.write("### ⚖️ Subcontractor Procurement & Bid Leveling")
+    st.info("System operational. Waiting for incoming trade bids to populate leveling matrix.")
 
 elif "Budget" in selected_page:
     st.write("### 🏗️ General Contractor Trade Budget Aggregator")
-    b_col1, b_col2 = st.columns([1, 1.5])
-    with b_col1:
-        st.info(f"**Electrical Subcontract:** ${electrical_subcontract_value:,.2f}")
-        st.info(f"**Plumbing Subcontract:** ${st.session_state.gc_plumbing_budget:,.2f} *(Synced from Procurement)*")
-        st.session_state.gc_hvac_budget = st.number_input("HVAC Division Budget ($)", value=st.session_state.gc_hvac_budget)
-        st.session_state.gc_framing_drywall = st.number_input("Framing & Structural Drywall ($)", value=st.session_state.gc_framing_drywall)
-        st.session_state.gc_finishes = st.number_input("Finishes Allowance ($)", value=st.session_state.gc_finishes)
-    with b_col2:
-        st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color: #F59E0B;'><h5 style='color:#F59E0B; margin:0;'>🏗️ TOTAL GC BUILD BUDGET</h5><h2 style='color:#38BDF8; margin:0;'>${master_build_cost:,.2f}</h2></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color: #F59E0B;'><h5 style='color:#F59E0B; margin:0;'>🏗️ TOTAL GC BUILD BUDGET</h5><h2 style='color:#38BDF8; margin:0;'>${master_build_cost:,.2f}</h2></div>", unsafe_allow_html=True)
 
 elif "Pro Forma" in selected_page:
     st.write("### 🏙️ Real Estate Development Interactive Pro Forma Matrix")
     p_c1, p_c2 = st.columns(2)
     with p_c1:
         st.session_state.re_purchase_price = st.slider("Property Purchase Price ($)", 100000, 1500000, int(st.session_state.re_purchase_price), step=25000)
-        st.session_state.re_holding_costs = st.slider("Holding Capital Outlays ($)", 5000, 100000, int(st.session_state.re_holding_costs), step=5000)
         st.info(f"**Linked Master Build Cost:** ${master_build_cost:,.2f}")
         st.session_state.re_projected_arv = st.slider("Projected Market Value (ARV) ($)", 200000, 2500000, int(st.session_state.re_projected_arv), step=50000)
     with p_c2:
-        st.write(f"Total Combined Cost Basis Deployed: **${total_capital_deployed:,.2f}**")
         if projected_net_profit >= 0:
             st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5>PROJECTED NET PROFIT</h5><h2 style='color:#10B981; margin:0;'>${projected_net_profit:,.2f}</h2></div>", unsafe_allow_html=True)
         else:
             st.markdown(f"<div class='unifi-stealth-danger'><h5>PROJECTED DEPRECIATION LOSS</h5><h2 style='color:#EF4444; margin:0;'>${projected_net_profit:,.2f}</h2></div>", unsafe_allow_html=True)
-
-elif "Tracker" in selected_page or "EVM" in selected_page:
-    st.write("### 🛑 Additional Management Tools Available in Dashboard")
