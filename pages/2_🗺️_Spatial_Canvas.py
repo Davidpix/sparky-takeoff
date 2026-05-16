@@ -20,6 +20,18 @@ if "uploaded_file_bytes" not in st.session_state or st.session_state.uploaded_fi
 if "sheet_ledger" not in st.session_state:
     st.session_state.sheet_ledger = {}
 
+# --- OPTION 2 IMPLEMENTATION: STATIC COMPRESSED IMAGE CACHING GRID ---
+# This decorator acts as a blistering fast lightning shield. It reads the raw PDF bytes,
+# extracts the targeted sheet page, saves it into standard RAM cache memory, and never forces
+# your python server to re-parse the heavy vectors on a click refresh.
+@st.cache_resource(show_spinner=False)
+def get_high_performance_cached_sheet_layer(file_bytes, target_page_index):
+    with pdfplumber.open(BytesIO(file_bytes)) as open_pdf:
+        target_page = open_pdf.pages[target_page_index]
+        converted_image = target_page.to_image(resolution=100)
+        rgb_pil_canvas = converted_image.original.convert("RGB")
+    return rgb_pil_canvas
+
 with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
     total_pages = len(pdf.pages)
     
@@ -33,34 +45,26 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
             st.session_state.sheet_ledger[sheet_key] = {
                 "click_history": [], "conduit_runs": 0.0, "vertical_drops": 0.0,
                 "scale_factor": None, "scale_preset_name": "Manual Calibration Mode",
-                "active_zone": "General Lighting / Branch" # Fallback zone allocation token
+                "active_zone": "General Branch Run"
             }
             
         st.write("---")
-        mode = st.radio(
-            "2. Choose What Tool to Use:",
-            ["1. Calibrate Scale", "2. Measure Linear Run", "3. AI Symbol Scan"]
-        )
+        mode = st.radio("2. Choose What Tool to Use:", ["1. Calibrate Scale", "2. Measure Linear Run", "3. AI Symbol Scan"])
         
-        # --- ADVANCED PILLAR 1: MULTI-ZONE LOCATION CHANGER ---
         st.write("---")
         st.write("#### 🏢 Active Takeoff Construction Zone")
-        st.caption("Assign your current measurements to a specific physical area of the layout package:")
         selected_zone = st.selectbox(
-            "Target Operational Area / Room Room",
+            "Target Operational Area / Room",
             options=["General Branch Run", "Main Service Room", "Kitchen Layout", "Bathroom / Wet Areas", "Exterior / Site Work"]
         )
         st.session_state.sheet_ledger[sheet_key]["active_zone"] = selected_zone
         
         st.write("---")
         st.write("#### 📐 Blueprint Scale Profile")
-        
         current_preset = st.session_state.sheet_ledger[sheet_key]["scale_preset_name"]
         preset_options = [
-            "Manual Calibration Mode",
-            "1/4\" = 1'-0\" (Residential Standard)",
-            "1/8\" = 1'-0\" (Commercial Standard)",
-            "1\" = 10'-0\" (Civil/Site Plan Standard)",
+            "Manual Calibration Mode", "1/4\" = 1'-0\" (Residential Standard)",
+            "1/8\" = 1'-0\" (Commercial Standard)", "1\" = 10'-0\" (Civil/Site Plan Standard)",
             "1\" = 20'-0\" (Civil/Plot Standard)"
         ]
         
@@ -85,7 +89,7 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
 
     with col_y:
         st.write("### 🖥️ Interactive Takeoff Drawing Blueprint Canvas")
-        st.info("👉 **How to draw:** Click directly on the blueprint image below to map your paths. Tap multiple coordinates to draw a running route.")
+        st.info("👉 **How to draw:** Click directly on the blueprint image below to map your paths.")
         
         if st.button("🔄 Clear All Drawn Lines on This Page"):
             st.session_state.sheet_ledger[sheet_key]["click_history"] = []
@@ -94,25 +98,21 @@ with pdfplumber.open(BytesIO(st.session_state.uploaded_file_bytes)) as pdf:
             st.success("Canvas lines wiped cleanly!")
             st.rerun()
 
-    page = pdf.pages[page_number - 1]
-    img = page.to_image(resolution=100)
-    pil_img = img.original.convert("RGB")
+    # --- PULL THE RAW CANVAS IMAGE BACK FROM MEMORY INSTANTLY VIA HIGH-SPEED CACHE ---
+    base_cached_img = get_high_performance_cached_sheet_layer(st.session_state.uploaded_file_bytes, page_number - 1)
+    
+    # Create a dynamic standalone work copy of the cached sheet layer so drawings can update fluidly
+    pil_img = base_cached_img.copy()
+    
     active_clicks = st.session_state.sheet_ledger[sheet_key]["click_history"]
     sf = st.session_state.sheet_ledger[sheet_key]["scale_factor"]
     
-    # --- PILLOW VECTOR OVERLAY ENGINE ---
     draw = ImageDraw.Draw(pil_img)
     
-    # --- ADVANCED PILLAR 2: VISUAL SCALE REFERENCE RULER BAR ---
-    # Paints an architectural verification legend ruler bar directly into the top left canvas pixels
     if sf is not None and sf > 0:
-        ruler_pixels_10ft = sf * 10.0 # Calculate how long a 10-foot run is in canvas pixels
-        
-        # Render dark accent framing block background for high layout text contrast
+        ruler_pixels_10ft = sf * 10.0
         draw.rectangle([15, 15, 45 + ruler_pixels_10ft, 60], fill="#1E1E1E", outline="#333333")
-        # Paint the neon cyan master tracking dimension ruler body
         draw.line([(30, 45), (30 + ruler_pixels_10ft, 45)], fill="#00FFFF", width=5)
-        # Paint horizontal framing bounding caps on both ends of the ruler line
         draw.line([(30, 38), (30, 52)], fill="#00FFFF", width=2)
         draw.line([(30 + ruler_pixels_10ft, 38), (30 + ruler_pixels_10ft, 52)], fill="#00FFFF", width=2)
         
