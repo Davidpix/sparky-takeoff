@@ -1,3 +1,8 @@
-venv/
-.DS_Store
+# Secrets and Credentials
+.streamlit/secrets.toml
+.env
+
+# Python Cache
 __pycache__/
+*.pyc
+.DS_Store
