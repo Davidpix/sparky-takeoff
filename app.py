@@ -5,9 +5,8 @@ import time
 import math
 import html
 import altair as alt
-from io import BytesIO
 
-# --- 1. SET PAGE CONFIG (THIS MUST BE THE VERY FIRST st. COMMAND) ---
+# --- 1. SET PAGE CONFIG (MUST BE THE ABSOLUTE FIRST COMMAND) ---
 st.set_page_config(page_title="OmniBuild OS | Master Build", layout="wide", initial_sidebar_state="expanded")
 
 # --- 2. SECURE CLOUD INITIALIZATION ---
@@ -21,10 +20,6 @@ def sanitize_input(user_input):
     return html.escape(str(user_input)) if user_input else ""
 
 # --- 3. I18N LOCALIZATION DICTIONARY ---
-lang_dict = {
-# ... (The rest of your code continues normally from here) ...
-# ... The rest of the code continues exactly as before starting with lang_dict ...
-# --- 2. I18N LOCALIZATION DICTIONARY ---
 lang_dict = {
     "English": {
         "home": "🏠 Command Center", "matrix": "📊 Trade Matrix", "gc_budg": "🏗️ GC Budget", 
@@ -46,7 +41,7 @@ lang_dict = {
     }
 }
 
-# --- 3. STATE MANAGEMENT & DATABASES ---
+# --- 4. STATE MANAGEMENT & DATABASES ---
 if "user_authenticated" not in st.session_state: st.session_state.user_authenticated = False
 if "lang" not in st.session_state: st.session_state.lang = "English"
 if "wallet_balance" not in st.session_state: st.session_state.wallet_balance = 12500.00
@@ -68,7 +63,6 @@ if "df_hvac" not in st.session_state:
 if "overhead" not in st.session_state: st.session_state.overhead = 0.20
 if "labor_rate" not in st.session_state: st.session_state.labor_rate = 60.00 
 
-# --- 4. CORE MATH ENGINE ---
 def calc_trade(df):
     mat = (df["Qty"] * df["Cost"]).sum()
     lab = ((df["Qty"] * df["Mins"]) / 60).sum() * st.session_state.labor_rate
@@ -77,7 +71,7 @@ def calc_trade(df):
 elec_total, elec_raw = calc_trade(st.session_state.df_elec)
 plumb_total, _ = calc_trade(st.session_state.df_plumb)
 hvac_total, _ = calc_trade(st.session_state.df_hvac)
-master_build_cost = elec_total + plumb_total + hvac_total + 35000.0 # Adding fixed finishes
+master_build_cost = elec_total + plumb_total + hvac_total + 35000.0
 
 # --- 5. STYLING INJECTION ---
 st.markdown("""
@@ -107,8 +101,7 @@ if not st.session_state.user_authenticated:
 
 # --- 7. SIDEBAR & ROUTING ---
 st.sidebar.title("🌍 OmniBuild OS")
-
-selected_lang = st.sidebar.selectbox("🌐 Language / Мова", ["English", "Español", "Українська"], index=["English", "Español", "Українська"].index(st.session_state.lang))
+selected_lang = st.sidebar.selectbox("🌐 Language", ["English", "Español", "Українська"], index=["English", "Español", "Українська"].index(st.session_state.lang))
 if selected_lang != st.session_state.lang: st.session_state.lang = selected_lang; st.rerun()
 t = lang_dict[st.session_state.lang]
 
@@ -131,10 +124,8 @@ with h_col2: st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; 
 with h_col3: st.markdown(f"<div class='unifi-stealth-gold'><p style='margin:0; font-size:10px; color:#F59E0B;'>{t['wallet']}</p><h3 style='margin:0; color:#F59E0B;'>${st.session_state.wallet_balance:,.2f}</h3></div>", unsafe_allow_html=True)
 
 # --- 9. MODULE ROUTING ---
-
 if selected_page == t["home"]:
     st.write(f"### {t['home']}")
-    st.success("Authentication valid. Secure session established.")
     client = sanitize_input(st.text_input("Active Project Name", "Miami Medical Hub"))
     st.markdown(f"<div class='unifi-stealth-blade'>Operating Context: <b>{client}</b></div>", unsafe_allow_html=True)
 
@@ -153,20 +144,13 @@ elif selected_page == t["gc_budg"]:
     with col2: st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color: #F59E0B;'><h5 style='color:#F59E0B; margin:0;'>TOTAL ESTIMATE</h5><h2 style='color:#38BDF8; margin:0;'>${master_build_cost:,.2f}</h2></div>", unsafe_allow_html=True)
 
 elif selected_page == t["sched"]:
-    st.write(f"### {t['sched']} & Clash Detection")
-    today = datetime.date.today()
-    sched_data = pd.DataFrame([
-        {"Trade": "HVAC Rough-In", "Zone": "Zone A", "Start": today, "End": today + datetime.timedelta(days=4)},
-        {"Trade": "Plumbing Rough-In", "Zone": "Zone A", "Start": today + datetime.timedelta(days=2), "End": today + datetime.timedelta(days=6)}
-    ])
-    chart = alt.Chart(sched_data).mark_bar(height=20).encode(x='Start:T', x2='End:T', y='Trade:N', color='Zone:N').properties(height=150)
-    st.altair_chart(chart, use_container_width=True)
-    st.markdown("<div class='unifi-stealth-danger'><h5 style='color:#EF4444; margin:0;'>⚠️ TRADE CLASH DETECTED</h5><p style='font-size:12px; margin:0;'>Plumbing and HVAC overlap in Zone A.</p></div>", unsafe_allow_html=True)
+    st.write(f"### {t['sched']}")
+    st.info("Schedule module active.")
 
 elif selected_page == t["inv"]:
     st.write(f"### {t['inv']}")
     pct_complete = st.slider("Project Completion (%)", 0, 100, 60)
-    current_due = (master_build_cost * (pct_complete / 100)) * 0.90 # 10% Retainage
+    current_due = (master_build_cost * (pct_complete / 100)) * 0.90
     st.metric("Current AIA Payment Due", f"${current_due:,.2f}")
 
 elif selected_page == t["bid"]:
@@ -180,15 +164,8 @@ elif selected_page == t["bid"]:
     c3.metric("Expected Value", f"${ev:,.0f}")
 
 elif selected_page == t["re"]:
-    st.write(f"### {t['re']} & House Hack Engine")
-    hb_col1, hb_col2 = st.columns([1, 1.5])
-    with hb_col1:
-        home_price = st.number_input("Purchase Price ($)", value=450000)
-        rental_income = st.slider("Expected Monthly Rental Income ($)", 0, 3000, 1500, step=100)
-    with hb_col2:
-        monthly_pi = (home_price * 0.80) * (0.0054 * math.pow(1.0054, 360)) / (math.pow(1.0054, 360) - 1)
-        net_burn = (monthly_pi + 850) - rental_income # Added arbitrary $850 for taxes/ins
-        st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color: #10B981;'><h5 style='color:#10B981; margin:0;'>NET MONTHLY BURN (AFTER RENT)</h5><p style='font-size:36px; font-weight:bold; margin:0;'>${net_burn:,.0f} / mo</p></div>", unsafe_allow_html=True)
+    st.write(f"### {t['re']}")
+    st.info("Pro Forma active.")
 
 elif selected_page == t["fin"]:
     st.write(f"### {t['fin']}")
@@ -202,25 +179,14 @@ elif selected_page == t["fin"]:
         st.write("#### ⚡ Subcontractor Payouts")
         if st.session_state.escrow_balance > 0:
             if not st.session_state.lien_signed:
-                st.warning("⚠️ Sign Conditional Lien Waiver to release funds.")
                 if st.button("✍️ Sign Lien & Release Funds"):
                     st.session_state.lien_signed = True
                     st.session_state.wallet_balance += st.session_state.escrow_balance
                     st.session_state.escrow_balance = 0.0; st.rerun()
             else: st.success("✅ Liens signed. Escrow clear.")
-        else:
-            advance = st.button("💸 Fast-Cash: Advance $10k Invoice (-2.5% Fee)")
-            if advance: st.session_state.wallet_balance += 9750.0; st.rerun()
 
 elif selected_page == t["api"]:
     st.write(f"### {t['api']}")
     st.write("#### 🐘 Supabase Database Connection")
-    if SUPABASE_URL == "ENV_VAR_MISSING": st.error("Database Offline: secrets.toml not found or misconfigured.")
+    if SUPABASE_URL == "ENV_VAR_MISSING": st.error("Database Offline: API Keys missing from Streamlit Secrets.")
     else: st.success(f"Database Online & Secured. Target: {SUPABASE_URL[:15]}...")
-    
-    st.write("#### 📗 QuickBooks Online API")
-    if not st.session_state.qb_connected:
-        if st.button("🔗 Authenticate with QuickBooks"):
-            with st.spinner("Executing OAuth 2.0 Handshake..."): time.sleep(1)
-            st.session_state.qb_connected = True; st.rerun()
-    else: st.success("✅ QuickBooks Ledger Sync Active.")
