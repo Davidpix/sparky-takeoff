@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import random
 import time
 import datetime
