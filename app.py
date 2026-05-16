@@ -7,6 +7,8 @@ import html
 import re
 import requests
 import altair as alt
+import random
+import string
 
 # --- 1. SET PAGE CONFIG ---
 st.set_page_config(page_title="OmniBuild OS | Enterprise Platform", layout="wide", initial_sidebar_state="expanded")
@@ -40,7 +42,7 @@ lang_dict = {
         "co_lien": "📝 Change Orders & Liens", "bid": "🎯 AI Bid Optimizer", "sched": "📅 Trade Calendar", 
         "ai_core": "🧠 OmniMind AI Core", "dash": "📊 Telemetry Dashboard", "comm_rollout": "🏢 Commercial Rollout", 
         "legal_contract": "📝 Master Contracts", "field_signoff": "🔍 Field Sign-Off", "pitch_white": "🎨 Brand White-Label", 
-        "audit_logs": "📋 Audit Trail & Reports", "procure": "📦 Procurement & POs", "api": "☁️ Cloud API"
+        "audit_logs": "📋 Audit Trail & Reports", "procure": "📦 Procurement & POs", "saas_licensing": "🔑 SaaS Tenant Licensing", "api": "☁️ Cloud API"
     }
 }
 
@@ -65,15 +67,12 @@ if "wl_client_name" not in st.session_state: st.session_state.wl_client_name = "
 if "wl_accent_color" not in st.session_state: st.session_state.wl_accent_color = "#38BDF8"
 if "wl_bg_tint" not in st.session_state: st.session_state.wl_bg_tint = "#0F172A"
 
-# New persistent storage array tracking generated Purchase Orders
-if "purchase_orders" not in st.session_state:
-    st.session_state.purchase_orders = []
-
-def log_system_event(user, phase, log_string):
-    timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    st.session_state.system_audit_trail.insert(0, {
-        "Timestamp": timestamp_str, "User Node": user, "Event Phase": phase, "Log Record String": log_string
-    })
+# New SaaS Licensing Tracker States
+if "generated_license_keys" not in st.session_state:
+    st.session_state.generated_license_keys = [
+        {"Key Token": "OMNI-ELEC-9821", "Tier": "Growth Team", "Assigned Client": "david@shardvisuals.com", "Status": "Active / Verified"},
+        {"Key Token": "OMNI-STONE-4412", "Tier": "Enterprise Multi-Trade", "Assigned Client": "angel@luxurycountertops.com", "Status": "Active / Verified"},
+    ]
 
 # --- 5. THEME STYLING INJECTION ---
 st.markdown(f"""
@@ -82,7 +81,6 @@ st.markdown(f"""
     h1, h2, h3, h4, h5, h6 {{ color: #CBD5E1 !important; font-weight: 500 !important; }}
     .unifi-stealth-blade {{ background-color: {st.session_state.wl_bg_tint} !important; border: 1px solid #1E293B !important; border-left: 3px solid {st.session_state.wl_accent_color} !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }}
     .brand-hero-header {{ font-size: 28px; font-weight: bold; color: {st.session_state.wl_accent_color} !important; letter-spacing: -0.02em; margin-bottom: 5px; }}
-    .po-document-box {{ background-color: #F8FAFC !important; color: #0F172A !important; border: 1px solid #E2E8F0 !important; padding: 25px; font-family: monospace; font-size: 13px; line-height: 1.5; border-radius: 4px; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -102,7 +100,6 @@ if not st.session_state.user_authenticated:
                     st.session_state.user_email = profile["email"]
                     st.session_state.user_role = profile["assigned_role"]
                     st.session_state.company_name = profile["company_name"]
-                    log_system_event(profile["email"], "Security Auth", "User cleared gateway access verification loops.")
                     st.success("Access Verified.")
                     time.sleep(0.5); st.rerun()
                 else: st.error("Invalid credentials.")
@@ -115,7 +112,7 @@ st.sidebar.title("🌍 OmniBuild OS")
 st.sidebar.write(f"🏢 **Entity:** `{st.session_state.company_name}`")
 st.sidebar.divider()
 
-menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["pitch_white"], t["audit_logs"], t["procure"], t["api"]]
+menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["pitch_white"], t["audit_logs"], t["procure"], t["saas_licensing"], t["api"]]
 selected_page = st.sidebar.radio("Navigation Menu", menu_options)
 st.sidebar.divider()
 if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=True):
@@ -123,30 +120,14 @@ if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=Tru
 
 # --- 8. GLOBAL TELEMETRY BAR HEADER ---
 st.markdown(f"<div class='brand-hero-header'>⚜️ {st.session_state.wl_client_name}</div>", unsafe_allow_html=True)
-st.markdown(f"<p style='font-size:12px; margin-top:-10px; color:#64748B;'>Enterprise Partner Network Interface Portal Node ∙ Managed by {st.session_state.company_name}</p>", unsafe_allow_html=True)
 st.divider()
 
-# --- 9. GLOBAL DATABASE CROSS-TABLE RECOVERY ---
-raw_cloud_data = supabase_api_call(endpoint="materials", method="GET", params={"user_email": f"eq.{st.session_state.user_email}"})
-total_material_cost = 0.0
-has_materials = False
-
-if raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_data) > 0:
-    full_df = pd.DataFrame(raw_cloud_data)
-    df_elec_clean = full_df[full_df["trade_type"] == "Electrical"]
-    total_material_cost = (df_elec_clean["quantity"] * df_elec_clean["cost_per_unit"]).sum()
-    has_materials = True
-
-# --- 10. MODULE ROUTING CONTAINER ---
+# --- 9. MODULE ROUTING CONTAINER ---
 if selected_page == t["home"]:
     st.write(f"### {t['home']}")
     if st.button("🚀 One-Click Sandbox Simulation: Instant Demo Populate Mode", use_container_width=True):
         st.session_state.bank_connected = True; st.session_state.escrow_locked = 220000.00; st.session_state.wallet_balance = 75000.00
-        st.session_state.contract_agreements = [{"Doc ID": "SMA-DEMO", "GC Entity": "Global Development Corp", "Contract Value": 220000.00, "Execution Date": "Simulated Active", "Signatory": "Sandbox Admin", "Status": "Legally Executed"}]
-        st.session_state.commercial_units = pd.DataFrame([
-            {"Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Approved & Certified", "Value Release": 2250.00}
-        ])
-        log_system_event(st.session_state.user_email, "Sandbox Seed", "Injected full relational data science model array frames.")
+        st.session_state.commercial_units = pd.DataFrame([{"Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Approved & Certified", "Value Release": 2250.00}])
         st.success("Sandbox populated!"); time.sleep(0.5); st.rerun()
 
 elif selected_page == t["matrix"]: st.write(f"### {t['matrix']}")
@@ -164,91 +145,56 @@ elif selected_page == t["legal_contract"]: st.write(f"### {t['legal_contract']}"
 elif selected_page == t["field_signoff"]: st.write(f"### {t['field_signoff']}")
 elif selected_page == t["pitch_white"]: st.write(f"### {t['pitch_white']}")
 elif selected_page == t["audit_logs"]: st.write(f"### {t['audit_logs']}")
+elif selected_page == t["procure"]: st.write(f"### {t['procure']}")
 elif selected_page == t["api"]: st.write(f"### {t['api']}")
 
-# NEW ARCHITECTURE MODULE: AUTOMATED COMPONENT PROCUREMENT & PO GENERATOR
-elif selected_page == t["procure"]:
-    st.write(f"### {t['procure']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Intelligent Material Supply-Chain Buyout & Logistics Center</b><br>Compile wholesale vendor allocations, track material backorders, and execute automated secure corporate purchase orders.</div>", unsafe_allow_html=True)
+# NEW ARCHITECTURE MODULE: SAAS CORPORATE LICENSE & monetizaton MANAGEMENT
+elif selected_page == t["saas_licensing"]:
+    st.write(f"### {t['saas_licensing']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>SaaS Core Tenant Token Provisional Console</b><br>Authorize enterprise organization seats, provision software license verification vectors, and track multi-tenant portfolio recurring revenue.</div>", unsafe_allow_html=True)
     
-    # Check if there are active materials to buyout
-    active_buyout_value = total_material_cost if total_material_cost > 0 else (len(st.session_state.commercial_units) * 1150.00)
+    # Financial Revenue Calculators
+    active_tenant_count = len(st.session_state.generated_license_keys)
+    simulated_mrr = sum([199 if row["Tier"] == "Solo Contractor" else (499 if row["Tier"] == "Growth Team" else 1299) for row in st.session_state.generated_license_keys])
+    simulated_ltv = simulated_mrr * 12  # Extrapolated annualized performance indices
     
-    if active_buyout_value == 0.0:
-        st.warning("⚠️ Supply-chain matrix currently empty. Run a blueprint spec takeoff or populate your commercial unit grids to generate material buyout metrics.")
-    else:
-        col_po_actions, col_po_view = st.columns([1, 1.3])
+    m_c1, m_c2, m_c3 = st.columns(3)
+    m_c1.metric("Active Provisioned Tenants", f"{active_tenant_count} Corporate Portals")
+    m_c2.metric("Monthly Recurring Revenue (MRR)", f"${simulated_mrr:,.2f}", "+18.4% MoM")
+    m_c3.metric("Projected Annual Run-Rate (ARR)", f"${simulated_mrr * 12:,.2f}")
+    
+    st.divider()
+    
+    col_lic_issue, col_lic_ledger = st.columns([1, 1.3])
+    
+    with col_lic_issue:
+        st.write("#### 🔑 Provision New Tenant License Key")
+        target_sub_email = sanitize_input(st.text_input("Target Subcontractor / Client Email Address"))
+        selected_saas_tier = st.selectbox("Product Licensing Tier", ["Solo Contractor ($199/mo)", "Growth Team ($499/mo)", "Enterprise Multi-Trade ($1,299/mo)"])
         
-        with col_po_actions:
-            st.write("#### 📦 Supply Material Buyout Controls")
-            selected_vendor = st.selectbox("Target Logistics Wholesaler", ["Stone Slabs Supply Distributor LLC", "Miami Electrical Wholesale Node", "Enterprise HVAC Manufacturing Hub"])
-            shipping_address = sanitize_input(st.text_input("Project Delivery Destination Site", value="Miami Project Site, Grid-04"))
-            payment_terms = st.selectbox("Vendor Funding Terms Matrix", ["Net 30 Days", "Due Immediately via OmniPay", "COD (Cash on Delivery)"])
-            
-            st.write("##### 📊 Dynamically Compiled Buyout Value")
-            st.metric("Total Procurement Liability Amount", f"${active_buyout_value:,.2f}")
-            
-            st.write("---")
-            if st.button("⚡ Execute Secure Purchase Order Authorization", use_container_width=True):
-                if st.session_state.wallet_balance >= active_buyout_value:
-                    # Deduct cost from active wallet ledger to reflect the liability buyout
-                    st.session_state.wallet_balance -= active_buyout_value
-                    
-                    new_po = {
-                        "PO ID": f"PO-{len(st.session_state.purchase_orders) + 1:03d}",
-                        "Wholesaler": selected_vendor,
-                        "Amount": active_buyout_value,
-                        "Terms": payment_terms,
-                        "Timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        "Logistics Status": "Dispatched / Processing Shop"
-                    }
-                    st.session_state.purchase_orders.insert(0, new_po)
-                    log_system_event(st.session_state.user_email, "Procurement PO", f"Authorized secure purchase order {new_po['PO ID']} issued to {selected_vendor}.")
-                    st.success(f"✅ Purchase Order {new_po['PO ID']} officially authorized and routed to vendor!")
-                    time.sleep(0.5); st.rerun()
-                else:
-                    st.error("🚨 Order Blocked. Operational Liquid Wallet has insufficient funds to clear this procurement buyout line.")
-
-        with col_po_view:
-            st.write("#### 📑 Formal Document Output Frame")
-            
-            if not st.session_state.purchase_orders:
-                # Preview draft before generation occurs
-                st.markdown(f"""
-                <div class='po-document-box'>
-                    <p style='text-align: center; font-weight: bold; font-size: 15px; margin-bottom: 20px;'>PURCHASE ORDER DRAFT STATEMENT</p>
-                    <b>PO TRACKING IDENTIFIER:</b> PO-DRAFT<br>
-                    <b>ISSUANCE TIMESTAMP:</b> {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}<br>
-                    <b>ISSUING SUBCONTRACTOR:</b> {st.session_state.company_name}<br>
-                    <b>ROUTED WHOLESALER:</b> {selected_vendor}<br>
-                    --------------------------------------------------<br>
-                    <b>DELIVERY DESTINATION:</b> {shipping_address}<br>
-                    <b>FUNDING PAYMENT TERMS:</b> {payment_terms}<br>
-                    --------------------------------------------------<br>
-                    <b>TOTAL PROCUREMENT VALUE COMPLED:</b> ${active_buyout_value:,.2f} USD<br>
-                    --------------------------------------------------<br>
-                    <p style='font-size: 11px; color: #64748B; font-style: italic; margin-top: 15px;'>This document acts as an unissued operational staging matrix.</p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                # View actively generated PO ledger elements
-                st.write("##### 📋 Dispatched Corporate PO Ledger")
-                po_df = pd.DataFrame(st.session_state.purchase_orders)
-                st.dataframe(po_df, use_container_width=True, hide_index=True)
+        if st.button("⚡ Generate & Issue Encrypted Activation Token", use_container_width=True):
+            if target_sub_email:
+                tier_clean = selected_saas_tier.split(" ($")[0]
+                # Synthesize a unique random cryptographic license token format
+                token_suffix = ''.join(random.choices(string.digits, k=4))
+                generated_token = f"OMNI-{tier_clean.split(' ')[0].upper()}-{token_suffix}"
                 
-                with st.expander("🔍 View Latest Dispatched Document Details"):
-                    latest_po = st.session_state.purchase_orders[0]
-                    st.markdown(f"""
-                    <div class='po-document-box'>
-                        <p style='text-align: center; font-weight: bold; font-size: 15px; margin-bottom: 20px; color: #10B981;'>AUTHORIZED PURCHASE ORDER DISPATCHED</p>
-                        <b>PURCHASE ORDER NUMBER:</b> {latest_po['PO ID']}<br>
-                        <b>ISSUANCE TIMESTAMP:</b> {latest_po['Timestamp']}<br>
-                        <b>ISSUING CLIENT LOG:</b> {st.session_state.company_name}<br>
-                        <b>TARGET SUPPLY VENDOR:</b> {latest_po['Wholesaler']}<br>
-                        --------------------------------------------------<br>
-                        <b>FUNDING SETTLEMENT TERMS:</b> {latest_po['Terms']}<br>
-                        --------------------------------------------------<br>
-                        <b>LINE TOTAL PAYABLE VALUE:</b> ${latest_po['Amount']:,.2f} USD<br>
-                        <b>LOGISTICS PIPELINE ROUTE:</b> {latest_po['Logistics Status']}<br>
-                    </div>
-                    """, unsafe_allow_html=True)
+                st.session_state.generated_license_keys.append({
+                    "Key Token": generated_token, "Tier": tier_clean, "Assigned Client": target_sub_email, "Status": "Staged / Awaiting Activation"
+                })
+                st.success(f"License token generated for {target_sub_email}!")
+                time.sleep(0.5); st.rerun()
+            else:
+                st.error("A valid target client email marker is required to route token generation threads.")
+                
+    with col_lic_ledger:
+        st.write("#### 📋 Core Software License Asset Registry")
+        lic_df = pd.DataFrame(st.session_state.generated_license_keys)
+        st.dataframe(lic_df, use_container_width=True, hide_index=True)
+        
+        st.markdown("""
+        <div class='unifi-stealth-blade' style='border-left-color: #A855F7;'>
+            <b>💼 Organic Marketing Playbook:</b><br>
+            Issue your first custom license key tokens directly to your closest circle (like Angel or structural associates). Giving them isolated, customized workspaces makes them your initial power users, validating your platform metrics and driving high-value corporate word-of-mouth growth.
+        </div>
+        """, unsafe_allow_html=True)
