@@ -136,13 +136,19 @@ if "user_authenticated" not in st.session_state: st.session_state.user_authentic
 if "user_email" not in st.session_state: st.session_state.user_email = ""
 if "active_project_id" not in st.session_state: st.session_state.active_project_id = "SYS_UNASSIGNED_NODE"
 if "company_name" not in st.session_state: st.session_state.company_name = "Shard Visuals & Electrical"
+
+# Default Baseline Crew Allocations
 if "qty_journeymen" not in st.session_state: st.session_state.qty_journeymen = 2
-if "qty_helpers" not in st.session_state: st.session_state.qty_helpers = 1
 if "rate_journeyman" not in st.session_state: st.session_state.rate_journeyman = 45.0
+if "qty_helpers" not in st.session_state: st.session_state.qty_helpers = 1
 if "rate_helper" not in st.session_state: st.session_state.rate_helper = 22.0
 if "labor_burden_pct" not in st.session_state: st.session_state.labor_burden_pct = 0.30  
+
 if "overhead" not in st.session_state: st.session_state.overhead = 0.20
 if "copper_multiplier" not in st.session_state: st.session_state.copper_multiplier = 0.0
+
+if "installation_height_sel" not in st.session_state: st.session_state.installation_height_sel = "Standard Level (0 - 10 Ft)"
+if "jobsite_congestion_sel" not in st.session_state: st.session_state.jobsite_congestion_sel = False
 
 if "sys_log_frames" not in st.session_state:
     st.session_state.sys_log_frames = [
@@ -212,24 +218,13 @@ else:
         return row["Unit Cost ($)"]
         
     df_takeoff["Adjusted Unit Cost ($)"] = df_takeoff.apply(apply_market_pricing, axis=1)
-    
-    # Financial Pipeline Calculations Basic Baseline
-    total_mat_cost = (df_takeoff["Qty"] * df_takeoff["Adjusted Unit Cost ($)"]).sum()
-    total_crew_members = st.session_state.qty_journeymen + st.session_state.qty_helpers
-    raw_composite_rate = ((st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)) / total_crew_members
-    burdened_rate = raw_composite_rate * (1 + st.session_state.labor_burden_pct)
-    total_labor_hours = ((df_takeoff["Qty"] * df_takeoff["Mins to Install"]) / 60).sum()
-    
-    # Pre-calculated baseline for standard tracking blocks
-    standard_labor_cost = total_labor_hours * burdened_rate
-    standard_gross_bid = (total_mat_cost + standard_labor_cost) * (1 + st.session_state.overhead)
 
     # --- TAB NAVIGATION MODULES ---
-    tab_estimation, tab_panel, tab_commodity, tab_submittal = st.tabs([
+    tab_estimation, tab_panel, tab_commodity, tab_config = st.tabs([
         "📊 Data Matrix", 
         "⚡ Three-Phase Panel Schedule & Sizing", 
         "📈 Commodity Market Multiplier", 
-        "📁 Executive Submittal Generator"
+        "⚙️ Hardware Parameters & Crew Balancer"
     ])
 
     # --- TAB 1: MASTER ESTIMATOR SPREADSHEET ---
@@ -332,7 +327,7 @@ else:
             else:
                 st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ ELECTRICAL WAVEFORM SECURE</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Voltage sag locked in at **{drop_percentage:.2f}%**. Conductor operating temperature and thermal footprints inside safe limits.</p></div>", unsafe_allow_html=True)
 
-    # --- TAB 3: SYSTEMS ANALYTICS & NECA RISK MATRIX FACTORING ---
+    # --- TAB 3: COMMODITY SIMULATOR & RISK ANALYTICS ---
     with tab_commodity:
         st.write("### 📈 Raw Metal Commodity Price Volatility Multiplier")
         st.caption("Simulate real-time wholesale pricing risks caused by sudden supply-chain shifts in raw copper and galvanized steel indices.")
@@ -353,24 +348,7 @@ else:
             st.write(f"Active Volatility Burden: **{st.session_state.copper_multiplier*100:+.0f}% Deviation**")
             st.write(f"Updated Adjusted Material Estimate Total: **${total_mat_cost:,.2f}**")
 
-    # --- RECALCULATE ADVANCED INTEGRATED COST LOOPS INCLUDING NECA ADJUSTMENTS ---
-    # Placed globally so top health matrices update accurately based on all tabs
-    if "installation_height_sel" not in st.session_state: st.session_state.installation_height_sel = "Standard Level (0 - 10 Ft)"
-    if "jobsite_congestion_sel" not in st.session_state: st.session_state.jobsite_congestion_sel = False
-    
-    height_mult = 1.0
-    if "Elevated" in st.session_state.installation_height_sel: height_mult = 1.15
-    elif "High-Staging" in st.session_state.installation_height_sel: height_mult = 1.30
-    
-    congest_mult = 1.10 if st.session_state.jobsite_congestion_sel else 1.0
-    neca_composite_multiplier = height_mult * congest_mult
-    
-    final_risk_adjusted_hours = total_labor_hours * neca_composite_multiplier
-    final_burdened_labor_cost = final_risk_adjusted_hours * burdened_rate
-    final_gross_target_bid = (total_mat_cost + final_burdened_labor_cost) * (1 + st.session_state.overhead)
-
-    # --- TAB 4: COMPLIANCE SUBMITTAL DOCUMENT ARCHIVER ---
-    with tab_submittal:
+        st.divider()
         st.write("### 🎯 System Load, Risk Architecture, & NECA Multipliers")
         st.caption("Apply standard industrial labor derating adjustments to account for environmental field complexities per NECA Standard 1 guidelines.")
         
@@ -380,26 +358,42 @@ else:
             st.session_state.installation_height_sel = st.selectbox("Field Working Height Profile", ["Standard Level (0 - 10 Ft)", "Elevated Scaffold Phase (11 - 20 Ft)", "High-Staging Zone (21+ Ft)"], index=0)
             st.session_state.jobsite_congestion_sel = st.checkbox("Complex/Congested Area Workspace? (Occupied Clinic / Retrofit)", value=False)
             
-            st.write("---")
-            st.write(f"Composite Labor Risk Burden Modifier: **{neca_composite_multiplier:.2f}x Scale**")
-            st.write(f"Adjusted Target Production Labor: **{final_risk_adjusted_hours:.1f} Man-Hours**")
+            # Formulate NECA Multipliers
+            height_mult = 1.0
+            if "Elevated" in st.session_state.installation_height_sel: height_mult = 1.15
+            elif "High-Staging" in st.session_state.installation_height_sel: height_mult = 1.30
+            
+            congest_mult = 1.10 if st.session_state.jobsite_congestion_sel else 1.0
+            neca_composite_multiplier = height_mult * congest_mult
             
         with an_col2:
             st.write("#### ⏳ Schedule Risk Capacity Monitoring")
             project_days = st.number_input("Designated Contract Delivery Timeline (Working Days)", min_value=1, value=5, key="risk_days_input")
-            max_avail_man_hours = project_days * (total_crew_members * 8)
-            
-            if final_risk_adjusted_hours > max_avail_man_hours:
-                st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>⚠️ TIMELINE CONSTRAINTS EXCEEDED</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Derated labor requirement ({final_risk_adjusted_hours:.1f} hrs) completely burns past your active crew availability ceiling of {max_avail_man_hours:.1f} hours. Scale up field crew counts immediately to safeguard your baseline margin.</p></div>", unsafe_allow_html=True)
-            else:
-                utilization = (final_risk_adjusted_hours / max_avail_man_hours) * 100 if max_avail_man_hours > 0 else 0
-                st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ WORKLOAD ALLOCATION OPERATIONAL</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Active field operations utilize {utilization:.1f}% of crew milestone bandwidth limits under applied NECA adjustments.</p></div>", unsafe_allow_html=True)
 
         st.divider()
         st.write("#### 📁 Automated Client Submittal Compilation")
         project_architect_label = st.text_input("Lead Project Architect / Contact", value="Maksym Engineering Group")
         project_location_tag = st.text_input("Project Site Destination Address", value="North Miami Beach District, FL")
         
+        # Pull Down stream parameters for intermediate evaluations
+        total_field_crew = st.session_state.qty_journeymen + st.session_state.qty_helpers
+        raw_labor_sum = (st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)
+        blended_raw_hourly_rate = raw_labor_sum / total_field_crew if total_field_crew > 0 else 0
+        burdened_rate = blended_raw_hourly_rate * (1 + st.session_state.labor_burden_pct)
+        
+        final_risk_adjusted_hours = total_labor_hours * neca_composite_multiplier
+        final_burdened_labor_cost = final_risk_adjusted_hours * burdened_rate
+        final_gross_target_bid = (total_mat_cost + final_burdened_labor_cost) * (1 + st.session_state.overhead)
+
+        max_avail_man_hours = project_days * (total_field_crew * 8)
+        
+        if final_risk_adjusted_hours > max_avail_man_hours:
+            st.markdown(f"<div class='unifi-stealth-alert'><h5 style='color:#F59E0B; margin:0;'>⚠️ TIMELINE CONSTRAINTS EXCEEDED</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Derated labor requirement ({final_risk_adjusted_hours:.1f} hrs) completely burns past your active crew availability ceiling of {max_avail_man_hours:.1f} hours. Scale up field crew counts immediately to safeguard your baseline margin.</p></div>", unsafe_allow_html=True)
+        else:
+            utilization = (final_risk_adjusted_hours / max_avail_man_hours) * 100 if max_avail_man_hours > 0 else 0
+            st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color:#10B981;'><h5 style='color:#10B981; margin:0;'>✅ WORKLOAD ALLOCATION OPERATIONAL</h5><p style='font-size:11px; margin:4px 0 0 0; color:#94A3B8;'>Active field operations utilize {utilization:.1f}% of crew milestone bandwidth limits under applied NECA adjustments.</p></div>", unsafe_allow_html=True)
+
+        st.divider()
         submittal_preview_text = f"""===========================================================
 COMMERCIAL ELECTRICAL SUBMITTAL PROPOSAL PACKET
 ISSUED BY: {st.session_state.company_name.upper()}
@@ -411,6 +405,7 @@ DATE COMPILED: {datetime.date.today().strftime('%m/%d/%Y')}
    - Total Estimated Contract Bid: ${final_gross_target_bid:,.2f}
    - Raw Material Allotment Footprint: ${total_mat_cost:,.2f}
    - Total Production Burden Labor: {final_risk_adjusted_hours:.1f} Man-Hours
+   - True Burdened Crew Blended Rate: ${burdened_rate:.2f}/hr
    - Applied NECA Intensity Scaling Factor: {neca_composite_multiplier:.2f}x
 
 2. NATIONAL ELECTRICAL CODE (NEC) COMPLIANCE PROFILE
@@ -423,17 +418,47 @@ DATE COMPILED: {datetime.date.today().strftime('%m/%d/%Y')}
         buffer_submittal.write(submittal_preview_text.encode('utf-8'))
         st.download_button("📥 Download Compiled Submittal Brief (.txt)", data=buffer_submittal.getvalue(), file_name="Project_Submittal_Package.txt")
 
-    # --- FINANCIAL DATA MONITOR BLADES HEADER (DYNAMIC LINK) ---
-    st.sidebar.markdown("### ⚙️ Hardware Parameters")
-    st.session_state.company_name = st.sidebar.text_input("Subcontractor Workspace Label", value=st.session_state.company_name)
-    st.session_state.qty_journeymen = st.sidebar.number_input("Active Field Journeymen", min_value=1, value=st.session_state.qty_journeymen)
-    st.session_state.qty_helpers = st.sidebar.number_input("Active Helpers", min_value=0, value=st.session_state.qty_helpers)
-    st.session_state.rate_journeyman = st.sidebar.number_input("Journeyman Rate ($/hr)", min_value=15.0, value=st.session_state.rate_journeyman)
-    st.session_state.rate_helper = st.sidebar.number_input("Helper Rate ($/hr)", min_value=10.0, value=st.session_state.rate_helper)
-    st.sidebar.write("---")
-    st.sidebar.write("Use the configuration pane to alter underlying labor compositions across calculations.")
+    # --- TAB 4: ADVANCED CREW ARCHITECTURE & BALANCER ---
+    with tab_config:
+        st.write("### ⚙️ Core Hardware Profile & Crew Bandwidth Balancer")
+        st.caption("Dynamically adjust your field labor resource mix to calculate true blended hourly operational costs across project milestones.")
+        
+        cf_col1, cf_col2 = st.columns(2)
+        with cf_col1:
+            st.write("#### 👥 Labor Tier Composition Matrix")
+            st.session_state.qty_journeymen = st.number_input("Journeymen Count (Licensed / Lead Techs)", min_value=1, value=st.session_state.qty_journeymen, key="crew_j_count")
+            st.session_state.rate_journeyman = st.number_input("Journeyman Hourly Base Rate ($/hr)", min_value=15.0, value=st.session_state.rate_journeyman, key="crew_j_rate")
+            
+            st.session_state.qty_helpers = st.number_input("Helpers / Apprentices Count", min_value=0, value=st.session_state.qty_helpers, key="crew_h_count")
+            st.session_state.rate_helper = st.number_input("Helper Hourly Base Rate ($/hr)", min_value=10.0, value=st.session_state.rate_helper, key="crew_h_rate")
+            
+            st.session_state.labor_burden_pct = st.slider("Labor Burden Allowance Multiplier (%)", 10, 60, int(st.session_state.labor_burden_pct * 100)) / 100
 
-    # Render top telemetry summary using fully calculated figures
+        with cf_col2:
+            st.write("#### 📡 Real-Time Blended Cost Analytics")
+            total_field_crew = st.session_state.qty_journeymen + st.session_state.qty_helpers
+            raw_labor_sum = (st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)
+            
+            blended_raw_hourly_rate = raw_labor_sum / total_field_crew if total_field_crew > 0 else 0
+            true_burdened_blended_rate = blended_raw_hourly_rate * (1 + st.session_state.labor_burden_pct)
+            
+            st.write(f"Total Active Field Force: **{total_field_crew} Operators**")
+            st.write(f"Raw Blended Crew Base Rate: **${blended_raw_hourly_rate:.2f}/hr**")
+            
+            st.markdown(f"""
+            <div class='unifi-stealth-blade' style='border-left-color: #10B981;'>
+                <h5 style='color: #10B981; margin: 0;'>💸 TRUE BURDENED HOURLY RATE LOCK</h5>
+                <p style='font-size: 20px; font-family: monospace; color: #38BDF8; margin: 6px 0;'>${true_burdened_blended_rate:.2f} / Man-Hour</p>
+                <p style='font-size: 11px; margin: 0; color: #94A3B8;'>This true variable rate includes your base wages plus an active {st.session_state.labor_burden_pct*100:.0f}% structural burden factor. It has been deployed across all live pricing models.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        st.divider()
+        st.write("#### 🏢 Administrative Subcontractor Profile")
+        st.session_state.company_name = st.text_input("Subcontractor Corporate Header Designation", value=st.session_state.company_name, key="admin_company_name")
+
+    # --- STICKY STYLED TOP HEALTH MONITOR BLADES ---
+    # Placed after loop executions to dynamically pull the updated values from all active frames
     st.markdown("<div style='margin-top:25px;'></div>", unsafe_allow_html=True)
     m_col1, m_col2, m_col3, m_col4 = st.columns(4)
     with m_col1:
