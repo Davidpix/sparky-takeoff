@@ -187,7 +187,7 @@ if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=Tru
 st.markdown(f"<div class='brand-hero-header'>⚜️ {st.session_state.wl_client_name}</div>", unsafe_allow_html=True)
 st.divider()
 
-# --- 10. GLOBAL CALCULATIONS LAYER ---
+# --- 10. GLOBAL CALCULATIONS LAYER (CRASH FIX PAT PATCH APPLIED) ---
 raw_cloud_data = supabase_api_call(endpoint="materials", method="GET", params={"user_email": f"eq.{current_user}"})
 total_labor_hours = 0.0
 total_material_cost = 0.0
@@ -201,7 +201,18 @@ if raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_dat
     has_materials = True
 
 calculated_duration_days = max(1, math.ceil(total_labor_hours / 8)) if total_labor_hours > 0 else 5
-completed_milestones = sum([st.session_state.bank_connected, st.session_state.tenant_balances[current_user]["escrow"] > 0, (has_materials or len(st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]) > 0), bool(st.session_state.contract_agreements)])
+
+# SAFE LOOKUP: Use get() to prevent AttributeError before initialization occur
+is_bank_connected = st.session_state.get("bank_connected", False)
+user_escrow_balance = st.session_state.tenant_balances[current_user]["escrow"]
+user_units_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
+
+completed_milestones = sum([
+    is_bank_connected,
+    user_escrow_balance > 0,
+    (has_materials or len(user_units_df) > 0),
+    bool(st.session_state.contract_agreements)
+])
 onboarding_percentage = (completed_milestones / 4) * 100
 
 # --- 11. CENTRALIZED RUNNING ROUTING BLOCKS ---
@@ -211,6 +222,7 @@ if selected_page == t["home"]:
     st.progress(onboarding_percentage / 100)
     
     if st.button("🚀 One-Click Sandbox Simulation: Instant Demo Populate Mode", use_container_width=True):
+        st.session_state.bank_connected = True
         st.session_state.tenant_balances[current_user] = {"wallet": 45000.00, "escrow": 220000.00}
         st.session_state.commercial_units = pd.DataFrame([
             {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Approved & Certified", "Value Release": 2250.00},
@@ -224,7 +236,7 @@ if selected_page == t["home"]:
 elif selected_page == t["matrix"]:
     st.write(f"### {t['matrix']}")
     st.markdown("<div class='unifi-stealth-blade'><b>Trade Matrix Configuration Layer</b><br>Define cost codes and production units below.</div>", unsafe_allow_html=True)
-    st.dataframe(pd.DataFrame([{"Trade Code": "ELEC-ROUGH", "Title": "Rough-In Conduit", "Rate/Hr": 45.00}, {"Trade Code": "STONE-FAB", "Title": "Countertop Cut", "Rate/Hr": 65.00}]), use_container_width=True)
+    st.dataframe(pd.DataFrame([{"Trade Code": "ELEC-ROUGH", "Title": "Rough-In Conduit", "Rate/Hr": 45.00}, {"Trade Code": "STONE-FAB", "Title": "Countertop Cut", "Rate/Hr": 65.00}]), use_container_width=True, hide_index=True)
 
 elif selected_page == t["takeoff"]:
     st.write(f"### {t['takeoff']}")
@@ -256,7 +268,7 @@ elif selected_page == t["comm_rollout"]:
         st.info("Private database ledger empty. Run sandbox mode on Command Center page.")
     else:
         edited_df = st.data_editor(user_view_df, use_container_width=True, num_rows="dynamic")
-        if st.button("💾 Save Grid Layout Changes"):
+        if st.button("💾 Save Grid Layout Changes", use_container_width=True):
             st.session_state.commercial_units = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] != current_user]
             st.session_state.commercial_units = pd.concat([st.session_state.commercial_units, edited_df], ignore_index=True)
             st.success("Silo matrix updated cleanly.")
@@ -271,7 +283,8 @@ elif selected_page == t["bank"]:
     st.write(f"### {t['bank']}")
     st.markdown("<div class='unifi-stealth-blade'><b>Corporate Project Funding & Bank Link Hub</b></div>", unsafe_allow_html=True)
     dep_amt = st.number_input("Inbound Wire Value ($)", value=50000.00)
-    if st.button("🏢 Fund Project Escrow Buffer Pool"):
+    if st.button("🏢 Fund Project Escrow Buffer Pool", use_container_width=True):
+        st.session_state.bank_connected = True
         st.session_state.tenant_balances[current_user]["escrow"] += dep_amt
         st.success("Escrow loaded!"); time.sleep(0.5); st.rerun()
 
@@ -312,13 +325,14 @@ elif selected_page == t["field_signoff"]:
             if st.button(f"Release Funds via Sign-off ({row['Unit Number']})", key=f"fo_{idx}"):
                 st.session_state.tenant_balances[current_user]["escrow"] -= 2250.00
                 st.session_state.tenant_balances[current_user]["wallet"] += 2250.00
+                st.session_state.commercial_units.at[idx, "GC Sign-Off"] = "Approved & Certified"
                 st.success("Micro-draw executed!"); time.sleep(0.5); st.rerun()
 
 elif selected_page == t["pitch_white"]:
     st.write(f"### {t['pitch_white']}")
     st.markdown("<div class='unifi-stealth-blade'><b>🎨 Custom Brand White-Label Skin Engine</b></div>", unsafe_allow_html=True)
     lbl = st.text_input("Brand Title Name Tag", value=st.session_state.wl_client_name)
-    if st.button("Apply Theme Skin Changes"):
+    if st.button("Apply Theme Skin Changes", use_container_width=True):
         st.session_state.wl_client_name = lbl; st.success("Skin initialized!"); time.sleep(0.5); st.rerun()
 
 elif selected_page == t["audit_logs"]:
@@ -329,13 +343,21 @@ elif selected_page == t["audit_logs"]:
 elif selected_page == t["procure"]:
     st.write(f"### {t['procure']}")
     st.markdown("<div class='unifi-stealth-blade'><b>📦 Supply-Chain Procurement Purchase Orders</b></div>", unsafe_allow_html=True)
-    st.write("Staged PO liabilities: **$0.00**")
+    v_cost = total_material_cost if total_material_cost > 0 else (len(st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]) * 1250.00)
+    st.metric("Calculated Wholesale Procurement Overhead", f"${v_cost:,.2f}")
+    if st.button("⚡ Execute Secure Purchase Order Dispatch", use_container_width=True):
+        if st.session_state.tenant_balances[current_user]["wallet"] >= v_cost:
+            st.session_state.tenant_balances[current_user]["wallet"] -= v_cost
+            st.session_state.purchase_orders.insert(0, {"PO ID": f"PO-{len(st.session_state.purchase_orders)+1:03d}", "Amount": v_cost, "Status": "Dispatched Site"})
+            log_system_event(current_user, "Procure PO", f"Dispatched corporate materials purchase order buyout tracker.")
+            st.success("PO dispatched successfully!"); time.sleep(0.5); st.rerun()
+        else: st.error("Insufficient liquidity reserves inside operational wallet lines.")
 
 elif selected_page == t["saas_licensing"]:
     st.write(f"### {t['saas_licensing']}")
     st.markdown("<div class='unifi-stealth-blade'><b>🔑 SaaS Tenant Invitation & Token Allocation Node</b></div>", unsafe_allow_html=True)
     invited = st.text_input("Subcontractor Client Email Address")
-    if st.button("Generate License Code"):
+    if st.button("Generate License Code", use_container_width=True):
         st.success(f"Token code provisioned safely for {invited}!")
 
 elif selected_page == t["chat_hub"]:
