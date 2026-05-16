@@ -50,39 +50,39 @@ lang_dict = {
     }
 }
 
-# --- 4. STATE MANAGEMENT (HOUSEKEEPING PATCH APPLIED) ---
+# --- 4. STATE MANAGEMENT (MULTI-TENANT ENHANCED) ---
 if "user_authenticated" not in st.session_state: st.session_state.user_authenticated = False
 if "user_email" not in st.session_state: st.session_state.user_email = ""
 if "user_role" not in st.session_state: st.session_state.user_role = "⚡ Electrical Sub"
 if "company_name" not in st.session_state: st.session_state.company_name = "Independent Operator"
 if "lang" not in st.session_state: st.session_state.lang = "English"
-if "wallet_balance" not in st.session_state: st.session_state.wallet_balance = 75000.00
-if "escrow_locked" not in st.session_state: st.session_state.escrow_locked = 185000.00
-if "bank_connected" not in st.session_state: st.session_state.bank_connected = True
+
+# Isolated Account Balances mapped per tenant user email
+if "tenant_balances" not in st.session_state:
+    st.session_state.tenant_balances = {}
+
 if "change_orders" not in st.session_state: st.session_state.change_orders = []
 if "transaction_history" not in st.session_state: st.session_state.transaction_history = []
 if "contract_agreements" not in st.session_state: st.session_state.contract_agreements = []
 if "system_audit_trail" not in st.session_state: st.session_state.system_audit_trail = []
 if "purchase_orders" not in st.session_state: st.session_state.purchase_orders = []
+
+# Structural data frames augmented with Owner/Tenant relational mapping markers
 if "commercial_units" not in st.session_state:
-    st.session_state.commercial_units = pd.DataFrame(columns=["Floor", "Unit Number", "Asset Type", "Fabrication Status", "Installation Status"])
+    st.session_state.commercial_units = pd.DataFrame(columns=["Tenant Owner", "Floor", "Unit Number", "Asset Type", "Fabrication Status", "Installation Status"])
+
+if "field_dispatch_messages" not in st.session_state:
+    st.session_state.field_dispatch_messages = []
 
 # White-Label Theme State Defaults
 if "wl_client_name" not in st.session_state: st.session_state.wl_client_name = "OmniBuild OS Standard"
 if "wl_accent_color" not in st.session_state: st.session_state.wl_accent_color = "#38BDF8"
 if "wl_bg_tint" not in st.session_state: st.session_state.wl_bg_tint = "#0F172A"
 
-# Cleaned SaaS Licensing Tracker State Block (Ghost Records Purged)
+# SaaS Licensing Tracker Key Arrays
 if "generated_license_keys" not in st.session_state:
     st.session_state.generated_license_keys = [
         {"Key Token": "OMNI-ELEC-9821", "Tier": "Growth Team", "Assigned Client": "david@shardvisuals.com", "Status": "Active / Verified"}
-    ]
-
-# Persistent array tracking context-bound dispatch messages
-if "field_dispatch_messages" not in st.session_state:
-    st.session_state.field_dispatch_messages = [
-        {"Timestamp": "10:15 AM", "Sender": "david@shardvisuals.com", "Role": "⚡ Subcontractor", "Room Context": "Room 101", "Message String": "Main conduit feeders pulled and secured. Ready for drywall team inspection sign-off."},
-        {"Timestamp": "10:22 AM", "Sender": "GC_Admin_Node", "Role": "🏗️ General Contractor", "Room Context": "Room 101", "Message String": "Verified via dashboard telemetry. Field draw release authorized."}
     ]
 
 def log_system_event(user, phase, log_string):
@@ -102,11 +102,10 @@ st.markdown(f"""
     .brand-hero-header {{ font-size: 28px; font-weight: bold; color: {st.session_state.wl_accent_color} !important; letter-spacing: -0.02em; margin-bottom: 5px; }}
     .chat-bubble-sub {{ background-color: #1E293B !important; padding: 12px; border-radius: 4px; border-left: 3px solid #38BDF8; margin-bottom: 8px; }}
     .chat-bubble-gc {{ background-color: #1E1B4B !important; padding: 12px; border-radius: 4px; border-left: 3px solid #10B981; margin-bottom: 8px; }}
-    .po-document-box {{ background-color: #F8FAFC !important; color: #0F172A !important; border: 1px solid #E2E8F0 !important; padding: 25px; font-family: monospace; font-size: 13px; line-height: 1.5; border-radius: 4px; }}
 </style>
 """, unsafe_allow_html=True)
 
-# --- 6. AUTHENTICATION GATEWAY (PASSWORDLESS ACTIVATION ENABLED) ---
+# --- 6. AUTHENTICATION GATEWAY ---
 if not st.session_state.user_authenticated:
     st.markdown("<div style='text-align:center; padding:40px;'><h1>🔐 OmniBuild OS</h1><p>Enterprise Multi-User Authentication Gateway</p></div>", unsafe_allow_html=True)
     tab_login, tab_activate, tab_register = st.tabs(["🔒 Secure Login", "🔑 Activate License Key Token", "📝 Free Beta Signup"])
@@ -125,13 +124,13 @@ if not st.session_state.user_authenticated:
                     st.session_state.company_name = profile["company_name"]
                     st.success("Access Verified.")
                     time.sleep(0.5); st.rerun()
-                else: st.error("Invalid credentials. If you are an invited team member, navigate to the Activate License tab first.")
+                else: st.error("Invalid credentials. Verify your inputs or activate an issued license token.")
                 
     with tab_activate:
-        st.caption("Received an activation code from an administrator? Use this panel to configure your operational credentials:")
+        st.caption("Received an activation code? Enter details below to launch your dedicated multi-tenant operational frame:")
         with st.form("activate_license_form"):
-            act_email = st.text_input("Invited Account Email (e.g., angel@luxurycountertops.com)").strip()
-            act_token = st.text_input("Secure License Token Key", placeholder="e.g., OMNI-STONE-4412").strip()
+            act_email = st.text_input("Invited Account Email").strip()
+            act_token = st.text_input("Secure License Token Key").strip()
             act_password = st.text_input("Set Your New Account Password", type="password")
             act_company = st.text_input("Confirm Your Business Entity Name")
             
@@ -142,32 +141,30 @@ if not st.session_state.user_authenticated:
                         "email": act_email,
                         "password_hash": act_password,
                         "company_name": act_company if act_company else "Invited Enterprise Partner",
-                        "assigned_role": f"🏗️ {matching_token[0]['Tier']} Tenant"
+                        "assigned_role": f"🏗| {matching_token[0]['Tier']} Tenant"
                     }
                     supabase_api_call(endpoint="user_registry", method="POST", payload=payload)
                     for idx, key in enumerate(st.session_state.generated_license_keys):
                         if key["Key Token"] == act_token:
                             st.session_state.generated_license_keys[idx]["Status"] = "Active / Verified"
-                    st.success("🎉 Workspace activated successfully! Flip to the Login tab to log in.")
+                    st.success("🎉 Workspace activated cleanly! Head over to the Secure Login tab.")
                     time.sleep(1); st.rerun()
-                else: st.error("🚨 Activation Denied. Token does not match the registered client email validation values.")
-
-    with tab_register:
-        with st.form("reg_form"):
-            reg_email = st.text_input("Preferred Login Email")
-            reg_password = st.text_input("Secure Password Set", type="password")
-            reg_company = st.text_input("Company Name")
-            if st.form_submit_button("Create Beta Profile", use_container_width=True):
-                payload = {"email": reg_email, "password_hash": reg_password, "company_name": reg_company, "assigned_role": "⚡ Free Beta Tester"}
-                supabase_api_call(endpoint="user_registry", method="POST", payload=payload)
-                st.success("Beta account generated!")
+                else: st.error("🚨 Activation Denied. Inbound verification metrics mismatch.")
     st.stop()
 
 t = lang_dict[st.session_state.lang]
 
-# --- 7. SIDEBAR CONTROL PANEL ---
+# --- 7. TENANT INTERCEPT DATA SAFETY LOOPS ---
+current_user = st.session_state.user_email
+
+# Initialize unique financial balances for the tenant if they don't exist
+if current_user not in st.session_state.tenant_balances:
+    st.session_state.tenant_balances[current_user] = {"wallet": 5000.00, "escrow": 25000.00}
+
+# --- 8. SIDEBAR CONTROL PANEL ---
 st.sidebar.title("🌍 OmniBuild OS")
 st.sidebar.write(f"🏢 **Entity:** `{st.session_state.company_name}`")
+st.sidebar.write(f"👤 **User:** `{current_user}`")
 st.sidebar.divider()
 
 menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["field_signoff"], t["pitch_white"], t["audit_logs"], t["procure"], t["saas_licensing"], t["chat_hub"], t["api"]]
@@ -176,51 +173,98 @@ st.sidebar.divider()
 if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=True):
     st.session_state.user_authenticated = False; st.rerun()
 
-# --- 8. GLOBAL TELEMETRY BAR HEADER ---
+# --- 9. GLOBAL TELEMETRY BAR HEADER ---
 st.markdown(f"<div class='brand-hero-header'>⚜️ {st.session_state.wl_client_name}</div>", unsafe_allow_html=True)
 st.divider()
 
-# --- 9. GLOBAL DATABASE CROSS-TABLE RECOVERY ---
-raw_cloud_data = supabase_api_call(endpoint="materials", method="GET", params={"user_email": f"eq.{st.session_state.user_email}"})
-total_labor_hours = 0.0
-total_material_cost = 0.0
-has_materials = False
-
-if raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_data) > 0:
-    full_df = pd.DataFrame(raw_cloud_data)
-    df_elec_clean = full_df[full_df["trade_type"] == "Electrical"]
-    total_material_cost = (df_elec_clean["quantity"] * df_elec_clean["cost_per_unit"]).sum()
-    total_labor_hours = ((df_elec_clean["quantity"] * df_elec_clean["labor_minutes"]) / 60).sum()
-    has_materials = True
-
-calculated_duration_days = max(1, math.ceil(total_labor_hours / 8)) if total_labor_hours > 0 else 5
-completed_milestones = sum([st.session_state.bank_connected, st.session_state.escrow_locked > 0, (has_materials or len(st.session_state.commercial_units) > 0), bool(st.session_state.contract_agreements)])
-onboarding_percentage = (completed_milestones / 4) * 100
-
-# --- 10. MODULE ROUTING CONTAINER ---
+# --- 10. MULTI-TENANT ISOLATED MODULE DATA FILTER ROUTING ---
 if selected_page == t["home"]:
     st.write(f"### {t['home']}")
-    st.write("#### 🎯 Your Interactive Onboarding Milestone Map")
-    st.progress(onboarding_percentage / 100)
+    st.markdown(f"<div class='unifi-stealth-blade'>Authorized Workspace Profile Node: <b>{st.session_state.company_name}</b></div>", unsafe_allow_html=True)
+    
     if st.button("🚀 One-Click Sandbox Simulation: Instant Demo Populate Mode", use_container_width=True):
-        st.session_state.bank_connected = True; st.session_state.escrow_locked = 220000.00; st.session_state.wallet_balance = 75000.00
+        st.session_state.tenant_balances[current_user] = {"wallet": 45000.00, "escrow": 220000.00}
+        
+        # Inject mock room unit configurations linked explicitly to the logged-in user email
         st.session_state.commercial_units = pd.DataFrame([
-            {"Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Approved & Certified", "Value Release": 2250.00},
-            {"Floor": "Floor 01", "Unit Number": "Room 102", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed", "GC Sign-Off": "Pending Review", "Value Release": 2250.00}
+            {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed"},
+            {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Room 102", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed"}
         ])
-        st.success("Sandbox populated!"); time.sleep(0.5); st.rerun()
+        
+        st.session_state.field_dispatch_messages = [
+            {"Timestamp": "11:02 AM", "Sender": current_user, "Role": "⚡ Subcontractor", "Room Context": "Room 101", "Message String": "Isolated multi-tenant data stream verified."}
+        ]
+        st.success("Your private tenant sandbox has been cleanly populated!"); time.sleep(0.5); st.rerun()
 
+# COMMERICAL ROLLOUT SUB-VIEW - FULLY DATA ISOLATED
+elif selected_page == t["comm_rollout"]:
+    st.write(f"### {t['comm_rollout']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>Multi-Unit High-Density Real Estate Scaling Portal (Isolated)</b></div>", unsafe_allow_html=True)
+    
+    # Filter the layout matrix to show ONLY rows belonging to the logged-in customer email
+    user_view_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
+    
+    if user_view_df.empty:
+        st.info("Your private business ledger is currently empty. Head to the Command Center to trigger Sandbox Simulation mode or log room metrics manually.")
+        
+        if st.button("➕ Initialize Blank Room Row"):
+            new_blank_row = pd.DataFrame([{"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Quartz Line", "Fabrication Status": "Raw Slab Inventory", "Installation Status": "Unscheduled"}])
+            st.session_state.commercial_units = pd.concat([st.session_state.commercial_units, new_blank_row], ignore_index=True)
+            st.rerun()
+    else:
+        st.write("#### 🧱 Your Private Multi-Unit Grid Matrix")
+        edited_df = st.data_editor(user_view_df, use_container_width=True, num_rows="dynamic")
+        
+        if st.button("💾 Save Ledger Modifications"):
+            # Cleanly merge alterations back into the global registry database pool
+            st.session_state.commercial_units = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] != current_user]
+            st.session_state.commercial_units = pd.concat([st.session_state.commercial_units, edited_df], ignore_index=True)
+            st.success("Ledger states updated safely within your data silo.")
+
+# OMNIPAY DRAW SUB-VIEW - FULLY DATA ISOLATED
+elif selected_page == t["fin"]:
+    st.write(f"### {t['fin']}")
+    u_bal = st.session_state.tenant_balances[current_user]
+    
+    f_c1, f_c2 = st.columns(2)
+    f_c1.metric("Your Private Operational Wallet Balance", f"${u_bal['wallet']:,.2f}")
+    f_c2.metric("Your Private Locked Escrow Fund Pool", f"${u_bal['escrow']:,.2f}")
+
+# FIELD CHAT HUB VIEW - FULLY DATA ISOLATED
+elif selected_page == t["chat_hub"]:
+    st.write(f"### {t['chat_hub']}")
+    col_in, col_fd = st.columns([1, 1.4])
+    
+    with col_in:
+        msg_text = st.text_area("Broadcast Update Note")
+        if st.button("⚡ Send", use_container_width=True):
+            if msg_text:
+                st.session_state.field_dispatch_messages.insert(0, {
+                    "Timestamp": datetime.datetime.now().strftime("%I:%M %p"),
+                    "Sender": current_user, "Role": "⚡ Tenant", "Room Context": "Global Scope", "Message String": sanitize_input(msg_text)
+                })
+                st.success("Dispatched!"); time.sleep(0.5); st.rerun()
+                
+    with col_fd:
+        # Filter stream logs to show ONLY communications involving this specific user workspace
+        user_messages = [m for m in st.session_state.field_dispatch_messages if m["Sender"] == current_user or current_user in m["Message String"]]
+        
+        if not user_messages:
+            st.caption("No private field updates logged under this workspace context.")
+        else:
+            for m in user_messages:
+                st.markdown(f"<div class='chat-bubble-sub'><strong>{m['Sender']}</strong><br><p style='font-size:13px; color:#CBD5E1;'>{m['Message String']}</p></div>", unsafe_allow_html=True)
+
+# Passthrough routing markers for secondary modules
 elif selected_page == t["matrix"]: st.write(f"### {t['matrix']}")
 elif selected_page == t["takeoff"]: st.write(f"### {t['takeoff']}")
 elif selected_page == t["bid"]: st.write(f"### {t['bid']}")
 elif selected_page == t["clinic"]: st.write(f"### {t['clinic']}")
 elif selected_page == t["co_lien"]: st.write(f"### {t['co_lien']}")
-elif selected_page == t["fin"]: st.write(f"### {t['fin']}")
 elif selected_page == t["bank"]: st.write(f"### {t['bank']}")
 elif selected_page == t["sched"]: st.write(f"### {t['sched']}")
 elif selected_page == t["ai_core"]: st.write(f"### {t['ai_core']}")
 elif selected_page == t["dash"]: st.write(f"### {t['dash']}")
-elif selected_page == t["comm_rollout"]: st.write(f"### {t['comm_rollout']}")
 elif selected_page == t["legal_contract"]: st.write(f"### {t['legal_contract']}")
 elif selected_page == t["field_signoff"]: st.write(f"### {t['field_signoff']}")
 elif selected_page == t["pitch_white"]: st.write(f"### {t['pitch_white']}")
@@ -228,42 +272,3 @@ elif selected_page == t["audit_logs"]: st.write(f"### {t['audit_logs']}")
 elif selected_page == t["procure"]: st.write(f"### {t['procure']}")
 elif selected_page == t["saas_licensing"]: st.write(f"### {t['saas_licensing']}")
 elif selected_page == t["api"]: st.write(f"### {t['api']}")
-
-# LIVE DISPATCH HUB ROUTING VIEW
-elif selected_page == t["chat_hub"]:
-    st.write(f"### {t['chat_hub']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Live Context-Bound Field Dispatch Hub</b></div>", unsafe_allow_html=True)
-    col_msg_input, col_msg_feed = st.columns([1, 1.4])
-    active_rooms = ["Global Scope Thread", "Room 101", "Room 102", "Room 201", "Room 202"]
-    
-    with col_msg_input:
-        st.write("#### 📣 Dispatch Live Progress Report")
-        msg_target_room = st.selectbox("Assign Message to Room Grid Target Node", active_rooms)
-        msg_text_raw = st.text_area("Field Update Note / Exception Summary Note")
-        if st.button("⚡ Broadcast Update to Project Matrix", use_container_width=True):
-            if msg_text_raw:
-                user_role_tag = "⚡ Subcontractor" if "Sub" in st.session_state.user_role or "Tenant" in st.session_state.user_role else "🏗️ General Contractor"
-                st.session_state.field_dispatch_messages.insert(0, {
-                    "Timestamp": datetime.datetime.now().strftime("%I:%M %p"),
-                    "Sender": st.session_state.user_email, "Role": user_role_tag, "Room Context": msg_target_room, "Message String": sanitize_input(msg_text_raw)
-                })
-                st.success("Message broadcasted!")
-                time.sleep(0.5); st.rerun()
-
-    with col_msg_feed:
-        st.write("#### 📡 Filtered Project Telemetry Feed")
-        feed_filter = st.radio("Stream Context View Filter", ["Show All Feed Actions", "Room 101 Logs Only", "Room 102 Logs Only"], horizontal=True)
-        filtered_messages = st.session_state.field_dispatch_messages
-        if "Room 101" in feed_filter: filtered_messages = [m for m in st.session_state.field_dispatch_messages if m["Room Context"] == "Room 101"]
-        elif "Room 102" in feed_filter: filtered_messages = [m for m in st.session_state.field_dispatch_messages if m["Room Context"] == "Room 102"]
-        
-        for msg in filtered_messages:
-            bubble_class = "chat-bubble-gc" if "General" in msg["Role"] else "chat-bubble-sub"
-            st.markdown(f"""
-            <div class='{bubble_class}'>
-                <span style='font-size: 10px; color: #94A3B8; float: right;'>⏱️ {msg['Timestamp']}</span>
-                <strong style='color: #F8FAFC;'>{msg['Sender']}</strong> <span style='font-size: 11px; color: #94A3B8;'>({msg['Role']})</span><br>
-                <span style='background-color: #070B12; color: #F59E0B; font-size: 10px; padding: 2px 6px; border-radius: 3px; font-family: monospace; display: inline-block; margin: 4px 0;'>📍 {msg['Room Context']}</span><br>
-                <p style='margin: 4px 0 0 0; color: #CBD5E1; font-size: 13px;'>{msg['Message String']}</p>
-            </div>
-            """, unsafe_allow_html=True)
