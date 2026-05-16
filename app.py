@@ -1,4 +1,4 @@
- Gemini
+
 Maximize Productivity for Life and Finance
 New chat
 My stuff
