@@ -12,7 +12,7 @@ import string
 import altair as alt
 
 # --- 1. ENTERPRISE PAGE CONFIGURATION ---
-st.set_page_config(page_title="OmniBuild OS | Enterprise Matrix", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="OmniBuild OS | Syndicate Matrix", layout="wide", initial_sidebar_state="expanded")
 
 # --- 2. THE UI/UX ENGINE (MODERN MINIMALIST) ---
 def inject_global_styles():
@@ -29,57 +29,33 @@ def inject_global_styles():
         .stButton>button:hover { background-color: #38BDF8; color: #030508; border: 1px solid #38BDF8; }
         .shard-visuals-card { background-color: #050505 !important; border: 1px solid #333 !important; padding: 0px; border-radius: 8px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
         .shard-visuals-header { background: linear-gradient(90deg, #1A1A1A, #000); padding: 15px; border-bottom: 1px solid #333; }
-        .document-scrollbox { background-color: #F8FAFC !important; color: #0F172A !important; border: 1px solid #E2E8F0 !important; padding: 30px; font-family: 'Times New Roman', serif; border-radius: 4px; height: 400px; overflow-y: scroll; }
+        .chat-bubble-ai { background-color: #0A0F17; border: 1px solid #1E293B; border-left: 3px solid #10B981; padding: 15px; border-radius: 4px; margin-bottom: 10px; }
+        .chat-bubble-user { background-color: #1E293B; color: #F8FAFC; padding: 15px; border-radius: 4px; margin-bottom: 10px; text-align: right; }
     </style>
     """, unsafe_allow_html=True)
 
 inject_global_styles()
 
-# --- 3. SECURE CLOUD INITIALIZATION & API HELPERS ---
-SUPABASE_URL = st.secrets.get("SUPABASE_URL", "ENV_VAR_MISSING")
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "ENV_VAR_MISSING")
-DAILY_API_KEY = st.secrets.get("DAILY_API_KEY", "ENV_VAR_MISSING")
-
-def create_secure_video_room():
-    if DAILY_API_KEY == "ENV_VAR_MISSING": return "https://your-domain.daily.co/demo-room"
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {DAILY_API_KEY}"}
-    payload = {"properties": {"enable_chat": True, "enable_screenshare": True, "exp": int(time.time()) + 86400}}
-    try:
-        response = requests.post("https://api.daily.co/v1/rooms", headers=headers, json=payload)
-        if response.status_code == 200: return response.json().get("url")
-    except Exception: return None
-
 def sanitize_input(user_input): return html.escape(str(user_input)) if user_input else ""
 
-# --- 4. GLOBAL STATE MANAGEMENT ---
+# --- 3. GLOBAL STATE MANAGEMENT ---
 default_states = {
-    "user_authenticated": False, "user_email": "", "company_name": "Shard.Visuals Enterprise", "wl_client_name": "OmniBuild OS Standard",
-    "tenant_balances": {}, "active_change_orders": [], "transaction_history": [], "contract_agreements": [], "system_audit_trail": [],
-    "purchase_orders": [], "takeoff_results": [], "punch_list_items": [], "clinic_hardware_matrix": [], "security_audit_score": None,
-    "labor_logs": [], "forensic_photos": [], "sla_contracts": [], "clinic_appointments": [], "active_video_room": None,
-    "base_apprentice_hours": 412.5, "schedule_delay_days": 0, "crew_count_leveling": 2, "field_dispatch_messages": [],
-    "generated_license_keys": [{"Key Token": "OMNI-ELEC-9821", "Tier": "Enterprise", "Assigned Client": "david@shardvisuals.com", "Status": "Active"}]
+    "user_authenticated": False, "user_email": "", "company_name": "Shard.Visuals Enterprise", "wl_client_name": "OmniBuild OS v5.0",
+    "tenant_balances": {}, "active_change_orders": [], "system_audit_trail": [], "purchase_orders": [], "takeoff_results": [],
+    "clinic_hardware_matrix": [], "labor_logs": [], "forensic_photos": [], "sla_contracts": [], "clinic_appointments": [],
+    "base_apprentice_hours": 412.5, "field_dispatch_messages": [], "sub_tier_contracts": [], "live_pricing": {}, "rag_chat": [],
+    "pwa_offline_queue": 0, "offline_mode": False
 }
 for key, val in default_states.items():
     if key not in st.session_state: st.session_state[key] = val
 
-if "tool_fleet" not in st.session_state: 
-    st.session_state.tool_fleet = [
-        {"Asset Tag": "MKE-001", "Tool Type": "M18 Fuel Hammer Drill", "Status": "Company Vault", "Assigned To": "Unassigned", "Value": 299.00},
-        {"Asset Tag": "KLI-001", "Tool Type": "Klein Tools Network Tester", "Status": "Company Vault", "Assigned To": "Unassigned", "Value": 350.00}
-    ]
-
 if "commercial_units" not in st.session_state:
     st.session_state.commercial_units = pd.DataFrame(columns=["Tenant Owner", "Floor", "Unit Number", "Asset Type", "Fabrication Status", "Installation Status", "GC Sign-Off", "Value Release"])
 
-def log_system_event(user, phase, log_string):
-    timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    st.session_state.system_audit_trail.insert(0, {"Timestamp": timestamp_str, "User Node": user, "Event Phase": phase, "Log Record String": log_string})
-
-# --- 5. AUTHENTICATION GATEWAY ---
+# --- 4. AUTHENTICATION GATEWAY ---
 if not st.session_state.user_authenticated:
     st.markdown("<div style='margin-top:10vh; text-align:center;'>", unsafe_allow_html=True)
-    st.markdown("<h1 style='font-size:3.5rem; color:#38BDF8 !important;'>OMNIBUILD OS</h1><p style='color:#94A3B8; font-size:1.2rem;'>ENTERPRISE INFRASTRUCTURE TERMINAL</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size:3.5rem; color:#38BDF8 !important;'>OMNIBUILD OS</h1><p style='color:#94A3B8; font-size:1.2rem;'>SYNDICATE INFRASTRUCTURE TERMINAL</p>", unsafe_allow_html=True)
     with st.form("auth_form"):
         input_email = st.text_input("Authorized Node Email").strip()
         input_password = st.text_input("Cryptographic Passkey", type="password").strip()
@@ -94,18 +70,23 @@ current_user = st.session_state.user_email
 if current_user not in st.session_state.tenant_balances:
     st.session_state.tenant_balances[current_user] = {"wallet": 45000.00, "escrow": 250000.00}
 
-# --- 6. UNIFIED SIDEBAR NAVIGATION ---
+# --- 5. UNIFIED SIDEBAR NAVIGATION ---
 st.sidebar.markdown(f"<h3 style='color:#FFFFFF; text-transform:uppercase;'>{st.session_state.company_name}</h3>", unsafe_allow_html=True)
 st.sidebar.caption(f"Node: {current_user}")
+
+# PWA Offline Mode Toggle
+st.session_state.offline_mode = st.sidebar.toggle("📶 Offline PWA Mode (IndexedDB)")
+if st.session_state.offline_mode:
+    st.sidebar.markdown(f"<div style='color:#F59E0B; font-size:12px;'>⚠️ SYSTEM OFFLINE. {st.session_state.pwa_offline_queue} actions queued for cloud sync.</div>", unsafe_allow_html=True)
 st.sidebar.divider()
 
 menu_categories = {
-    "COMMAND & OPS": ["🏠 Global Telemetry Dashboard", "📊 Commercial Rollout Tracker", "📅 Algorithmic Scheduler", "💬 Field Dispatch Chat"],
-    "ESTIMATION & BIDS": ["📐 AI Takeoff & OCR Vision", "🎯 Generative Proposal Engine", "📦 Procurement Pipeline"],
+    "COMMAND & OPS": ["🏠 Global Telemetry Dashboard", "📊 Commercial Rollout Tracker", "💬 Field Dispatch Chat"],
+    "SYNDICATE NETWORK": ["🔗 1099 Sub-Tier Portal", "🧠 OmniMind RAG Spec Chat"],
+    "ESTIMATION & BIDS": ["📐 AI Takeoff & OCR Vision", "🎯 Generative Proposal Engine", "📦 Live Supply Chain Pipeline"],
     "ENGINEERING & FIELD": ["⚡ NEC Load Calculator", "⏱️ Labor & Apprenticeship", "🧰 IoT Fleet Manager"],
-    "FINANCE & LEGAL": ["💳 Escrow & OmniPay Invoicing", "📝 Master MSA Contracts", "⚖️ Variance & Change Orders"],
     "HEALTH & INFRASTRUCTURE": ["🏥 Clinic IT Architecture", "🤖 Hardware Diagnostics AI", "🩺 OmniHealth Telemedicine"],
-    "FORENSICS & COMPLIANCE": ["📷 Shard.Visuals Portal", "🔄 SLA & Digital Twin", "🛠️ QA Punch List", "📋 System Audit Trail"]
+    "FORENSICS & COMPLIANCE": ["📷 Shard.Visuals Portal", "🔄 SLA & Digital Twin", "⚖️ Variance & Change Orders"]
 }
 
 flat_options = []
@@ -125,52 +106,110 @@ if selected_menu.startswith("---"):
     st.info("Select an operational module from the navigation menu.")
     st.stop()
 
-# --- 7. THE MASTER ROUTING MATRIX ---
+# Helper for PWA offline simulation
+def handle_action(success_msg):
+    if st.session_state.offline_mode:
+        st.session_state.pwa_offline_queue += 1
+        st.warning("Action saved to local IndexedDB. Will sync when connection is restored.")
+    else:
+        st.success(success_msg)
+
+# --- 6. THE MASTER ROUTING MATRIX ---
 
 if selected_menu == "🏠 Global Telemetry Dashboard":
     st.write("### 🏠 Executive Command Center")
     if st.button("🚀 Prime Sandbox Simulation Variables", use_container_width=True):
         st.session_state.commercial_units = pd.DataFrame([
-            {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Exam Room 1", "Asset Type": "White Quartz / Med-Gas", "Fabrication Status": "Completed", "Installation Status": "Installed", "GC Sign-Off": "Pending", "Value Release": 8500.00},
-            {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Reception", "Asset Type": "White Quartz / IT Drop", "Fabrication Status": "In Progress", "Installation Status": "Staged", "GC Sign-Off": "Pending", "Value Release": 4200.00}
+            {"Tenant Owner": current_user, "Floor": "Floor 01", "Unit Number": "Exam Room 1", "Asset Type": "White Quartz / IT Drop", "Status": "Installed", "Value": 8500.00}
         ])
-        st.success("Matrix primed."); time.sleep(0.5); st.rerun()
+        handle_action("Matrix primed.")
+        time.sleep(0.5); st.rerun()
 
     u_bal = st.session_state.tenant_balances[current_user]
     total_po_liability = sum(po['Amount'] for po in st.session_state.purchase_orders)
-    
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Escrow Reserves", f"${u_bal['escrow']:,.2f}")
     c2.metric("Working Liquidity", f"${u_bal['wallet']:,.2f}")
-    c3.metric("Active Material Liability", f"${total_po_liability:,.2f}")
-    c4.metric("Lindsey Hopkins Progress", f"{(st.session_state.base_apprentice_hours/600)*100:.1f}%")
+    c3.metric("Material Liability", f"${total_po_liability:,.2f}")
+    c4.metric("Offline Commits", st.session_state.pwa_offline_queue)
 
-elif selected_page == "📊 Commercial Rollout Tracker":
-    st.write("### 📊 High-Density Execution Portal")
-    st.markdown("<div class='shard-panel'>Manage multi-unit structural configurations and trigger field sign-offs for invoicing.</div>", unsafe_allow_html=True)
-    user_view_df = st.session_state.commercial_units[st.session_state.commercial_units["Tenant Owner"] == current_user]
-    if not user_view_df.empty:
-        st.data_editor(user_view_df, use_container_width=True, num_rows="dynamic")
-    else: st.info("Run the Sandbox Simulator on the Command Center to populate units.")
+elif selected_menu == "🔗 1099 Sub-Tier Portal":
+    st.write("### 🔗 1099 Sub-Tier Syndicate Matrix")
+    st.markdown("<div class='shard-panel'>Farm out scope to independent crews. OmniBuild automatically scales your management fee.</div>", unsafe_allow_html=True)
+    
+    col_assign, col_ledger = st.columns([1, 1.2])
+    with col_assign:
+        st.write("#### Issue Sub-Contract")
+        crew_name = st.text_input("Sub-Tier Entity Name", value="Maksym Contracting LLC")
+        scope = st.text_area("Scope of Work", value="Floor 2 Core HVAC & Electrical Rough-in")
+        flat_rate = st.number_input("Sub-Contract Flat Rate Payout ($)", value=15000.00)
+        mgmt_fee = st.slider("Your Management Markup (%)", 5.0, 30.0, 15.0)
+        
+        billed_to_gc = flat_rate * (1 + (mgmt_fee/100))
+        net_profit = billed_to_gc - flat_rate
+        
+        st.markdown(f"<div class='shard-panel-gold'><b>GC Billed Value:</b> ${billed_to_gc:,.2f}<br><b>Your Net Profit:</b> ${net_profit:,.2f}</div>", unsafe_allow_html=True)
+        
+        if st.button("Generate & Bind Sub-Tier Contract"):
+            st.session_state.sub_tier_contracts.insert(0, {"Entity": crew_name, "Scope": sanitize_input(scope), "Payout": flat_rate, "GC Bill": billed_to_gc, "Profit": net_profit, "Status": "Active in Field"})
+            handle_action("Sub-tier contract executed and routed.")
+            time.sleep(1); st.rerun()
 
-elif selected_menu == "📅 Algorithmic Scheduler":
-    st.write("### 📅 Critical Path Automation")
-    col_sch, col_viz = st.columns([1, 1.5])
-    with col_sch:
-        sim_delay = st.slider("Material Backorder Lag (Days)", 0, 14, st.session_state.schedule_delay_days)
-        crew = st.slider("Active Personnel", 1, 10, st.session_state.crew_count_leveling)
-        if st.button("Recalculate Critical Path"): st.session_state.schedule_delay_days = sim_delay; st.session_state.crew_count_leveling = crew; st.rerun()
-    with col_viz:
-        st.markdown("<div class='shard-panel-green'>Schedule Matrix Optimized. No bottlenecks detected.</div>", unsafe_allow_html=True)
+    with col_ledger:
+        st.write("#### Active Sub-Tier Operations")
+        if st.session_state.sub_tier_contracts:
+            st.dataframe(pd.DataFrame(st.session_state.sub_tier_contracts), use_container_width=True, hide_index=True)
+        else:
+            st.caption("No sub-tier contractors currently operating.")
 
-elif selected_menu == "💬 Field Dispatch Chat":
-    st.write("### 💬 System Intelligence Hub")
-    msg = st.text_area("Broadcast Site Update")
-    if st.button("Send Global Message"):
-        st.session_state.field_dispatch_messages.insert(0, {"Sender": current_user, "Message": sanitize_input(msg)})
+elif selected_menu == "🧠 OmniMind RAG Spec Chat":
+    st.write("### 🧠 OmniMind RAG Spec Book Terminal")
+    st.markdown("<div class='shard-panel'>Query massive architectural PDF specifications via Retrieval-Augmented Generation (RAG).</div>", unsafe_allow_html=True)
+    
+    st.file_uploader("Upload Architecture Spec Book (PDF)", type=["pdf"])
+    
+    for chat in st.session_state.rag_chat:
+        if chat['role'] == 'user':
+            st.markdown(f"<div class='chat-bubble-user'><b>You:</b> {chat['text']}</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div class='chat-bubble-ai'><b>OmniMind AI:</b> {chat['text']}</div>", unsafe_allow_html=True)
+            
+    prompt = st.chat_input("Ask OmniMind about the specifications...")
+    if prompt:
+        st.session_state.rag_chat.append({"role": "user", "text": prompt})
+        # Simulated RAG response
+        ai_response = f"According to Division 26 (Electrical), Page 142: All Yealink VoIP drops in the reception area require a dedicated Cat6A pull, terminated at a mounting height of +48 inches AFF. Do not daisy-chain with the Apple M2 Kiosks."
+        st.session_state.rag_chat.append({"role": "ai", "text": ai_response})
         st.rerun()
-    for m in st.session_state.field_dispatch_messages:
-        st.markdown(f"<div class='shard-panel'><b>{m['Sender']}:</b> {m['Message']}</div>", unsafe_allow_html=True)
+
+elif selected_menu == "📦 Live Supply Chain Pipeline":
+    st.write("### 📦 API-Linked Supply Chain Logistics")
+    st.markdown("<div class='shard-panel'>Live spot pricing API webhooks via Graybar and Home Depot Pro commercial accounts.</div>", unsafe_allow_html=True)
+    
+    col_live, col_pos = st.columns([1, 1.5])
+    with col_live:
+        if st.button("🔄 Fetch Live Market Spot Prices", use_container_width=True):
+            with st.spinner("Pinging supplier webhooks..."):
+                time.sleep(1.5)
+                # Simulated live price fluctuations
+                st.session_state.live_pricing = {
+                    "Copper Wire (THHN 12 AWG / 500ft)": 115.50 + random.uniform(-5, 12),
+                    "Premium White Quartz (sq ft)": 45.00 + random.uniform(-2, 5),
+                    "ENT Conduit (3/4in / 100ft)": 38.20 + random.uniform(-1, 3)
+                }
+            handle_action("Market data updated.")
+            st.rerun()
+            
+        if st.session_state.live_pricing:
+            for item, price in st.session_state.live_pricing.items():
+                st.markdown(f"<div style='padding: 10px; border-bottom:1px solid #1E293B;'><b>{item}:</b> <span style='color:#10B981; float:right;'>${price:.2f}</span></div>", unsafe_allow_html=True)
+    
+    with col_pos:
+        st.write("#### Active Master Purchase Orders")
+        if st.session_state.purchase_orders:
+            st.dataframe(pd.DataFrame(st.session_state.purchase_orders), hide_index=True, use_container_width=True)
+        else:
+            st.caption("No POs currently in fabrication.")
 
 elif selected_menu == "📐 AI Takeoff & OCR Vision":
     st.write("### 📐 Multimodal Architecture Parsing")
@@ -182,21 +221,22 @@ elif selected_menu == "📐 AI Takeoff & OCR Vision":
         if st.button("Run Text Parser"):
             matches = re.findall(r'(\d+)(x|ft)\s*(?:of\s*)?([a-zA-Z0-9\s\-]+?)(?=\.|$)', raw_specs, re.IGNORECASE)
             st.session_state.takeoff_results.extend([{"Item": i.strip().title(), "Qty": int(q), "Cost": int(q)*1.5} for q, u, i in matches])
-            st.success("Parsed successfully."); st.rerun()
+            handle_action("Parsed successfully."); st.rerun()
             
     with tab_cv:
         if st.file_uploader("Upload Blueprint File (PNG/PDF)"):
             if st.button("Initiate Neural Scan"):
                 with st.spinner("Processing symbology..."): time.sleep(1.5)
                 st.session_state.takeoff_results.extend([{"Item": "Duplex Receptacle", "Qty": 85, "Cost": 14.50}, {"Item": "2x4 Troffer", "Qty": 40, "Cost": 125.00}])
-                st.success("Vision mapped."); st.rerun()
+                handle_action("Vision mapped."); st.rerun()
                 
     with tab_res:
         if st.session_state.takeoff_results:
             st.dataframe(pd.DataFrame(st.session_state.takeoff_results))
             if st.button("Stage to Procurement Pipeline"):
                 st.session_state.purchase_orders.insert(0, {"PO ID": f"PO-{random.randint(100,999)}", "Amount": sum(i['Cost'] for i in st.session_state.takeoff_results), "Status": "Fabrication"})
-                st.session_state.takeoff_results = []; st.success("Staged!"); st.rerun()
+                st.session_state.takeoff_results = []
+                handle_action("Staged!"); st.rerun()
 
 elif selected_menu == "🎯 Generative Proposal Engine":
     st.write("### 🎯 Dynamic Bid Formulation")
@@ -206,13 +246,6 @@ elif selected_menu == "🎯 Generative Proposal Engine":
     st.markdown(f"<div class='shard-panel-gold'><b>Projected Firm Fixed Price:</b> ${final:,.2f}</div>", unsafe_allow_html=True)
     if st.button("Generate Executive Commercial Proposal"):
         st.markdown(f"<div class='document-scrollbox'><h2 style='color:#0F172A;'>OMNIBUILD OS COMMERCIAL PROPOSAL</h2><hr><p>Vendor: {st.session_state.company_name}</p><p><b>Total Value: ${final:,.2f}</b></p></div>", unsafe_allow_html=True)
-
-elif selected_menu == "📦 Procurement Pipeline":
-    st.write("### 📦 Supply Chain Logistics")
-    st.markdown("<div class='shard-panel'>Manage staged Purchase Orders and track geo-fenced freight.</div>", unsafe_allow_html=True)
-    if st.session_state.purchase_orders:
-        st.dataframe(pd.DataFrame(st.session_state.purchase_orders), hide_index=True, use_container_width=True)
-    else: st.info("No active POs in the ledger.")
 
 elif selected_menu == "⚡ NEC Load Calculator":
     st.write("### ⚡ National Electrical Code Field Engineering")
@@ -228,39 +261,17 @@ elif selected_menu == "⏱️ Labor & Apprenticeship":
     completed_shifts = len([log for log in st.session_state.labor_logs if log['Status'] == 'Completed Shift'])
     total_hours = st.session_state.base_apprentice_hours + (completed_shifts * 8.0)
     
-    st.markdown(f"<div class='shard-panel'><b>Lindsey Hopkins Technical College Progress</b><br><progress value='{total_hours/600}' max='1'></progress> {total_hours:.1f} / 600 Hours Verified.</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='shard-panel'><b>Lindsey Hopkins Technical College Progress</b><br><progress value='{total_hours/600}' max='1' style='width:100%; height:20px;'></progress><br> {total_hours:.1f} / 600 Hours Verified.</div>", unsafe_allow_html=True)
     
     worker = st.text_input("Technician Credential")
     c1, c2 = st.columns(2)
-    if c1.button("🟢 Geofence Clock-In"): st.session_state.labor_logs.insert(0, {"Name": worker, "Status": "Active"}); st.rerun()
-    if c2.button("🔴 Geo-Sync Clock-Out"):
+    if c1.button("🟢 Geofence Clock-In", use_container_width=True): 
+        st.session_state.labor_logs.insert(0, {"Name": worker, "Status": "Active"})
+        handle_action(f"{worker} clocked in."); st.rerun()
+    if c2.button("🔴 Geo-Sync Clock-Out", use_container_width=True):
         for i, l in enumerate(st.session_state.labor_logs):
             if l['Name'] == worker: st.session_state.labor_logs[i]['Status'] = "Completed Shift"
-        st.rerun()
-
-elif selected_menu == "🧰 IoT Fleet Manager":
-    st.write("### 🧰 Digital Asset Vault")
-    st.markdown("<div class='shard-panel'>Assign high-value tools to active labor nodes.</div>", unsafe_allow_html=True)
-    st.dataframe(pd.DataFrame(st.session_state.tool_fleet), use_container_width=True)
-
-elif selected_menu == "💳 Escrow & OmniPay Invoicing":
-    st.write("### 💳 Liquidity & Invoicing Ledger")
-    u_bal = st.session_state.tenant_balances[current_user]
-    st.markdown(f"<div class='shard-panel'><b>Project Escrow:</b> ${u_bal['escrow']:,.2f}</div>", unsafe_allow_html=True)
-    if st.button("Generate Pay Application Document"): st.success("AIA-style invoice generated.")
-
-elif selected_menu == "📝 Master MSA Contracts":
-    st.write("### 📝 Legal Execution Vault")
-    if st.button("Seal E-Signature & Generate Cryptographic Hash"):
-        hash_str = "0x" + "".join(random.choices(string.hexdigits.lower(), k=64))
-        st.markdown(f"<div class='shard-panel-green'>Contract Bound. Hash: {hash_str}</div>", unsafe_allow_html=True)
-
-elif selected_menu == "⚖️ Variance & Change Orders":
-    st.write("### ⚖️ Scope Disruption Arbitration")
-    if st.button("Log Field Disruption & Calculate Penalty"):
-        st.session_state.active_change_orders.append({"ID": f"CO-{random.randint(100,999)}", "Status": "Pending GC Review", "Delta": 2450.00})
-        st.success("Variance logged.")
-    if st.session_state.active_change_orders: st.dataframe(pd.DataFrame(st.session_state.active_change_orders))
+        handle_action(f"{worker} clocked out."); st.rerun()
 
 elif selected_menu == "🏥 Clinic IT Architecture":
     st.write("### 🏥 Medical Network Blueprint")
@@ -269,15 +280,7 @@ elif selected_menu == "🏥 Clinic IT Architecture":
     loc = st.text_input("Node Assignment")
     if st.button("Register to Local Subnet") and loc:
         st.session_state.clinic_hardware_matrix.append({"Device": hw, "Location": loc, "MAC": "00:1A:2B:XX"})
-        st.rerun()
-    if st.button("Execute Penetration Audit"):
-        st.markdown("<div class='shard-panel-green'>HIPAA COMPLIANCE VERIFIED: 98/100. VLANs Isolated.</div>", unsafe_allow_html=True)
-
-elif selected_menu == "🤖 Hardware Diagnostics AI":
-    st.write("### 🤖 OmniMind Fault Diagnostics")
-    st.markdown("<div class='shard-panel'>Automated terminal logic for packet loss and SIP gateway failures.</div>", unsafe_allow_html=True)
-    if st.button("Run Subnet Trace"):
-        st.markdown("<div style='background:#000; color:#10B981; padding:20px; font-family:monospace;'>> Pinging Nodes...<br>> Fault isolated to WAN2 Failover.<br>> Resolving routing table...<br>> STATUS: ONLINE.</div>", unsafe_allow_html=True)
+        handle_action("Hardware staged."); st.rerun()
 
 elif selected_menu == "🩺 OmniHealth Telemedicine":
     st.write("### 🩺 WebRTC Telehealth Gateway")
@@ -290,13 +293,13 @@ elif selected_menu == "🩺 OmniHealth Telemedicine":
                 url = create_secure_video_room()
                 st.session_state.active_video_room = url
                 st.session_state.clinic_appointments.insert(0, {"Patient": pt, "Room URL": url})
-                st.rerun()
+                handle_action("Room provisioned."); st.rerun()
     with col2:
         if st.session_state.active_video_room:
             st.markdown("<div class='shard-panel-green'>LIVE SESSION ACTIVE</div>", unsafe_allow_html=True)
             components.iframe(st.session_state.active_video_room, width=800, height=450, allow="camera; microphone; fullscreen; display-capture")
             if st.button("Terminate Session & Purge Logs"):
-                st.session_state.active_video_room = None; st.rerun()
+                st.session_state.active_video_room = None; handle_action("Session closed."); st.rerun()
 
 elif selected_menu == "📷 Shard.Visuals Portal":
     st.write("### 📸 Cinematic Forensic Ledger")
@@ -304,7 +307,7 @@ elif selected_menu == "📷 Shard.Visuals Portal":
     cam = st.camera_input("Secure Document Capture")
     if cam:
         st.session_state.forensic_photos.insert(0, {"Time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "Hash": "0x"+''.join(random.choices(string.hexdigits, k=32))})
-        st.success("Sealed!")
+        handle_action("Photo cryptographically sealed."); st.rerun()
     if st.session_state.forensic_photos:
         st.write("---")
         st.markdown("<h3 style='text-align:center; color:#F59E0B; letter-spacing:2px;'>SHARD.VISUALS PORTAL</h3>", unsafe_allow_html=True)
@@ -315,16 +318,15 @@ elif selected_menu == "🔄 SLA & Digital Twin":
     st.write("### 🔄 Recurring SLA Engineering")
     if st.button("Draft Enterprise Support Contract ($1,299/mo)"):
         st.session_state.sla_contracts.append({"Client": "Dr. Sol Clinic", "Tier": "Enterprise SLA", "Status": "Active"})
-        st.success("Contract Bound. MRR Pipeline Secured.")
+        handle_action("Contract Bound. MRR Pipeline Secured.")
     if st.session_state.sla_contracts: st.dataframe(pd.DataFrame(st.session_state.sla_contracts))
 
-elif selected_menu == "🛠️ QA Punch List":
-    st.write("### 🛠️ Field Quality Assurance")
-    if st.button("Dispatch Defect Ticket to Geo-Fence Crew"): st.success("Paged via Hub.")
-
-elif selected_menu == "📋 System Audit Trail":
-    st.write("### 📋 Immutability Ledger")
-    st.dataframe(pd.DataFrame(st.session_state.system_audit_trail))
+elif selected_menu == "⚖️ Variance & Change Orders":
+    st.write("### ⚖️ Scope Disruption Arbitration")
+    if st.button("Log Field Disruption & Calculate Penalty"):
+        st.session_state.active_change_orders.append({"ID": f"CO-{random.randint(100,999)}", "Status": "Pending GC Review", "Delta": 2450.00})
+        handle_action("Variance logged.")
+    if st.session_state.active_change_orders: st.dataframe(pd.DataFrame(st.session_state.active_change_orders))
 
 else:
     st.write(f"### {selected_menu.replace('---', '').strip()}")
