@@ -6,7 +6,7 @@ import math
 import html
 import re
 import requests
-import altair as alt  # Used for rendering the Gantt schedule visualization
+import altair as alt
 
 # --- 1. SET PAGE CONFIG ---
 st.set_page_config(page_title="OmniBuild OS | Enterprise Platform", layout="wide", initial_sidebar_state="expanded")
@@ -37,8 +37,7 @@ lang_dict = {
     "English": {
         "home": "🏠 Command Center", "matrix": "📊 Trade Matrix", "takeoff": "📐 Automated Takeoff", "gc_budg": "🏗️ GC Budget", 
         "fin": "💳 OmniPay & Escrow", "bank": "🏦 Bank Portal", "clinic": "🏥 Clinic Infra & Audit", 
-        "co_lien": "📝 Change Orders & Liens", "bid": "🎯 AI Bid Optimizer", "sched": "📅 Trade Calendar", "api": "☁️ Cloud API",
-        "budget": "Master Budget", "wallet": "OmniWallet"
+        "co_lien": "📝 Change Orders & Liens", "bid": "🎯 AI Bid Optimizer", "sched": "📅 Trade Calendar", "ai_core": "🧠 OmniMind AI Core", "api": "☁️ Cloud API"
     }
 }
 
@@ -48,8 +47,8 @@ if "user_email" not in st.session_state: st.session_state.user_email = ""
 if "user_role" not in st.session_state: st.session_state.user_role = "⚡ Electrical Sub"
 if "company_name" not in st.session_state: st.session_state.company_name = "Independent Operator"
 if "lang" not in st.session_state: st.session_state.lang = "English"
-if "wallet_balance" not in st.session_state: st.session_state.wallet_balance = 5000.00
-if "escrow_locked" not in st.session_state: st.session_state.escrow_locked = 100000.00
+if "wallet_balance" not in st.session_state: st.session_state.wallet_balance = 25000.00
+if "escrow_locked" not in st.session_state: st.session_state.escrow_locked = 125000.00
 if "bank_connected" not in st.session_state: st.session_state.bank_connected = True
 if "change_orders" not in st.session_state: st.session_state.change_orders = []
 if "transaction_history" not in st.session_state: st.session_state.transaction_history = []
@@ -60,6 +59,8 @@ st.markdown("""
     .stApp { background-color: #070B12 !important; color: #94A3B8 !important; }
     h1, h2, h3, h4, h5, h6 { color: #CBD5E1 !important; font-weight: 500 !important; }
     .unifi-stealth-blade { background-color: #0F172A !important; border: 1px solid #1E293B !important; border-left: 3px solid #38BDF8 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
+    .unifi-stealth-danger { background-color: #1E1014 !important; border: 1px solid #3B1E22 !important; border-left: 3px solid #EF4444 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
+    .unifi-stealth-green { background-color: #0B1C16 !important; border: 1px solid #143A2E !important; border-left: 3px solid #10B981 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -79,48 +80,43 @@ if not st.session_state.user_authenticated:
                     st.session_state.user_email = profile["email"]
                     st.session_state.user_role = profile["assigned_role"]
                     st.session_state.company_name = profile["company_name"]
-                    st.success("Access Verified.")
+                    st.success("Access Granted.")
                     time.sleep(0.5); st.rerun()
                 else: st.error("Invalid credentials.")
     st.stop()
 
 t = lang_dict[st.session_state.lang]
 
-# --- 7. DYNAMIC LIVE CALCULATIONS FOR TRACKS ---
+# --- 7. GLOBAL CROSS-TABLE DATAPROF FILE EXTRACTIONS ---
 raw_cloud_data = supabase_api_call(endpoint="materials", method="GET", params={"user_email": f"eq.{st.session_state.user_email}"})
 total_labor_hours = 0.0
+total_material_cost = 0.0
 
 if raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_data) > 0:
     full_df = pd.DataFrame(raw_cloud_data)
     df_elec_clean = full_df[full_df["trade_type"] == "Electrical"]
+    total_material_cost = (df_elec_clean["quantity"] * df_elec_clean["cost_per_unit"]).sum()
     total_labor_hours = ((df_elec_clean["quantity"] * df_elec_clean["labor_minutes"]) / 60).sum()
 
-# Dynamically calculate days required based on an 8-hour workday deployment spread
 calculated_duration_days = max(1, math.ceil(total_labor_hours / 8)) if total_labor_hours > 0 else 5
+approved_co_total = sum(co["Cost Impact"] for co in st.session_state.change_orders if co["Status"] == "Approved & Signed")
 
 # --- 8. SIDEBAR CONTROL PANEL ---
 st.sidebar.title("🌍 OmniBuild OS")
 st.sidebar.write(f"🏢 **Entity:** `{st.session_state.company_name}`")
-st.sidebar.write(f"💼 **Profile:** `{st.session_state.user_role}`")
 st.sidebar.divider()
 
 if "General Contractor" in st.session_state.user_role:
-    menu_options = [t["home"], t["gc_budg"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["api"]]
+    menu_options = [t["home"], t["gc_budg"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["api"]]
 else:
-    menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["api"]]
+    menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["api"]]
 
 selected_page = st.sidebar.radio("Navigation Menu", menu_options)
 st.sidebar.divider()
 if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=True):
     st.session_state.user_authenticated = False; st.rerun()
 
-# --- 9. TOP TELEMETRY MATRIX ---
-h_col1, h_col2, h_col3 = st.columns(3)
-with h_col1: st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color: #38BDF8;'><p style='margin:0; font-size:10px;'>📊 ESTIMATED LABOR SCOPE</p><h3 style='margin:0; color: #38BDF8;'>{total_labor_hours:.1f} Hours</h3></div>", unsafe_allow_html=True)
-with h_col2: st.markdown(f"<div class='unifi-stealth-blade' style='border-left-color: #A855F7;'><p style='margin:0; font-size:10px;'>📅 CALCULATED WORKSPREAD</p><h3 style='margin:0; color: #A855F7;'>{calculated_duration_days} Production Days</h3></div>", unsafe_allow_html=True)
-with h_col3: st.markdown(f"<div class='unifi-stealth-blade'><p style='margin:0; font-size:10px;'>CRITICAL PATH STATUS</p><h3 style='margin:0; color:#10B981;'>✅ ON SCHEDULE</h3></div>", unsafe_allow_html=True)
-
-# --- 10. MODULE ROUTING CONTAINER ---
+# --- 9. MODULE ROUTING CONTAINER ---
 if selected_page == t["home"]: st.write(f"### {t['home']}")
 elif selected_page == t["matrix"]: st.write(f"### {t['matrix']}")
 elif selected_page == t["takeoff"]: st.write(f"### {t['takeoff']}")
@@ -129,46 +125,39 @@ elif selected_page == t["clinic"]: st.write(f"### {t['clinic']}")
 elif selected_page == t["co_lien"]: st.write(f"### {t['co_lien']}")
 elif selected_page == t["fin"]: st.write(f"### {t['fin']}")
 elif selected_page == t["bank"]: st.write(f"### {t['bank']}")
+elif selected_page == t["sched"]: st.write(f"### {t['sched']}")
 elif selected_page == t["api"]: st.write(f"### {t['api']}")
 
-# NEW INTEGRATION MODULE: RESOURCE GANTT SCHEDULE MATRIX
-elif selected_page == t["sched"]:
-    st.write(f"### {t['sched']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Critical Path Resource Scheduling Dashboard</b><br>Track sequencing, resource distributions, and phase durations compiled dynamically from engineering metrics.</div>", unsafe_allow_html=True)
+# NEW ARCHITECTURE MODULE: OMNIMIND AI EXECUTIVE CORES
+elif selected_page == t["ai_core"]:
+    st.write(f"### {t['ai_core']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>OmniMind Live Cognitive Analytics Node</b><br>Assembling architectural cross-vector arrays to construct critical path risk profiles and financial diagnostic briefings.</div>", unsafe_allow_html=True)
     
-    # Generate schedule task block parameters relative to calculated material metrics
-    base_start = datetime.date(2026, 6, 1)
+    # 1. Financial Liquidity Math Vectors
+    liquid_asset_ratio = (st.session_state.wallet_balance / total_material_cost * 100) if total_material_cost > 0 else 100.0
     
-    p1_end = base_start + datetime.timedelta(days=max(1, math.ceil(calculated_duration_days * 0.2)))
-    p2_start = p1_end + datetime.timedelta(days=1)
-    p2_end = p2_start + datetime.timedelta(days=max(2, math.ceil(calculated_duration_days * 0.5)))
-    p3_start = p2_end + datetime.timedelta(days=1)
-    p3_end = p3_start + datetime.timedelta(days=max(1, math.ceil(calculated_duration_days * 0.3)))
+    col_tele_1, col_tele_2 = st.columns(2)
     
-    schedule_tasks = [
-        {"Task Activity Phase": "Phase 1: Underground & Slab Sleeves", "Start Date": base_start.strftime("%Y-%m-%d"), "End Date": p1_end.strftime("%Y-%m-%d"), "Status": "Complete"},
-        {"Task Activity Phase": "Phase 2: Rough-In Framing & Wall Drops", "Start Date": p2_start.strftime("%Y-%m-%d"), "End Date": p2_end.strftime("%Y-%m-%d"), "Status": "Active Deployment"},
-        {"Task Activity Phase": "Phase 3: Wire Pulling & Panel Termination", "Start Date": p3_start.strftime("%Y-%m-%d"), "End Date": p3_end.strftime("%Y-%m-%d"), "Status": "Staged Schedule"}
-    ]
-    
-    schedule_df = pd.DataFrame(schedule_tasks)
-    
-    col_gantt, col_sched_ledger = st.columns([1.5, 1])
-    
-    with col_gantt:
-        st.write("#### 📊 Algorithmic Gantt Viewport")
+    with col_tele_1:
+        st.write("#### 📡 System Telemetry State Matrices")
+        st.metric("Project Liquid Resource Buffer Ratio", f"{liquid_asset_ratio:.1f}%")
+        st.progress(min(1.0, max(0.0, liquid_asset_ratio / 100)))
         
-        # Build horizontal chart mapping data intervals using Altair
-        gantt_chart = alt.Chart(schedule_df).mark_bar(cornerRadius=3, size=24).encode(
-            x=alt.X('Start Date:T', title="Timeline Calendar"),
-            x2='End Date:T',
-            y=alt.Y('Task Activity Phase:N', sort=None, title=None),
-            color=alt.Color('Status:N', scale=alt.Scale(domain=['Complete', 'Active Deployment', 'Staged Schedule'], range=['#10B981', '#38BDF8', '#475569']))
-        ).properties(height=250, width='container')
-        
-        st.altair_chart(gantt_chart, use_container_width=True)
-        
-    with col_sched_ledger:
-        st.write("#### 📋 Task Sequencing Ledger")
-        st.dataframe(schedule_df, use_container_width=True, hide_index=True)
-        st.caption("💡 Tasks are dynamically sequenced. Increasing your material volumes inside the Takeoff module will automatically scale your schedule bars horizontally.")
+    with col_tele_2:
+        st.write("#### 🛡️ Scope Anomaly Matrix Diagnostics")
+        if calculated_duration_days > 15 and st.session_state.escrow_locked < 50000.0:
+            st.markdown("<div class='unifi-stealth-danger'><b>CRITICAL RISK DETECTED:</b> Duration spreads indicate long field execution timeline, but project escrow locks sit beneath baseline burn levels. Danger of liquidity starvation.</div>", unsafe_allow_html=True)
+        elif total_material_cost == 0.0:
+            st.markdown("<div class='unifi-stealth-blade' style='border-left-color: #F59E0B;'><b>DIAGNOSTIC NOTICE:</b> Cloud database scope ledger is currently unpopulated. Run a blueprint spec takeoff block to fuel the cognitive models.</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("<div class='unifi-stealth-green'><b>HEALTH MATRIX EXCELLENT:</b> Capital-to-Burn metrics show optimal project funding alignment. Production vectors are fully cleared.</div>", unsafe_allow_html=True)
+            
+    st.write("---")
+    st.write("#### 🧠 AI Executive Advisory Actions Brief")
+    
+    # Generate contextual recommendations using the dynamic program states
+    st.markdown(f"""
+    *   **Financial Procurement Strategy:** Based on a calculated raw material overhead cost of **${total_material_cost:,.2f}**, the AI recommends locking down supplier contracts within the next **72 hours** to avoid supply-chain inflation fluctuations.
+    *   **Labor Scaling Directives:** To cleanly execute **{total_labor_hours:.1f} total labor hours** within your projected **{calculated_duration_days} production days**, your optimal field crew size deployment factor is calculated at exactly **{max(1, math.ceil(total_labor_hours / (calculated_duration_days * 8)))} electricians/technicians** on-site daily.
+    *   **Waiver Risk Analysis:** Currently tracking **{len(st.session_state.change_orders)} active scope modifications**. Ensure all corresponding statutory conditional lien releases match the current approved variance value line of **${approved_co_total:,.2f}** before authorizing the next draw event sequence.
+    """)
