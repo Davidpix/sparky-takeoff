@@ -4,7 +4,7 @@ import time
 
 st.set_page_config(page_title="SparkyTakeoff Enterprise Portal", layout="wide")
 
-# --- PILLAR 1: USER AUTHENTICATION & SESSION ISOLATION STATE ---
+# --- USER AUTHENTICATION & SESSION ISOLATION STATE ---
 if "user_authenticated" not in st.session_state:
     st.session_state.user_authenticated = False
 if "user_email" not in st.session_state:
@@ -12,11 +12,22 @@ if "user_email" not in st.session_state:
 if "subscription_tier" not in st.session_state:
     st.session_state.subscription_tier = "Free Trial Tier"
 
-# --- GLOBAL PROFILE AND SPACE PARAMETERS INITIALIZATION ---
+# --- GLOBAL PROFILE AND LABOR CREW PARAMETERS INITIALIZATION ---
 if "company_name" not in st.session_state:
     st.session_state.company_name = "Shard Visuals & Electrical"
-if "labor_rate" not in st.session_state:
-    st.session_state.labor_rate = 85.0
+    
+# Advanced Labor Crew Configuration Tokens
+if "qty_journeymen" not in st.session_state:
+    st.session_state.qty_journeymen = 1
+if "rate_journeyman" not in st.session_state:
+    st.session_state.rate_journeyman = 45.0
+if "qty_helpers" not in st.session_state:
+    st.session_state.qty_helpers = 1
+if "rate_helper" not in st.session_state:
+    st.session_state.rate_helper = 22.0
+if "labor_burden_pct" not in st.session_state:
+    st.session_state.labor_burden_pct = 0.30  # Default 30% payroll burden rate
+
 if "overhead" not in st.session_state:
     st.session_state.overhead = 0.20
 if "uploaded_file_bytes" not in st.session_state:
@@ -30,7 +41,7 @@ if "conduit_runs" not in st.session_state:
 if "vision_counts" not in st.session_state:
     st.session_state.vision_counts = {}
 
-# --- PILLAR 3: FOUNDER TELEMETRY ANALYTICS LOG ---
+# --- FOUNDER TELEMETRY ANALYTICS LOG ---
 if "founder_metrics" not in st.session_state:
     st.session_state.founder_metrics = {
         "Total_Pages_Processed": 0,
@@ -56,20 +67,14 @@ if not st.session_state.user_authenticated:
                 if user_email and len(password) >= 4:
                     st.session_state.user_authenticated = True
                     st.session_state.user_email = user_email
-                    
-                    # Clean lookups formatting
                     check_email = user_email.lower().strip()
                     
-                    # --- ELITE BETA-TESTER ACCESS PRIVILEGES ---
                     if "teacher" in check_email or "admin" in check_email or "monday" in check_email:
                         st.session_state.subscription_tier = "Enterprise Firm Plan ($249/mo)"
-                        
                     elif "maksym" in check_email:
                         st.session_state.subscription_tier = "Enterprise Firm Plan ($249/mo)"
-                        
                     elif "sister" in check_email or "deleon" in check_email:
                         st.session_state.subscription_tier = "Enterprise Firm Plan ($249/mo)"
-                        
                     elif "student" in check_email or "classmate" in check_email:
                         st.session_state.subscription_tier = "Pro Estimator Plan ($99/mo)"
                     else:
@@ -93,11 +98,8 @@ if not st.session_state.user_authenticated:
 else:
     # --- AUTHENTICATED ACTIVE SaaS PORTAL RENDER ---
     st.title("⚡ SparkyTakeoff: Enterprise Command Center")
-    
-    # User Profile Welcome Strip
     st.write(f"Logged Account: `{st.session_state.user_email}` | Subscription Level: **{st.session_state.subscription_tier}**")
     
-    # --- PILLAR 2: THE SUBSCRIPTION PAYWALL INTERFACE (STRIPE ACCESS CONTROLLER) ---
     if st.session_state.subscription_tier == "Free Trial Tier":
         st.warning("💳 **Account Status Notice:** Your subscription profile is set to the Free Trial Tier. Advanced modules like the Spatial Measurement Canvas and Computer Vision are locked.")
         if st.button("🚀 Connect to Stripe Payment Portal to Upgrade to Pro"):
@@ -108,16 +110,35 @@ else:
             
     st.divider()
     
-    # --- GLOBAL PROJECT SETUP MATRIX ---
+    # --- GLOBAL PROJECT SETUP MATRIX WITH ADVANCED LABOR CREW INTERFACE ---
     st.write("### 🏢 Project Environment Configuration")
-    col1, col2, col3 = st.columns(3)
-    with col1:
+    
+    col_admin, col_crew = st.columns([1, 2])
+    
+    with col_admin:
+        st.write("#### Administrative Config")
         st.session_state.company_name = st.text_input("Registered Company Name", value=st.session_state.company_name)
-    with col2:
-        st.session_state.labor_rate = st.number_input("Blended Hourly Labor Rate ($/hr)", min_value=10.0, value=st.session_state.labor_rate, step=5.0)
-    with col3:
         overhead_pct = st.slider("Target Corporate Overhead / Profit Margin (%)", 10, 50, int(st.session_state.overhead * 100))
         st.session_state.overhead = overhead_pct / 100
+        
+    with col_crew:
+        st.write("#### 👥 Advanced Labor Crew Breakdown & Burden Metrics")
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            st.session_state.qty_journeymen = st.number_input("Qty of Journeymen on Crew", min_value=1, value=st.session_state.qty_journeymen)
+            st.session_state.rate_journeyman = st.number_input("Journeyman Hourly Base Rate ($/hr)", min_value=15.0, value=st.session_state.rate_journeyman, step=1.0)
+        with cc2:
+            st.session_state.qty_helpers = st.number_input("Qty of Helpers/Apprentices on Crew", min_value=0, value=st.session_state.qty_helpers)
+            st.session_state.rate_helper = st.number_input("Helper Hourly Base Rate ($/hr)", min_value=10.0, value=st.session_state.rate_helper, step=1.0)
+            
+        st.session_state.labor_burden_pct = st.slider("Labor Burden Factor % (Taxes, Worker's Comp, Insurance)", 10, 60, int(st.session_state.labor_burden_pct * 100)) / 100
+
+        # Math Engine: Compute the Weighted Composite Crews metrics
+        total_crew_members = st.session_state.qty_journeymen + st.session_state.qty_helpers
+        raw_composite_rate = ((st.session_state.qty_journeymen * st.session_state.rate_journeyman) + (st.session_state.qty_helpers * st.session_state.rate_helper)) / total_crew_members
+        burdened_composite_rate = raw_composite_rate * (1 + st.session_state.labor_burden_pct)
+        
+        st.info(f"📈 **Blended Calculation Engine Status:** Raw Crew Composite is **\${raw_composite_rate:,.2f}/hr**. Fully Burdened Labor billing target is locked at **\${burdened_composite_rate:,.2f}/hr**.")
 
     st.divider()
     
@@ -128,23 +149,18 @@ else:
     if uploaded_pdf is not None:
         uploaded_pdf.seek(0)
         st.session_state.uploaded_file_bytes = uploaded_pdf.read()
-        
-        # Telemetry updates (Pillar 3)
         st.session_state.founder_metrics["Total_Pages_Processed"] += 5  
         st.session_state.founder_metrics["Total_Calculations_Run"] += 1
-        
-        st.success("🎉 Blueprint package uploaded successfully and locked into Global Session State! Use the navigation menu on the left to begin your multi-phase takeoff.")
+        st.success("🎉 Blueprint package uploaded successfully and locked into Global Session State!")
     else:
         if st.session_state.uploaded_file_bytes is not None:
             st.info("ℹ️ An architectural blueprint document package is currently active in memory.")
         else:
             st.warning("💡 To unlock automation features, please drop your architectural PDF file here before proceeding to the sub-pages.")
 
-    # --- PILLAR 3: FOUNDER TELEMETRY ANALYTICS DASHBOARD ---
+    # --- FOUNDER TELEMETRY ANALYTICS DASHBOARD ---
     st.divider()
     st.write("### 📈 Operational Telemetry Analytics (Founder Viewport)")
-    st.caption("This analytics panel tracks platform metrics across user workflows to monitor backend system performance.")
-    
     t_col1, t_col2, t_col3 = st.columns(3)
     t_col1.metric("Calculated Document Pages Processed", st.session_state.founder_metrics["Total_Pages_Processed"])
     t_col2.metric("Total Ledger Formula Executions", st.session_state.founder_metrics["Total_Calculations_Run"])
