@@ -49,20 +49,14 @@ if "user_email" not in st.session_state: st.session_state.user_email = ""
 if "user_role" not in st.session_state: st.session_state.user_role = "⚡ Electrical Sub"
 if "company_name" not in st.session_state: st.session_state.company_name = "Independent Operator"
 if "lang" not in st.session_state: st.session_state.lang = "English"
-if "wallet_balance" not in st.session_state: st.session_state.wallet_balance = 35000.00
-if "escrow_locked" not in st.session_state: st.session_state.escrow_locked = 110000.00
-if "bank_connected" not in st.session_state: st.session_state.bank_connected = True
+if "wallet_balance" not in st.session_state: st.session_state.wallet_balance = 0.00
+if "escrow_locked" not in st.session_state: st.session_state.escrow_locked = 0.00
+if "bank_connected" not in st.session_state: st.session_state.bank_connected = False
 if "change_orders" not in st.session_state: st.session_state.change_orders = []
 if "transaction_history" not in st.session_state: st.session_state.transaction_history = []
+if "contract_agreements" not in st.session_state: st.session_state.contract_agreements = []
 if "commercial_units" not in st.session_state:
-    st.session_state.commercial_units = pd.DataFrame([
-        {"Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed"},
-        {"Floor": "Floor 01", "Unit Number": "Room 102", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed"}
-    ])
-
-# New persistent array tracking legal binding agreement executions
-if "contract_agreements" not in st.session_state:
-    st.session_state.contract_agreements = []
+    st.session_state.commercial_units = pd.DataFrame(columns=["Floor", "Unit Number", "Asset Type", "Fabrication Status", "Installation Status"])
 
 # --- 5. STYLING INJECTION ---
 st.markdown("""
@@ -70,7 +64,8 @@ st.markdown("""
     .stApp { background-color: #070B12 !important; color: #94A3B8 !important; }
     h1, h2, h3, h4, h5, h6 { color: #CBD5E1 !important; font-weight: 500 !important; }
     .unifi-stealth-blade { background-color: #0F172A !important; border: 1px solid #1E293B !important; border-left: 3px solid #38BDF8 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
-    .legal-document-scrollbox { background-color: #F8FAFC !important; color: #0F172A !important; border: 1px solid #E2E8F0 !important; padding: 30px; font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.6; border-radius: 4px; height: 400px; overflow-y: scroll; box-shadow: inset 0 0 15px rgba(0,0,0,0.05); }
+    .unifi-stealth-gold { background-color: #1A170F !important; border: 1px solid #3B321E !important; border-left: 3px solid #F59E0B !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
+    .unifi-stealth-green { background-color: #0B1C16 !important; border: 1px solid #143A2E !important; border-left: 3px solid #10B981 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -97,20 +92,87 @@ if not st.session_state.user_authenticated:
 
 t = lang_dict[st.session_state.lang]
 
-# --- 7. SIDEBAR CONTROL PANEL ---
+# --- 7. DYNAMIC CHECKLIST DATA VELOCITY COMPUTATION ---
+raw_cloud_data = supabase_api_call(endpoint="materials", method="GET", params={"user_email": f"eq.{st.session_state.user_email}"})
+has_materials = raw_cloud_data and not isinstance(raw_cloud_data, dict) and len(raw_cloud_data) > 0
+
+# Count onboarding milestone points dynamically based on app variable states
+completed_milestones = 0
+if st.session_state.bank_connected: completed_milestones += 1
+if st.session_state.escrow_locked > 0: completed_milestones += 1
+if has_materials or len(st.session_state.commercial_units) > 0: completed_milestones += 1
+if st.session_state.contract_agreements: completed_milestones += 1
+
+onboarding_percentage = (completed_milestones / 4) * 100
+
+# --- 8. SIDEBAR CONTROL PANEL ---
 st.sidebar.title("🌍 OmniBuild OS")
 st.sidebar.write(f"🏢 **Entity:** `{st.session_state.company_name}`")
 st.sidebar.divider()
 
 menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["api"]]
-
 selected_page = st.sidebar.radio("Navigation Menu", menu_options)
 st.sidebar.divider()
 if st.sidebar.button("🚪 Terminate Session Workspace", use_container_width=True):
     st.session_state.user_authenticated = False; st.rerun()
 
-# --- 8. MODULE ROUTING CONTAINER ---
-if selected_page == t["home"]: st.write(f"### {t['home']}")
+# --- 9. MODULE ROUTING CONTAINER ---
+if selected_page == t["home"]:
+    st.write(f"### {t['home']}")
+    st.markdown(f"<div class='unifi-stealth-blade'>Authorized Workspace Profile Node: <b>{st.session_state.company_name}</b></div>", unsafe_allow_html=True)
+    
+    # NEW GUIDED ONBOARDING SYSTEM LAYOUT FOR NON-TECH USERS (Like David's Sister)
+    st.write("#### 🎯 Your Interactive Project Onboarding Milestone Map")
+    st.caption("This system monitors your platform settings in real-time to guide your business operations step-by-step.")
+    
+    col_pct, col_status_map = st.columns([1, 3])
+    with col_pct:
+        st.metric("Onboarding Completion Status", f"{onboarding_percentage:.0f}%")
+        st.progress(onboarding_percentage / 100)
+        
+    with col_status_map:
+        # Display clear visual indicators for each mandatory business sequence step
+        st.markdown(f"""
+        {'✅' if st.session_state.bank_connected else '⭕'} **Step 1: Link Bank Infrastructure Node** *(Current Status: {'Connected' if st.session_state.bank_connected else 'Pending Action'})*<br>
+        {'✅' if st.session_state.escrow_locked > 0 else '⭕'} **Step 2: Inject Owner Escrow Capital Pool** *(Current Status: {'Funds Secured' if st.session_state.escrow_locked > 0 else 'Escrow Empty'})*<br>
+        {'✅' if (has_materials or len(st.session_state.commercial_units) > 0) else '⭕'} **Step 3: Process Automated Blueprint Takeoff** *(Current Status: {'Data Models Active' if (has_materials or len(st.session_state.commercial_units) > 0) else 'No Inventory Logged'})*<br>
+        {'✅' if st.session_state.contract_agreements else '⭕'} **Step 4: Execute Signed Scope Exhibit Agreement** *(Current Status: {'Bound Legally' if st.session_state.contract_agreements else 'Contract Staged'})*
+        """, unsafe_allow_html=True)
+        
+    st.divider()
+    
+    # Context-Aware Direct Instruction Box Trigger Logic
+    st.write("#### 💡 Next Immediate Action Required")
+    if not st.session_state.bank_connected:
+        st.markdown("<div class='unifi-stealth-gold'><b>👉 START HERE:</b> Welcome to OmniBuild OS! Your first step to running operations is linking your funding node. Please click on the <b>'🏦 Bank Portal'</b> link inside your left sidebar menu to connect your corporate bank routing link.</div>", unsafe_allow_html=True)
+    elif st.session_state.escrow_locked == 0.0:
+        st.markdown("<div class='unifi-stealth-gold'><b>👉 NEXT ACTION:</b> Your bank link is secure! Now, you need to fund your project. Stay inside the <b>'🏦 Bank Portal'</b> module and enter a dollar amount to authorize your inbound project escrow wire transfer.</div>", unsafe_allow_html=True)
+    elif not has_materials and len(st.session_state.commercial_units) == 0:
+        st.markdown("<div class='unifi-stealth-gold'><b>👉 NEXT ACTION:</b> Capital is secured inside your project escrow! Now, let's calculate your physical materials. Click on the <b>'📐 Automated Takeoff'</b> (or Commercial Rollout) link on the left to drop your project schematic notes.</div>", unsafe_allow_html=True)
+    elif not st.session_state.contract_agreements:
+        st.markdown("<div class='unifi-stealth-gold'><b>👉 NEXT ACTION:</b> Your blueprint metrics have generated your price variables! Let's lock this down legally. Navigate to the <b>'📝 Master Contracts'</b> module on the left side to execute your signed scope exhibit agreement.</div>", unsafe_allow_html=True)
+    else:
+        st.markdown("<div class='unifi-stealth-green'><b>🎉 WORKSPACE FULLY OPERATIONAL:</b> All initialization stages are complete. Your platform loops are 100% green. Head to your <b>'📊 Telemetry Dashboard'</b> or run progress draws inside the <b>'💳 OmniPay & Escrow'</b> portal!</div>", unsafe_allow_html=True)
+        
+    st.divider()
+    
+    # The Panic Button / Instant Simulation Populate Framework
+    st.write("#### 🛠️ Professional Workspace Tools")
+    st.caption("Feeling stuck or want to instantly train your team? Use the master simulation key below to instantly prime the platform workspace:")
+    
+    if st.button("🚀 One-Click Sandbox Simulation: Instant Demo Populate Mode", use_container_width=True):
+        st.session_state.bank_connected = True
+        st.session_state.escrow_locked = 185000.00
+        st.session_state.wallet_balance = 22500.00
+        st.session_state.contract_agreements = [{"Doc ID": "SMA-DEMO", "GC Entity": "Global Development Corp", "Contract Value": 185000.00, "Execution Date": "Simulated Active", "Signatory": "Sandbox Master Admin", "Status": "Legally Executed"}]
+        st.session_state.commercial_units = pd.DataFrame([
+            {"Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed"},
+            {"Floor": "Floor 01", "Unit Number": "Room 102", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed"},
+            {"Floor": "Floor 02", "Unit Number": "Room 201", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "In Shop Progress", "Installation Status": "Staged On-Site"}
+        ])
+        st.success("Platform sandbox instantly primed! All dashboard metrics, data charts, and legal ledgers are now completely populated with beautiful workspace data models.")
+        time.sleep(1); st.rerun()
+
 elif selected_page == t["matrix"]: st.write(f"### {t['matrix']}")
 elif selected_page == t["takeoff"]: st.write(f"### {t['takeoff']}")
 elif selected_page == t["bid"]: st.write(f"### {t['bid']}")
@@ -122,76 +184,5 @@ elif selected_page == t["sched"]: st.write(f"### {t['sched']}")
 elif selected_page == t["ai_core"]: st.write(f"### {t['ai_core']}")
 elif selected_page == t["dash"]: st.write(f"### {t['dash']}")
 elif selected_page == t["comm_rollout"]: st.write(f"### {t['comm_rollout']}")
+elif selected_page == t["legal_contract"]: st.write(f"### {t['legal_contract']}")
 elif selected_page == t["api"]: st.write(f"### {t['api']}")
-
-# NEW ARCHITECTURE MODULE: SUBCONTRACTOR MASTER AGREEMENT AND CONTRACT EXHIBIT GENERATOR
-elif selected_page == t["legal_contract"]:
-    st.write(f"### {t['legal_contract']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Enterprise Legal Binding Agreement & Scope Framework Portal</b><br>Compile statutory subcontractor contract agreements, bind scope riders, and track secure cloud digital signatures.</div>", unsafe_allow_html=True)
-    
-    col_con_form, col_con_view = st.columns([1, 1.3])
-    
-    # Calculate current scope quantities from Angel's commercial multi-unit rollout tab
-    active_unit_count = len(st.session_state.commercial_units)
-    estimated_cost_per_unit = 2250.00  # Baseline price target for commercial grade quartz finishes
-    calculated_contract_value = active_unit_count * estimated_cost_per_unit
-    
-    with col_con_form:
-        st.write("#### 📜 Standard Subcontract Agreement Parameters")
-        prime_contractor = sanitize_input(st.text_input("General Contractor / Owner Entity Name", value="Miami Metro Builders Inc."))
-        project_governing_law = st.selectbox("Governing Jurisdiction State", ["Florida", "California", "Texas", "New York"])
-        allocated_retainage_pct = st.slider("Contract Retainage Retention Rate (%)", 0, 15, 10)
-        
-        st.write("##### 📊 Dynamically Amortized Contract Metrics")
-        st.metric("Total Project Contract Value", f"${calculated_contract_value:,.2f}", f"Based on {active_unit_count} Active Rooms")
-        
-        st.write("---")
-        authorized_sig_name = st.text_input("Authorized Signatory Corporate Name Label", placeholder="Type full name to digitally execute")
-        
-        if st.button("🔒 Finalize Document & Bind Contract Exhibit", use_container_width=True):
-            if authorized_sig_name and calculated_contract_value > 0:
-                new_agreement = {
-                    "Doc ID": f"SMA-{len(st.session_state.contract_agreements) + 1:03d}",
-                    "GC Entity": prime_contractor,
-                    "Contract Value": calculated_contract_value,
-                    "Execution Date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    "Signatory": authorized_sig_name,
-                    "Status": "Legally Executed & Bound"
-                }
-                st.session_state.contract_agreements.append(new_agreement)
-                # Automatically fuel the locked project escrow pool based on signed commercial value
-                st.session_state.escrow_locked += calculated_contract_value
-                st.success(f"Contract {new_agreement['Doc ID']} successfully authorized and archived to legal ledger!")
-                time.sleep(0.5); st.rerun()
-            else:
-                st.error("🚨 Signatory authorization validation and active room arrays are strictly required to compile document layers.")
-
-    with col_con_view:
-        st.write("#### 📑 Statutory Scope Rider Preview Panel (Exhibit 'A')")
-        
-        st.markdown(f"""
-        <div class='legal-document-scrollbox'>
-            <p style='text-align:center; font-weight:bold; font-size:16px; margin-bottom:5px;'>SUBCONTRACTOR MASTER AGREEMENT RIDER</p>
-            <p style='text-align:center; font-weight:bold; font-size:12px; margin-bottom:20px;'>EXHIBIT "A" — SCOPE OF WORK ALLOCATION</p>
-            
-            <p><b>ARTICLE 1. PARTIES & PROJECT INGESTION</b><br>
-            This agreement is entered into by and between the Subcontractor <b>({st.session_state.company_name})</b> and the Prime General Contractor Contractor <b>({prime_contractor})</b> regarding multi-unit structural finish integrations located at the Miami Medical Hub development grid.</p>
-            
-            <p><b>ARTICLE 2. SCOPE OF OPERATIONAL WORK</b><br>
-            Subcontractor agrees to perform all technical procurement, fabrication tooling, transportation dispatch, and on-site physical installation mechanics for exactly <b>{active_unit_count} structural multi-unit high-density suites</b> as defined in the Commercial Multi-Unit Rollout Matrix Ledger. All materials utilized shall be premium commercial-grade stone matching architectural parameters perfectly.</p>
-            
-            <p><b>ARTICLE 3. FINANCIAL COMPENSATION STREAKS</b><br>
-            As full compensation for complete performance of field actions, Prime Contractor agrees to compensate Subcontractor the sum total value of <b>${calculated_contract_value:,.2f} USD</b>. Payments shall be disbursed via the OmniPay digital liquidation framework inside progress application billing draws, subject to a fixed <b>{allocated_retainage_pct}% contractual retainage retention lock</b>.</p>
-            
-            <p><b>ARTICLE 4. GOVERNING COMPLIANCE LAWS</b><br>
-            This corporate statutory instrument and all accompanying mechanics shall be governed strictly by the regulations and jurisdiction parameters of the State of <b>{project_governing_law}</b>.</p>
-            
-            <p style='margin-top:30px; text-transform:uppercase; font-size:11px; tracking-spacing:0.1em; color:#64748B;'>--- End of Active Scope Rider Draft Matrix ---</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.session_state.contract_agreements:
-            st.write("---")
-            st.write("#### 📋 Signed Legal Archive Ledger")
-            contracts_df = pd.DataFrame(st.session_state.contract_agreements)
-            st.dataframe(contracts_df, use_container_width=True, hide_index=True)
