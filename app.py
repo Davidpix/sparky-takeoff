@@ -38,7 +38,8 @@ lang_dict = {
         "home": "🏠 Command Center", "matrix": "📊 Trade Matrix", "takeoff": "📐 Automated Takeoff", "gc_budg": "🏗️ GC Budget", 
         "fin": "💳 OmniPay & Escrow", "bank": "🏦 Bank Portal", "clinic": "🏥 Clinic Infra & Audit", 
         "co_lien": "📝 Change Orders & Liens", "bid": "🎯 AI Bid Optimizer", "sched": "📅 Trade Calendar", 
-        "ai_core": "🧠 OmniMind AI Core", "dash": "📊 Telemetry Dashboard", "comm_rollout": "🏢 Commercial Rollout", "api": "☁️ Cloud API"
+        "ai_core": "🧠 OmniMind AI Core", "dash": "📊 Telemetry Dashboard", "comm_rollout": "🏢 Commercial Rollout", 
+        "legal_contract": "📝 Master Contracts", "api": "☁️ Cloud API"
     }
 }
 
@@ -53,17 +54,15 @@ if "escrow_locked" not in st.session_state: st.session_state.escrow_locked = 110
 if "bank_connected" not in st.session_state: st.session_state.bank_connected = True
 if "change_orders" not in st.session_state: st.session_state.change_orders = []
 if "transaction_history" not in st.session_state: st.session_state.transaction_history = []
-
-# Persistent state arrays for Commercial Multi-Unit Simulator (Angel's scaling engine)
 if "commercial_units" not in st.session_state:
     st.session_state.commercial_units = pd.DataFrame([
         {"Floor": "Floor 01", "Unit Number": "Room 101", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed"},
-        {"Floor": "Floor 01", "Unit Number": "Room 102", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed"},
-        {"Floor": "Floor 02", "Unit Number": "Room 201", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "In Shop Progress", "Installation Status": "Staged On-Site"},
-        {"Floor": "Floor 02", "Unit Number": "Room 202", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "In Shop Progress", "Installation Status": "Pending Delivery"},
-        {"Floor": "Floor 03", "Unit Number": "Room 301", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Raw Slab Inventory", "Installation Status": "Unscheduled"},
-        {"Floor": "Floor 03", "Unit Number": "Room 302", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Raw Slab Inventory", "Installation Status": "Unscheduled"}
+        {"Floor": "Floor 01", "Unit Number": "Room 102", "Asset Type": "Premium White Quartz Countertop", "Fabrication Status": "Completed", "Installation Status": "Fully Installed"}
     ])
+
+# New persistent array tracking legal binding agreement executions
+if "contract_agreements" not in st.session_state:
+    st.session_state.contract_agreements = []
 
 # --- 5. STYLING INJECTION ---
 st.markdown("""
@@ -71,7 +70,7 @@ st.markdown("""
     .stApp { background-color: #070B12 !important; color: #94A3B8 !important; }
     h1, h2, h3, h4, h5, h6 { color: #CBD5E1 !important; font-weight: 500 !important; }
     .unifi-stealth-blade { background-color: #0F172A !important; border: 1px solid #1E293B !important; border-left: 3px solid #38BDF8 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
-    .unifi-stealth-green { background-color: #0B1C16 !important; border: 1px solid #143A2E !important; border-left: 3px solid #10B981 !important; padding: 16px; border-radius: 4px; margin-bottom: 12px; }
+    .legal-document-scrollbox { background-color: #F8FAFC !important; color: #0F172A !important; border: 1px solid #E2E8F0 !important; padding: 30px; font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.6; border-radius: 4px; height: 400px; overflow-y: scroll; box-shadow: inset 0 0 15px rgba(0,0,0,0.05); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -91,7 +90,7 @@ if not st.session_state.user_authenticated:
                     st.session_state.user_email = profile["email"]
                     st.session_state.user_role = profile["assigned_role"]
                     st.session_state.company_name = profile["company_name"]
-                    st.success("Access Granted.")
+                    st.success("Access Verified.")
                     time.sleep(0.5); st.rerun()
                 else: st.error("Invalid credentials.")
     st.stop()
@@ -103,8 +102,7 @@ st.sidebar.title("🌍 OmniBuild OS")
 st.sidebar.write(f"🏢 **Entity:** `{st.session_state.company_name}`")
 st.sidebar.divider()
 
-# Dynmically adjust menus to include the brand new Commercial Scaling module
-menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["api"]]
+menu_options = [t["home"], t["matrix"], t["takeoff"], t["bid"], t["clinic"], t["co_lien"], t["fin"], t["bank"], t["sched"], t["ai_core"], t["dash"], t["comm_rollout"], t["legal_contract"], t["api"]]
 
 selected_page = st.sidebar.radio("Navigation Menu", menu_options)
 st.sidebar.divider()
@@ -123,56 +121,77 @@ elif selected_page == t["bank"]: st.write(f"### {t['bank']}")
 elif selected_page == t["sched"]: st.write(f"### {t['sched']}")
 elif selected_page == t["ai_core"]: st.write(f"### {t['ai_core']}")
 elif selected_page == t["dash"]: st.write(f"### {t['dash']}")
+elif selected_page == t["comm_rollout"]: st.write(f"### {t['comm_rollout']}")
 elif selected_page == t["api"]: st.write(f"### {t['api']}")
 
-# NEW ARCHITECTURE MODULE: COMMERCIAL MULTI-UNIT ROLLOUT TARGET ENGINE
-elif selected_page == t["comm_rollout"]:
-    st.write(f"### {t['comm_rollout']}")
-    st.markdown("<div class='unifi-stealth-blade'><b>Multi-Unit High-Density Real Estate Scaling Portal</b><br>Track room-by-room fabrication streams, floor allocation statuses, and high-volume commercial production velocity metrics.</div>", unsafe_allow_html=True)
+# NEW ARCHITECTURE MODULE: SUBCONTRACTOR MASTER AGREEMENT AND CONTRACT EXHIBIT GENERATOR
+elif selected_page == t["legal_contract"]:
+    st.write(f"### {t['legal_contract']}")
+    st.markdown("<div class='unifi-stealth-blade'><b>Enterprise Legal Binding Agreement & Scope Framework Portal</b><br>Compile statutory subcontractor contract agreements, bind scope riders, and track secure cloud digital signatures.</div>", unsafe_allow_html=True)
     
-    # Calculate commercial production telemetry dynamically
-    total_units = len(st.session_state.commercial_units)
-    installed_units = (st.session_state.commercial_units["Installation Status"] == "Fully Installed").sum()
-    rollout_percentage = (installed_units / total_units * 100) if total_units > 0 else 0.0
+    col_con_form, col_con_view = st.columns([1, 1.3])
     
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Total Project Contract Units", f"{total_units} High-End Suites")
-    c2.metric("Handed-Over Fully Installed Rooms", f"{installed_units} / {total_units} Units")
-    c3.metric("Project Total Completion Velocity", f"{rollout_percentage:.1f}%")
+    # Calculate current scope quantities from Angel's commercial multi-unit rollout tab
+    active_unit_count = len(st.session_state.commercial_units)
+    estimated_cost_per_unit = 2250.00  # Baseline price target for commercial grade quartz finishes
+    calculated_contract_value = active_unit_count * estimated_cost_per_unit
     
-    st.divider()
-    
-    col_grid, col_visual = st.columns([1.5, 1])
-    
-    with col_grid:
-        st.write("#### 🧱 Multi-Unit Floor Plan Ledger Matrix")
-        st.caption("Double-click fields to update stone fabrication pipeline or installation states for hotel tower rollouts:")
+    with col_con_form:
+        st.write("#### 📜 Standard Subcontract Agreement Parameters")
+        prime_contractor = sanitize_input(st.text_input("General Contractor / Owner Entity Name", value="Miami Metro Builders Inc."))
+        project_governing_law = st.selectbox("Governing Jurisdiction State", ["Florida", "California", "Texas", "New York"])
+        allocated_retainage_pct = st.slider("Contract Retainage Retention Rate (%)", 0, 15, 10)
         
-        updated_comm_df = st.data_editor(st.session_state.commercial_units, use_container_width=True, num_rows="dynamic")
+        st.write("##### 📊 Dynamically Amortized Contract Metrics")
+        st.metric("Total Project Contract Value", f"${calculated_contract_value:,.2f}", f"Based on {active_unit_count} Active Rooms")
         
-        if st.button("💾 Synchronize Commercial Ledger State", use_container_width=True):
-            st.session_state.commercial_units = updated_comm_df
-            st.success("Commercial multi-unit status matrix cleanly synced!")
-            time.sleep(0.5); st.rerun()
+        st.write("---")
+        authorized_sig_name = st.text_input("Authorized Signatory Corporate Name Label", placeholder="Type full name to digitally execute")
+        
+        if st.button("🔒 Finalize Document & Bind Contract Exhibit", use_container_width=True):
+            if authorized_sig_name and calculated_contract_value > 0:
+                new_agreement = {
+                    "Doc ID": f"SMA-{len(st.session_state.contract_agreements) + 1:03d}",
+                    "GC Entity": prime_contractor,
+                    "Contract Value": calculated_contract_value,
+                    "Execution Date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "Signatory": authorized_sig_name,
+                    "Status": "Legally Executed & Bound"
+                }
+                st.session_state.contract_agreements.append(new_agreement)
+                # Automatically fuel the locked project escrow pool based on signed commercial value
+                st.session_state.escrow_locked += calculated_contract_value
+                st.success(f"Contract {new_agreement['Doc ID']} successfully authorized and archived to legal ledger!")
+                time.sleep(0.5); st.rerun()
+            else:
+                st.error("🚨 Signatory authorization validation and active room arrays are strictly required to compile document layers.")
+
+    with col_con_view:
+        st.write("#### 📑 Statutory Scope Rider Preview Panel (Exhibit 'A')")
+        
+        st.markdown(f"""
+        <div class='legal-document-scrollbox'>
+            <p style='text-align:center; font-weight:bold; font-size:16px; margin-bottom:5px;'>SUBCONTRACTOR MASTER AGREEMENT RIDER</p>
+            <p style='text-align:center; font-weight:bold; font-size:12px; margin-bottom:20px;'>EXHIBIT "A" — SCOPE OF WORK ALLOCATION</p>
             
-    with col_visual:
-        st.write("#### 📊 Logistics Pipeline Allocation")
-        
-        # Build an interactive chart breaking down inventory stages for commercial developers
-        chart_data = st.session_state.commercial_units.groupby("Fabrication Status").size().reset_name_params = pd.DataFrame(st.session_state.commercial_units["Fabrication Status"].value_counts()).reset_index()
-        chart_data.columns = ["Status Phase", "Total Units Count"]
-        
-        status_chart = alt.Chart(chart_data).mark_bar(cornerRadiusTopRight=3, cornerRadiusBottomRight=3, size=24).encode(
-            x=alt.X('Total Units Count:Q', title="Number of High-End Suites"),
-            y=alt.Y('Status Phase:N', sort='-x', title=None),
-            color=alt.Color('Status Phase:N', scale=alt.Scale(range=['#10B981', '#38BDF8', '#475569']))
-        ).properties(height=200, width='container')
-        
-        st.altair_chart(status_chart, use_container_width=True)
-        
-        st.markdown("""
-        <div class='unifi-stealth-blade' style='border-left-color: #A855F7;'>
-            <b>💡 Commercial Scaler Directive:</b><br>
-            Export this dashboard view directly to your proposal deck when pitching hotel GCs. Showing an active room-by-room structural delivery matrix instantly proves your 3-man operation possesses enterprise management capability.
+            <p><b>ARTICLE 1. PARTIES & PROJECT INGESTION</b><br>
+            This agreement is entered into by and between the Subcontractor <b>({st.session_state.company_name})</b> and the Prime General Contractor Contractor <b>({prime_contractor})</b> regarding multi-unit structural finish integrations located at the Miami Medical Hub development grid.</p>
+            
+            <p><b>ARTICLE 2. SCOPE OF OPERATIONAL WORK</b><br>
+            Subcontractor agrees to perform all technical procurement, fabrication tooling, transportation dispatch, and on-site physical installation mechanics for exactly <b>{active_unit_count} structural multi-unit high-density suites</b> as defined in the Commercial Multi-Unit Rollout Matrix Ledger. All materials utilized shall be premium commercial-grade stone matching architectural parameters perfectly.</p>
+            
+            <p><b>ARTICLE 3. FINANCIAL COMPENSATION STREAKS</b><br>
+            As full compensation for complete performance of field actions, Prime Contractor agrees to compensate Subcontractor the sum total value of <b>${calculated_contract_value:,.2f} USD</b>. Payments shall be disbursed via the OmniPay digital liquidation framework inside progress application billing draws, subject to a fixed <b>{allocated_retainage_pct}% contractual retainage retention lock</b>.</p>
+            
+            <p><b>ARTICLE 4. GOVERNING COMPLIANCE LAWS</b><br>
+            This corporate statutory instrument and all accompanying mechanics shall be governed strictly by the regulations and jurisdiction parameters of the State of <b>{project_governing_law}</b>.</p>
+            
+            <p style='margin-top:30px; text-transform:uppercase; font-size:11px; tracking-spacing:0.1em; color:#64748B;'>--- End of Active Scope Rider Draft Matrix ---</p>
         </div>
         """, unsafe_allow_html=True)
+        
+        if st.session_state.contract_agreements:
+            st.write("---")
+            st.write("#### 📋 Signed Legal Archive Ledger")
+            contracts_df = pd.DataFrame(st.session_state.contract_agreements)
+            st.dataframe(contracts_df, use_container_width=True, hide_index=True)
