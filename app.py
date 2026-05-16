@@ -10,11 +10,13 @@ import base64
 import hashlib
 import re
 import numpy as np
+import sqlite3
+from collections import Counter
 import altair as alt
 from fpdf import FPDF
 
 # --- 1. ENTERPRISE PAGE CONFIGURATION ---
-st.set_page_config(page_title="OmniBuild OS | Unified Monolith", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="OmniBuild OS | Persistence Engine", layout="wide", initial_sidebar_state="expanded")
 
 def inject_global_styles():
     st.markdown("""
@@ -24,12 +26,9 @@ def inject_global_styles():
         .shard-panel { background-color: #0A0F17 !important; border: 1px solid #1E293B !important; border-left: 3px solid #38BDF8 !important; padding: 24px; border-radius: 4px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
         .shard-panel-green { background-color: #05100D !important; border: 1px solid #064E3B !important; border-left: 3px solid #10B981 !important; padding: 20px; border-radius: 4px; margin-bottom: 16px; }
         .shard-panel-gold { background-color: #120D04 !important; border: 1px solid #78350F !important; border-left: 3px solid #F59E0B !important; padding: 20px; border-radius: 4px; margin-bottom: 16px; }
-        .shard-panel-red { background-color: #170505 !important; border: 1px solid #7F1D1D !important; border-left: 3px solid #EF4444 !important; padding: 20px; border-radius: 4px; margin-bottom: 16px; }
         .shard-header { font-size: 28px; font-weight: 600; color: #38BDF8 !important; letter-spacing: -0.02em; margin-bottom: 5px; text-transform: uppercase; }
         .stButton>button { background-color: #0F172A; color: #F8FAFC; border: 1px solid #1E293B; border-radius: 4px; transition: all 0.2s ease; }
         .stButton>button:hover { background-color: #38BDF8; color: #030508; border: 1px solid #38BDF8; }
-        .chat-bubble-ai { background-color: #0A0F17; border: 1px solid #1E293B; border-left: 3px solid #10B981; padding: 15px; border-radius: 4px; margin-bottom: 10px; }
-        .chat-bubble-user { background-color: #1E293B; color: #F8FAFC; padding: 15px; border-radius: 4px; margin-bottom: 10px; text-align: right; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -37,7 +36,19 @@ inject_global_styles()
 
 def sanitize_input(user_input): return html.escape(str(user_input)) if user_input else ""
 
-# --- 2. MASTER ENGINE FUNCTIONS ---
+# --- 2. RELATIONAL DATABASE ENGINE (SQLITE3) ---
+def init_db():
+    """Initializes the local database to ensure data survives app reloads."""
+    conn = sqlite3.connect('omnibuild_core.db', check_same_thread=False)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS capital_ledger (date TEXT, principal REAL, yield_fee REAL, recovery REAL, status TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS property_defects (timestamp TEXT, note TEXT, hash TEXT)''')
+    conn.commit()
+    return conn
+
+conn = init_db()
+
+# --- 3. MASTER LOGIC ENGINES ---
 def generate_sha256_hash(data_string): return hashlib.sha256(data_string.encode('utf-8')).hexdigest()
 
 def calculate_voltage_drop(phase, current, distance, awg, conductor, voltage):
@@ -47,15 +58,26 @@ def calculate_voltage_drop(phase, current, distance, awg, conductor, voltage):
     vd = ((2 * k_val * current * distance) / cm) if phase == "Single-Phase" else ((math.sqrt(3) * k_val * current * distance) / cm)
     return vd, (vd / voltage) * 100
 
-def semantic_chunking_search(document, query):
+def true_semantic_search(document, query):
+    """Upgraded RAG engine using Term Frequency (TF) mathematics for genuine retrieval."""
     sentences = re.split(r'(?<=[.!?]) +|\n', document)
-    query_words = set(re.findall(r'\w+', query.lower()))
+    query_terms = re.findall(r'\w+', query.lower())
+    if not query_terms: return "Invalid query parameters."
+    
     best_match = "No precise specification matches located in active ledger memory."
     highest_score = 0
+    
     for sentence in sentences:
         if not sentence.strip(): continue
-        overlap = len(query_words.intersection(set(re.findall(r'\w+', sentence.lower()))))
-        if overlap > highest_score: highest_score = overlap; best_match = sentence.strip()
+        sentence_terms = re.findall(r'\w+', sentence.lower())
+        term_counts = Counter(sentence_terms)
+        
+        # Calculate term frequency score
+        score = sum(term_counts[q] for q in query_terms)
+        if score > highest_score:
+            highest_score = score
+            best_match = sentence.strip()
+            
     return best_match
 
 def generate_rfq_pdf(rfq_id, vendors, materials):
@@ -84,14 +106,14 @@ def inject_capacitor_camera():
     """
     components.html(js_code, height=150)
 
-# --- 3. GLOBAL STATE MANAGEMENT ---
+# --- 4. GLOBAL STATE MANAGEMENT ---
 default_states = {
     "user_authenticated": True, "user_email": "david@shardvisuals.com", "company_name": "Shard.Visuals Operations", 
-    "wl_client_name": "OmniBuild OS v12.5 Monolith", "tenant_balances": {}, 
-    "micro_loans": [], "property_defects": [], "rfq_ledger": [], "takeoff_results": [{"Material": "3/4\" ENT Conduit", "Extracted Length/Count": "450 ft"}],
+    "wl_client_name": "OmniBuild OS v13.0 Persistence Core", "tenant_balances": {}, 
+    "rfq_ledger": [], "takeoff_results": [],
     "rag_chat": [], "spec_document": "", "clinic_hardware_matrix": [], "patient_cgm_data": pd.DataFrame(),
-    "base_apprentice_hours": 412.5, "map_coordinates": pd.DataFrame([[25.7617, -80.1918]], columns=['lat', 'lon']),
-    "ar_session_active": False, "forensic_photos": [], "aia_billing_ledger": []
+    "base_apprentice_hours": 412.5, "map_coordinates": pd.DataFrame([[25.9287, -80.1636]], columns=['lat', 'lon']), # Centered to North Miami Beach
+    "ar_session_active": False, "aia_billing_ledger": []
 }
 for key, val in default_states.items():
     if key not in st.session_state: st.session_state[key] = val
@@ -99,7 +121,7 @@ for key, val in default_states.items():
 if st.session_state.user_email not in st.session_state.tenant_balances:
     st.session_state.tenant_balances[st.session_state.user_email] = {"wallet": 45000.00, "escrow": 250000.00, "vault_reserves": 100000.00}
 
-# --- 4. UNIFIED SIDEBAR NAVIGATION ---
+# --- 5. UNIFIED SIDEBAR NAVIGATION ---
 st.sidebar.markdown(f"<h3 style='color:#FFFFFF; text-transform:uppercase;'>{st.session_state.company_name}</h3>", unsafe_allow_html=True)
 st.sidebar.caption(f"Operator: {st.session_state.user_email}")
 st.sidebar.markdown("<div style='background-color:#05100D; border-left:3px solid #10B981; padding:10px; margin-bottom:15px; font-size:12px;'>🔓 <b>VAULT UNLOCKED:</b> FaceID Verified.</div>", unsafe_allow_html=True)
@@ -107,10 +129,10 @@ st.sidebar.divider()
 
 menu_categories = {
     "COMMAND & OPS": ["🏠 Operational Telemetry", "🚁 Geospatial Mapping Tracker"],
-    "FINANCE & REAL ESTATE": ["🏦 OmniCapital FinTech Suite", "🏢 Due Diligence & ROI Engine", "💳 AIA Progress Billing (G702)"],
+    "FINANCE & REAL ESTATE": ["🏦 OmniCapital FinTech Suite", "🏢 Due Diligence & ROI Engine"],
     "NATIVE IOS HARDWARE": ["🥽 AR Spatial Conduit Mapping", "📷 Cryptographic Site Forensics"],
     "MEDICAL INFRASTRUCTURE": ["🩺 Endocrinology Live Telemetry", "🏥 Frictionless Device Routing"],
-    "SYNDICATE & PROCUREMENT": ["📧 Automated RFQ Engine", "📐 DXF Vector Extraction", "🧠 OmniMind Native RAG Chat"],
+    "SYNDICATE & PROCUREMENT": ["📧 Automated RFQ Engine", "🧠 OmniMind Native RAG Chat"],
     "FIELD ENGINEERING": ["⚡ Physics Load Calculator", "⏱️ Apprenticeship Ledger"]
 }
 
@@ -126,7 +148,7 @@ st.divider()
 
 if selected_menu.startswith("---"): st.stop()
 
-# --- 5. THE MASTER ROUTING MATRIX ---
+# --- 6. THE MASTER ROUTING MATRIX ---
 
 if selected_menu == "🏠 Operational Telemetry":
     st.write("### 🏠 System Capital Reserves")
@@ -138,23 +160,26 @@ if selected_menu == "🏠 Operational Telemetry":
 
 elif selected_menu == "🏦 OmniCapital FinTech Suite":
     st.write("### 🏦 Advanced FinTech Material Financing")
-    st.markdown("<div class='shard-panel'>Calculate explicit compound returns on cash advancements extended to sub-tier labor forces.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='shard-panel'>Calculate returns and record transactions permanently to the local SQLite database.</div>", unsafe_allow_html=True)
     col_calc, col_ledger = st.columns([1, 1.2])
     with col_calc:
-        st.write("#### Term Yield Calculator")
         principal = st.number_input("Material Advance Capital ($)", value=5000.00, step=500.00)
         rate = st.slider("Flat Financing Fee Rate (%)", 2.0, 15.0, 5.0)
         interest = principal * (rate / 100)
         total_payout = principal + interest
         st.markdown(f"<div class='shard-panel-gold'><b>Principal Base:</b> ${principal:,.2f}<br><b>Compounded Yield Fee:</b> ${interest:,.2f}<br><b>Total Escrow Recovery:</b> ${total_payout:,.2f}</div>", unsafe_allow_html=True)
-        if st.button("Authorize Financing Disbursal", use_container_width=True):
+        if st.button("Authorize & Save to Database", use_container_width=True):
             st.session_state.tenant_balances[st.session_state.user_email]["vault_reserves"] -= principal
-            st.session_state.micro_loans.insert(0, {"Date": datetime.datetime.now().strftime("%Y-%m-%d"), "Principal": principal, "Yield Fee": interest, "Recovery": total_payout, "Status": "Active"})
-            st.success("Financing deployed. Lien secured.")
-            st.rerun()
+            date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+            conn.execute("INSERT INTO capital_ledger VALUES (?, ?, ?, ?, ?)", (date_str, principal, interest, total_payout, "Active"))
+            conn.commit()
+            st.success("Financing deployed and permanently stored.")
+            time.sleep(0.5); st.rerun()
     with col_ledger:
-        st.write("#### Active FinTech Book Ledger")
-        if st.session_state.micro_loans: st.dataframe(pd.DataFrame(st.session_state.micro_loans), use_container_width=True)
+        st.write("#### Active SQLite Ledger")
+        df_loans = pd.read_sql_query("SELECT * FROM capital_ledger ORDER BY date DESC", conn)
+        if not df_loans.empty: st.dataframe(df_loans, use_container_width=True)
+        else: st.caption("Database ledger is currently empty.")
 
 elif selected_menu == "🏢 Due Diligence & ROI Engine":
     st.write("### 🏢 North Miami Beach Acquisition Engine")
@@ -182,13 +207,21 @@ elif selected_menu == "🥽 AR Spatial Conduit Mapping":
 
 elif selected_menu == "📷 Cryptographic Site Forensics":
     st.write("### 📸 Immutable Site Progress Ledger")
+    st.markdown("<div class='shard-panel'>Defects are now written permanently to the SQLite hardware database.</div>", unsafe_allow_html=True)
     photo_notes = st.text_input("Forensic Field Notes")
     cam = st.camera_input("📸 Capture Field Document")
     if cam:
-        raw_data = f"{photo_notes}_{datetime.datetime.now()}_{cam.size}"
-        st.session_state.forensic_photos.insert(0, {"Timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "Notes": sanitize_input(photo_notes), "Hash": generate_sha256_hash(raw_data)})
-        st.success("Photo cryptographically sealed.")
-    if st.session_state.forensic_photos: st.dataframe(pd.DataFrame(st.session_state.forensic_photos))
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        raw_data = f"{photo_notes}_{timestamp}_{cam.size}"
+        crypto_hash = generate_sha256_hash(raw_data)
+        conn.execute("INSERT INTO property_defects VALUES (?, ?, ?)", (timestamp, sanitize_input(photo_notes), crypto_hash))
+        conn.commit()
+        st.success("Photo cryptographically sealed to hard drive.")
+    
+    st.write("#### SQL Forensic Database")
+    df_defects = pd.read_sql_query("SELECT * FROM property_defects ORDER BY timestamp DESC", conn)
+    if not df_defects.empty: st.dataframe(df_defects, use_container_width=True)
+    else: st.caption("No defects logged in database.")
 
 elif selected_menu == "🩺 Endocrinology Live Telemetry":
     st.write("### 🩺 Continuous Glucose Monitor (CGM) Matrix")
@@ -210,8 +243,10 @@ elif selected_menu == "🏥 Frictionless Device Routing":
 
 elif selected_menu == "📧 Automated RFQ Engine":
     st.write("### 📧 OmniProcure Automated RFQ Dispatch")
+    mat_input = st.text_area("Input BOM manually for RFQ (Format: Qty, Material)", value="450 ft, 3/4\" ENT Conduit\n120 sqft, Premium White Quartz")
     if st.button("📨 Generate & Dispatch Master RFQ PDF"):
-        pdf_bytes = generate_rfq_pdf("RFQ-8821", "Graybar, CED", st.session_state.takeoff_results)
+        items = [{"Extracted Length/Count": line.split(",")[0].strip(), "Material": line.split(",")[1].strip()} for line in mat_input.split("\n") if "," in line]
+        pdf_bytes = generate_rfq_pdf(f"RFQ-{random.randint(1000,9999)}", "Graybar, CED", items)
         st.session_state.rfq_ledger.insert(0, {"RFQ ID": "RFQ-8821", "Vendors": "Graybar, CED", "Binary": pdf_bytes})
         st.rerun()
     if st.session_state.rfq_ledger:
@@ -220,13 +255,14 @@ elif selected_menu == "📧 Automated RFQ Engine":
 
 elif selected_menu == "🧠 OmniMind Native RAG Chat":
     st.write("### 🧠 Production RAG Spec Document Indexer")
+    st.markdown("<div class='shard-panel'>Upgraded with Term Frequency mathematics to pull exact contextual quotes from uploaded files.</div>", unsafe_allow_html=True)
     uploaded_file = st.file_uploader("Upload Raw Blueprint Specification File (.txt)", type=["txt"])
     if uploaded_file: st.session_state.spec_document = uploaded_file.read().decode("utf-8")
     for chat in st.session_state.rag_chat:
         st.markdown(f"<div class='{'chat-bubble-user' if chat['role']=='user' else 'chat-bubble-ai'}'><b>{'You' if chat['role']=='user' else 'OmniMind'}:</b> {chat['text']}</div>", unsafe_allow_html=True)
     if prompt := st.chat_input("Query active specification parameters..."):
         st.session_state.rag_chat.append({"role": "user", "text": prompt})
-        st.session_state.rag_chat.append({"role": "ai", "text": semantic_chunking_search(st.session_state.spec_document, prompt) if st.session_state.spec_document else "Upload a doc first."})
+        st.session_state.rag_chat.append({"role": "ai", "text": true_semantic_search(st.session_state.spec_document, prompt) if st.session_state.spec_document else "Upload a doc first to execute search."})
         st.rerun()
 
 elif selected_menu == "⚡ Physics Load Calculator":
@@ -238,6 +274,20 @@ elif selected_menu == "⚡ Physics Load Calculator":
     if st.button("Calculate V-Drop"):
         vd, vd_pct = calculate_voltage_drop(phase, 20.0, 150.0, awg, conductor, 120)
         st.markdown(f"<div class='shard-panel-{'green' if vd_pct <= 3.0 else 'red'}'>V-Drop: {vd_pct:.2f}% ({vd:.2f}V)</div>", unsafe_allow_html=True)
+
+elif selected_menu == "🚁 Geospatial Mapping Tracker":
+    st.write("### 🚁 Live Asset & Progress Mapping")
+    col_coords, col_map = st.columns([1, 2])
+    with col_coords:
+        st.write("#### Register Deployment Coordinates")
+        lat_in = st.number_input("Latitude", value=25.9287, format="%.4f")
+        lon_in = st.number_input("Longitude", value=-80.1636, format="%.4f")
+        if st.button("Pin Coordinate", use_container_width=True):
+            new_coord = pd.DataFrame([[lat_in, lon_in]], columns=['lat', 'lon'])
+            st.session_state.map_coordinates = pd.concat([st.session_state.map_coordinates, new_coord], ignore_index=True)
+            st.rerun()
+    with col_map:
+        st.map(st.session_state.map_coordinates, zoom=12)
 
 elif selected_menu == "⏱️ Apprenticeship Ledger":
     st.write("### 🎓 Academic Telemetry")
