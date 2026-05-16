@@ -33,7 +33,6 @@ TL-WN722N Kali Linux Driver Guide
 Real Estate Fixer-Upper Terminology
 Modern Minimalist Kitchen Design Ideas
 Electrical Lug Socket Sizes Explained
-400A K-Base Meter Connection Explained
 Service Entrance Wiring Diagram Explained
 Minimalist Lavabo Remodel Idea
 Finding Reputable Linear LED Pendants
